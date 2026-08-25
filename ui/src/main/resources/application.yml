@@ -1,0 +1,42 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: agent-platform
+
+  # ── PostgreSQL / pgvector ──────────────────────────────────────────────────
+  datasource:
+    # NOTE: These credentials match the docker-compose.yml values.
+    # The docker-compose.yml uses POSTGRES_USER=agent / POSTGRES_PASSWORD=agentpassword.
+    # Update these if you change docker-compose.yml or use an external PostgreSQL instance.
+    url: jdbc:postgresql://localhost:5432/agentdb
+    username: agent
+    password: agentpassword
+    driver-class-name: org.postgresql.Driver
+
+  # Disable JPA/Hibernate auto-configuration — we are not using JPA in this phase.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+
+  # ── Virtual threads (Java 21) — improves throughput for blocking LLM calls ─
+  threads:
+    virtual:
+      enabled: true
+
+# ── Ollama AI Model Configuration ────────────────────────────────────────────
+# These values are read by OllamaProperties and OllamaConfig in agent-core.
+ollama:
+  base-url: http://localhost:11434
+  # HARDWARE NOTE: Using gemma3:4b (fits comfortably in 8 GB RAM).
+  # Do NOT change to llama3.1:8b or larger models without sufficient RAM.
+  chat-model: gemma3:4b
+  embedding-model: nomic-embed-text
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+logging:
+  level:
+    com.agentplatform: INFO
+    dev.langchain4j: WARN

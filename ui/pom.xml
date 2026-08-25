@@ -12,35 +12,29 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>agent-core</artifactId>
+    <artifactId>ui</artifactId>
     <packaging>jar</packaging>
-    <name>agent-core</name>
-    <description>AI/LLM configuration and model abstractions (Ollama, LangChain4j)</description>
+    <name>ui</name>
+    <description>Spring Boot API layer — the application entry point</description>
 
     <dependencies>
-        <!-- Spring Boot Context for @Configuration, @ConfigurationProperties -->
+        <!-- Web layer -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter</artifactId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- Spring Boot Configuration Processor (generates metadata for IDE auto-complete) -->
+        <!-- Orchestration / business logic -->
+        <dependency>
+            <groupId>com.agentplatform</groupId>
+            <artifactId>orchestrator</artifactId>
+        </dependency>
+
+        <!-- Spring Boot DevTools (optional, speeds up restart during dev) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-configuration-processor</artifactId>
+            <artifactId>spring-boot-devtools</artifactId>
             <optional>true</optional>
-        </dependency>
-
-        <!-- LangChain4j Ollama integration -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-ollama</artifactId>
-        </dependency>
-
-        <!-- LangChain4j Core (ChatLanguageModel, EmbeddingModel interfaces) -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j</artifactId>
         </dependency>
 
         <!-- Test -->
@@ -50,5 +44,15 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Spring Boot Maven Plugin — only in ui (the executable module) -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

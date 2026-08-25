@@ -12,35 +12,22 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>agent-core</artifactId>
+    <artifactId>orchestrator</artifactId>
     <packaging>jar</packaging>
-    <name>agent-core</name>
-    <description>AI/LLM configuration and model abstractions (Ollama, LangChain4j)</description>
+    <name>orchestrator</name>
+    <description>Agent orchestration and business logic</description>
 
     <dependencies>
-        <!-- Spring Boot Context for @Configuration, @ConfigurationProperties -->
+        <!-- agent-core provides ChatLanguageModel bean -->
+        <dependency>
+            <groupId>com.agentplatform</groupId>
+            <artifactId>agent-core</artifactId>
+        </dependency>
+
+        <!-- Spring Context for @Service -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
-        </dependency>
-
-        <!-- Spring Boot Configuration Processor (generates metadata for IDE auto-complete) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-configuration-processor</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <!-- LangChain4j Ollama integration -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-ollama</artifactId>
-        </dependency>
-
-        <!-- LangChain4j Core (ChatLanguageModel, EmbeddingModel interfaces) -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j</artifactId>
         </dependency>
 
         <!-- Test -->

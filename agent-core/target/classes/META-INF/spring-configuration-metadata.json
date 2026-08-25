@@ -1,0 +1,33 @@
+{
+  "groups": [
+    {
+      "name": "ollama",
+      "type": "com.agentplatform.core.config.OllamaProperties",
+      "sourceType": "com.agentplatform.core.config.OllamaProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "ollama.base-url",
+      "type": "java.lang.String",
+      "description": "Base URL of the locally running Ollama server.",
+      "sourceType": "com.agentplatform.core.config.OllamaProperties",
+      "defaultValue": "http:\/\/localhost:11434"
+    },
+    {
+      "name": "ollama.chat-model",
+      "type": "java.lang.String",
+      "description": "Name of the chat\/completion model to use (e.g. gemma3:4b).",
+      "sourceType": "com.agentplatform.core.config.OllamaProperties",
+      "defaultValue": "gemma3:4b"
+    },
+    {
+      "name": "ollama.embedding-model",
+      "type": "java.lang.String",
+      "description": "Name of the embedding model to use (e.g. nomic-embed-text).",
+      "sourceType": "com.agentplatform.core.config.OllamaProperties",
+      "defaultValue": "nomic-embed-text"
+    }
+  ],
+  "hints": []
+}

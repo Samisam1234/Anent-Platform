@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ===== Parent: Spring Boot BOM ===== -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.4.2</version>
+        <relativePath/>
+    </parent>
+
+    <!-- ===== Project coordinates ===== -->
+    <groupId>com.agentplatform</groupId>
+    <artifactId>agent-platform</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>agent-platform</name>
+    <description>Multi-module local AI agent platform using Ollama and PostgreSQL/pgvector</description>
+
+    <!-- ===== Child modules ===== -->
+    <modules>
+        <module>agent-core</module>
+        <module>orchestrator</module>
+        <module>ui</module>
+        <module>logging</module>
+        <module>memory-service</module>
+        <module>rag-service</module>
+        <module>tool-service</module>
+    </modules>
+
+    <!-- ===== Global properties ===== -->
+    <properties>
+        <java.version>21</java.version>
+        <!-- LangChain4j core (stable GA release) -->
+        <langchain4j.version>1.0.0</langchain4j.version>
+        <!-- LangChain4j Ollama adapter + Spring Boot starter (separate versioning) -->
+        <langchain4j.ollama.version>1.0.0-beta5</langchain4j.ollama.version>
+    </properties>
+
+    <!-- ===== Shared dependency management ===== -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- Internal modules — version-aligned via this root pom -->
+            <dependency>
+                <groupId>com.agentplatform</groupId>
+                <artifactId>agent-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.agentplatform</groupId>
+                <artifactId>orchestrator</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.agentplatform</groupId>
+                <artifactId>logging</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- LangChain4j Core (stable 1.0.0) -->
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j</artifactId>
+                <version>${langchain4j.version}</version>
+            </dependency>
+            <!-- LangChain4j Ollama integration (1.0.0-beta5) -->
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-ollama</artifactId>
+                <version>${langchain4j.ollama.version}</version>
+            </dependency>
+            <!-- LangChain4j Ollama Spring Boot Starter (1.0.0-beta5) -->
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-ollama-spring-boot-starter</artifactId>
+                <version>${langchain4j.ollama.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+</project>
