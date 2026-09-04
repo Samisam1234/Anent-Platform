@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom AI Tasks — AI Agent Platform</title>
+    <meta name="description" content="Run structured AI tasks: summarize text, extract key points, classify content, or free-form reasoning via the local Ollama LLM.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Favicon SVG -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+</head>
+<body class="custom-page">
+    <div class="app-layout custom-layout">
+        <!-- ── Top Navigation Header ── -->
+        <header class="app-header" id="appHeader">
+            <div class="header-brand">
+                <div class="brand-icon-wrapper">
+                    <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                        <circle cx="12" cy="12" r="4"/>
+                    </svg>
+                </div>
+                <div class="brand-info">
+                    <h1 class="brand-title">AI Agent Platform</h1>
+                    <span class="brand-subtitle">Custom AI Tasks — Milestone 3</span>
+                </div>
+            </div>
+
+            <nav class="header-nav">
+                <a href="index.html" class="nav-link" id="navDashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
+                    Dashboard
+                </a>
+                <a href="resume.html" class="nav-link" id="navResume">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    Resume
+                </a>
+                <a href="jobs.html" class="nav-link" id="navJobs">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                    Jobs
+                </a>
+                <a href="matches.html" class="nav-link" id="navMatches">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                    Matches
+                </a>
+            </nav>
+
+            <div class="header-actions">
+                <select id="modelSelector" class="model-selector" title="Active LLM model" aria-label="Select LLM model">
+                    <option value="llama3.2:3b">Llama 3.2 3B (Fast Chat &amp; Tools)</option>
+                    <option value="qwen2.5:1.5b">Qwen 2.5 1.5B (Lightweight Code &amp; Tools)</option>
+                </select>
+                <div class="model-badge" title="Active chat model">
+                    <svg class="badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                        <rect x="9" y="9" width="6" height="6"></rect>
+                        <line x1="9" y1="1" x2="9" y2="4"></line>
+                        <line x1="15" y1="1" x2="15" y2="4"></line>
+                        <line x1="9" y1="20" x2="9" y2="23"></line>
+                        <line x1="15" y1="20" x2="15" y2="23"></line>
+                        <line x1="20" y1="9" x2="23" y2="9"></line>
+                        <line x1="20" y1="14" x2="23" y2="14"></line>
+                        <line x1="1" y1="9" x2="4" y2="9"></line>
+                        <line x1="1" y1="14" x2="4" y2="14"></line>
+                    </svg>
+                    <span id="modelBadgeText">llama3.2:3b</span>
+                </div>
+                <div class="status-badge" id="statusBadge">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Online</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ── Main Custom Task Viewport ── -->
+        <main class="custom-main" id="customMain">
+            <div class="custom-container">
+                <!-- Input Panel -->
+                <section class="custom-input-panel" aria-labelledby="customInputHeading">
+                    <div class="custom-hero">
+                        <div class="custom-hero-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M12 2a4 4 0 0 1 4 4c0 1.1-.45 2.1-1.17 2.83A4 4 0 0 1 16 12a4 4 0 1 1-8 0c0-1.1.45-2.1 1.17-2.83A4 4 0 0 1 8 6a4 4 0 0 1 4-4z"></path>
+                                <line x1="12" y1="16" x2="12" y2="22"></line>
+                                <line x1="8" y1="22" x2="16" y2="22"></line>
+                            </svg>
+                        </div>
+                        <h2 id="customInputHeading" class="custom-hero-title">Run a Structured AI Task</h2>
+                        <p class="custom-hero-desc">
+                            Choose a task type, paste your input, and let the local Ollama LLM produce a structured result.
+                        </p>
+                    </div>
+
+                    <form class="custom-form" id="customForm" onsubmit="return false;">
+                        <div class="custom-input-group">
+                            <label for="taskTypeSelect" class="input-label">Task Type</label>
+                            <select id="taskTypeSelect" class="form-select custom-select">
+                                <option value="SUMMARIZE">Summarize — condense the text</option>
+                                <option value="EXTRACT_KEY_POINTS">Extract Key Points — bullet takeaways</option>
+                                <option value="CLASSIFY">Classify — label the content</option>
+                                <option value="GENERAL">General — free-form reasoning</option>
+                            </select>
+                        </div>
+
+                        <div class="custom-input-group">
+                            <label for="promptInput" class="input-label">Your Input</label>
+                            <textarea
+                                id="promptInput"
+                                class="custom-textarea"
+                                placeholder="Paste or type the text, article, prompt, or dataset you want the AI to process…"
+                                rows="9"
+                                maxlength="6000"
+                                aria-label="Custom AI prompt input"></textarea>
+                        </div>
+
+                        <div class="custom-actions">
+                            <button type="button" id="processBtn" class="btn-primary custom-btn-primary" disabled>
+                                <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                                </svg>
+                                <span id="processBtnLabel">Run Task</span>
+                            </button>
+                            <button type="button" id="clearBtn" class="btn-secondary custom-btn-secondary">Clear</button>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Output Panel -->
+                <section class="custom-output-panel" id="customOutputPanel" aria-labelledby="customOutputHeading" aria-live="polite">
+                    <!-- Empty state -->
+                    <div class="custom-empty" id="customEmpty">
+                        <div class="custom-empty-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                                <path d="M12 20h9"></path>
+                                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                            </svg>
+                        </div>
+                        <h3 id="customOutputHeading" class="custom-empty-title">Result Will Appear Here</h3>
+                        <p class="custom-empty-desc">Select a task type, enter your content, and run the task. Each task returns a structured result with timing details.</p>
+                    </div>
+
+                    <!-- Processing state -->
+                    <div class="custom-processing" id="customProcessing" hidden>
+                        <div class="processing-spinner"></div>
+                        <h3 class="processing-title">Processing Task…</h3>
+                        <p class="processing-steps" id="processingSteps">Calling the local Ollama model</p>
+                    </div>
+
+                    <!-- Error state -->
+                    <div class="custom-error" id="customError" hidden role="alert">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        <span id="customErrorText"></span>
+                    </div>
+
+                    <!-- Result state -->
+                    <div class="custom-result" id="customResult" hidden>
+                        <div class="custom-result-header">
+                            <div class="custom-result-meta">
+                                <span class="custom-task-badge" id="customTaskBadge">SUMMARIZE</span>
+                                <span class="custom-timing" id="customTiming"></span>
+                            </div>
+                        </div>
+                        <div class="custom-result-body" id="customResultBody">
+                            <!-- Populated by custom.js -->
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
+
+    <script src="custom.js"></script>
+</body>
+</html>

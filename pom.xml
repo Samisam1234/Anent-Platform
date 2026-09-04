@@ -39,6 +39,8 @@
         <langchain4j.version>1.0.0</langchain4j.version>
         <!-- LangChain4j Ollama adapter + Spring Boot starter (separate versioning) -->
         <langchain4j.ollama.version>1.0.0-beta5</langchain4j.ollama.version>
+        <!-- LangChain4j Google AI Gemini integration (separate versioning) -->
+        <langchain4j.gemini.version>1.0.0-beta5</langchain4j.gemini.version>
     </properties>
 
     <!-- ===== Shared dependency management ===== -->
@@ -60,6 +62,16 @@
                 <artifactId>logging</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.agentplatform</groupId>
+                <artifactId>memory-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.agentplatform</groupId>
+                <artifactId>tool-service</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <!-- LangChain4j Core (stable 1.0.0) -->
             <dependency>
@@ -78,6 +90,26 @@
                 <groupId>dev.langchain4j</groupId>
                 <artifactId>langchain4j-ollama-spring-boot-starter</artifactId>
                 <version>${langchain4j.ollama.version}</version>
+            </dependency>
+            <!-- LangChain4j Google AI Gemini integration (1.0.0-beta5) -->
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-google-ai-gemini</artifactId>
+                <version>${langchain4j.gemini.version}</version>
+            </dependency>
+
+            <!-- Apache PDFBox — resume parsing (PDF) -->
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>pdfbox</artifactId>
+                <version>3.0.3</version>
+            </dependency>
+
+            <!-- Apache POI — resume parsing (DOCX) -->
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml</artifactId>
+                <version>5.2.5</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

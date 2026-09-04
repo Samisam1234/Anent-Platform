@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matches — AI Job Agent</title>
+    <meta name="description" content="Match your analyzed resume against open roles and get ranked, explained matches across software and hardware tracks.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Shared stylesheet -->
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+</head>
+<body class="matches-page">
+    <div class="app-layout matches-layout">
+        <!-- ── Top Navigation Header ── -->
+        <header class="app-header" id="appHeader">
+            <div class="header-brand">
+                <div class="brand-icon-wrapper">
+                    <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                        <circle cx="12" cy="12" r="4"/>
+                    </svg>
+                </div>
+                <div class="brand-info">
+                    <h1 class="brand-title">AI Job Agent</h1>
+                    <span class="brand-subtitle">Resume → Job Matching — Milestone 4</span>
+                </div>
+            </div>
+
+            <nav class="header-nav">
+                <a href="index.html" class="nav-link" id="navDashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
+                    Dashboard
+                </a>
+                <a href="resume.html" class="nav-link" id="navResume">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    Resume
+                </a>
+                <a href="jobs.html" class="nav-link" id="navJobs">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                    Jobs
+                </a>
+                <a href="matches.html" class="nav-link nav-link-active" id="navMatches" aria-current="page">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                    Matches
+                </a>
+                <a href="applications.html" class="nav-link" id="navApplications">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    Applications
+                </a>
+            </nav>
+
+            <div class="header-actions">
+                <div class="status-badge" id="profileBadge" title="Active Candidate Profile">
+                    <span class="status-dot"></span>
+                    <span class="status-text" id="profileStatusText">No profile</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ── Main Matching Viewport ── -->
+        <main class="matches-main" id="matchesMain">
+            <div class="matches-container">
+
+                <!-- Candidate banner / onboarding -->
+                <section class="matches-candidate-panel" id="candidatePanel">
+                    <div class="candidate-panel-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </div>
+                    <div class="candidate-panel-body">
+                        <h2 class="candidate-panel-title" id="candidatePanelTitle">No candidate profile available</h2>
+                        <p class="candidate-panel-desc" id="candidatePanelDesc">
+                            Upload your resume on the Resume page and the AI will build a candidate profile we can match against open roles — no manual data entry needed.
+                        </p>
+                    </div>
+                    <a class="btn-primary" id="uploadCtaBtn" href="resume.html">Upload Resume First</a>
+                </section>
+
+                <!-- Match controls -->
+                <section class="matches-controls" id="matchControls" hidden>
+                    <form class="matches-search-form" id="matchesSearchForm" onsubmit="return false;">
+                        <div class="search-inputs-grid">
+                            <div class="input-group keyword-group">
+                                <label for="matchesKeywordsInput" class="input-label">Keywords &amp; Skills</label>
+                                <div class="input-wrapper">
+                                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                    <input type="text" id="matchesKeywordsInput" class="form-input" placeholder="e.g. Java, Spring Boot, VLSI, RTL Design..." autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="input-group location-group">
+                                <label for="matchesLocationInput" class="input-label">Location</label>
+                                <div class="input-wrapper">
+                                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                    <input type="text" id="matchesLocationInput" class="form-input" placeholder="e.g. Hyderabad, Remote, Bengaluru...">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="filters-row">
+                            <div class="filter-col">
+                                <label for="matchesTrackSelect" class="filter-label">Career Track</label>
+                                <select id="matchesTrackSelect" class="form-select">
+                                    <option value="ALL">All Tracks</option>
+                                    <option value="SOFTWARE">Software</option>
+                                    <option value="HARDWARE">Hardware / ECE</option>
+                                </select>
+                            </div>
+                            <div class="filter-col">
+                                <label for="matchesMinScoreSelect" class="filter-label">Min Match Score</label>
+                                <select id="matchesMinScoreSelect" class="form-select">
+                                    <option value="">Any Score</option>
+                                    <option value="75">Strong+ (75)</option>
+                                    <option value="60">Possible+ (60)</option>
+                                    <option value="40">Weak+ (40)</option>
+                                </select>
+                            </div>
+                            <div class="filter-col filter-col-limit">
+                                <label for="matchesLimitSelect" class="filter-label">Limit</label>
+                                <select id="matchesLimitSelect" class="form-select">
+                                    <option value="10">10</option>
+                                    <option value="20" selected>20</option>
+                                    <option value="50">50</option>
+                                </select>
+                            </div>
+                            <div class="filter-col filter-actions">
+                                <button type="button" id="findMatchesBtn" class="btn-primary btn-search btn-match">
+                                    <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                                    <span>Find My Matches</span>
+                                </button>
+                                <button type="button" id="matchesResetBtn" class="btn-secondary btn-reset" title="Reset match filters">
+                                    Reset
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Source info -->
+                <div class="source-info-banner" id="matchesSourceBanner" hidden>
+                    <div class="banner-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    </div>
+                    <div class="banner-text">
+                        <strong id="matchesBannerTitle">Development Mock Source Active</strong>
+                        <span id="matchesBannerMessage">Matched against the development mock job catalog.</span>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <section class="matches-results-section" id="matchesResultsSection">
+                    <div class="results-header">
+                        <div class="results-count-wrapper">
+                            <span class="results-count-num" id="matchesResultsCount">0</span>
+                            <span class="results-count-label" id="matchesResultsCountLabel">job matches</span>
+                        </div>
+                        <div class="active-query-summary" id="matchesActiveSummary"></div>
+                    </div>
+
+                    <div class="jobs-loading-container" id="matchesLoading" hidden>
+                        <div class="processing-spinner"></div>
+                        <p class="loading-text">Scoring and ranking jobs against your profile…</p>
+                    </div>
+
+                    <div class="jobs-empty-container" id="matchesEmpty" hidden>
+                        <div class="empty-icon-wrapper">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                        </div>
+                        <h3 class="empty-title">No Matching Jobs Found</h3>
+                        <p class="empty-desc" id="matchesEmptyDesc">No roles cleared the current filters. Try broadening keywords or lowering the minimum score.</p>
+                        <button type="button" class="btn-secondary" id="matchesEmptyResetBtn">Reset Filters &amp; Retry</button>
+                    </div>
+
+                    <div class="matches-cards-grid" id="matchesCardsGrid"></div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Prepared Application Review Modal -->
+    <div class="prep-review-overlay" id="prepReviewOverlay" hidden>
+        <div class="prep-review-modal" role="dialog" aria-modal="true" aria-labelledby="prepReviewTitle">
+            <div class="prep-review-header">
+                <div>
+                    <h2 class="prep-review-title" id="prepReviewTitle">Prepared Application</h2>
+                    <p class="prep-review-subtitle" id="prepReviewSubtitle">—</p>
+                </div>
+                <button type="button" class="btn-icon prep-review-close" id="prepReviewClose" aria-label="Close review">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+
+            <div class="prep-review-banner" id="prepReviewBanner">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                <span>Review your application before submitting it on the employer's official website.</span>
+            </div>
+
+            <div class="prep-review-body">
+                <div class="prep-review-row">
+                    <div class="prep-review-stat">
+                        <span class="prep-review-stat-label">Job Title</span>
+                        <span class="prep-review-stat-value" id="prepReviewJobTitle">—</span>
+                    </div>
+                    <div class="prep-review-stat">
+                        <span class="prep-review-stat-label">Company</span>
+                        <span class="prep-review-stat-value" id="prepReviewCompany">—</span>
+                    </div>
+                    <div class="prep-review-stat">
+                        <span class="prep-review-stat-label">Match Score</span>
+                        <span class="prep-review-stat-value" id="prepReviewMatchScore">—</span>
+                    </div>
+                </div>
+
+                <div class="prep-review-section">
+                    <div class="prep-review-section-head">
+                        <h3>Why You Match</h3>
+                        <button type="button" class="copy-btn" data-copy-target="prepReviewWhyYouMatch">Copy</button>
+                    </div>
+                    <div class="prep-review-card" id="prepReviewWhyYouMatch">
+                        <strong>Matching skills/experience/education</strong>
+                        <ul class="prep-ul" id="prepReviewMatching"></ul>
+                        <strong>Missing skills / improvement areas</strong>
+                        <ul class="prep-ul" id="prepReviewMissing"></ul>
+                    </div>
+                </div>
+
+                <div class="prep-review-section">
+                    <div class="prep-review-section-head">
+                        <h3>Professional Summary</h3>
+                        <button type="button" class="copy-btn" data-copy-target="prepReviewSummary">Copy</button>
+                    </div>
+                    <div class="prep-review-card" id="prepReviewSummary">—</div>
+                </div>
+
+                <div class="prep-review-section">
+                    <div class="prep-review-section-head">
+                        <h3>Cover Letter Draft</h3>
+                        <button type="button" class="copy-btn" data-copy-target="prepReviewCoverLetter">Copy</button>
+                    </div>
+                    <div class="prep-review-card prep-review-pre" id="prepReviewCoverLetter">—</div>
+                </div>
+
+                <div class="prep-review-section">
+                    <div class="prep-review-section-head">
+                        <h3>Resume Highlights</h3>
+                        <button type="button" class="copy-btn" data-copy-target="prepReviewHighlights">Copy</button>
+                    </div>
+                    <div class="prep-review-card">
+                        <ul class="prep-ul" id="prepReviewHighlights"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="prep-review-footer">
+                <button type="button" class="btn-primary" id="prepReviewDone">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Toast Notification Container -->
+    <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
+
+    <script src="jobDetails.js"></script>
+    <script src="matches.js"></script>
+    <script src="careerAgent.js"></script>
+</body>
+</html>

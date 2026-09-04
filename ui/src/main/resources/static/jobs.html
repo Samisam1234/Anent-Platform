@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jobs — AI Job Agent</title>
+    <meta name="description" content="Search and browse the AI Job Agent job catalog, then view job details and check your match strength.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Shared stylesheet -->
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💼</text></svg>">
+</head>
+<body class="matches-page">
+    <div class="app-layout matches-layout">
+        <!-- ── Top Navigation Header ── -->
+        <header class="app-header" id="appHeader">
+            <div class="header-brand">
+                <div class="brand-icon-wrapper">
+                    <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                        <circle cx="12" cy="12" r="4"/>
+                    </svg>
+                </div>
+                <div class="brand-info">
+                    <h1 class="brand-title">AI Job Agent</h1>
+                    <span class="brand-subtitle">Job Search — Milestone 4</span>
+                </div>
+            </div>
+
+            <nav class="header-nav">
+                <a href="index.html" class="nav-link" id="navDashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
+                    Dashboard
+                </a>
+                <a href="resume.html" class="nav-link" id="navResume">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    Resume
+                </a>
+                <a href="jobs.html" class="nav-link nav-link-active" id="navJobs" aria-current="page">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                    Jobs
+                </a>
+                <a href="matches.html" class="nav-link" id="navMatches">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                    Matches
+                </a>
+                <a href="applications.html" class="nav-link" id="navApplications">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    Applications
+                </a>
+            </nav>
+
+            <div class="header-actions">
+                <div class="status-badge" id="profileBadge" title="Active Candidate Profile">
+                    <span class="status-dot"></span>
+                    <span class="status-text" id="profileStatusText">No profile</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ── Main Job Search Viewport ── -->
+        <main class="jobs-main" id="jobsMain">
+            <div class="jobs-container">
+
+                <!-- Job source banner -->
+                <div class="source-info-banner" id="jobsSourceBanner" hidden>
+                    <div class="banner-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    </div>
+                    <div class="banner-text">
+                        <strong id="jobsBannerTitle">Development Mock Source Active</strong>
+                        <span id="jobsBannerMessage">Browsing the development mock job catalog.</span>
+                    </div>
+                </div>
+
+                <!-- Search controls -->
+                <section class="matches-controls" id="jobsControls">
+                    <form class="matches-search-form" id="jobsSearchForm" onsubmit="return false;">
+                        <div class="search-inputs-grid">
+                            <div class="input-group keyword-group">
+                                <label for="jobsKeywordsInput" class="input-label">Keywords &amp; Skills</label>
+                                <div class="input-wrapper">
+                                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                    <input type="text" id="jobsKeywordsInput" class="form-input" placeholder="e.g. Java, Spring Boot, VLSI, RTL Design..." autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="input-group location-group">
+                                <label for="jobsLocationInput" class="input-label">Location</label>
+                                <div class="input-wrapper">
+                                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                    <input type="text" id="jobsLocationInput" class="form-input" placeholder="e.g. Hyderabad, Remote, Bengaluru...">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="filters-row">
+                            <div class="filter-col">
+                                <label for="jobsExperienceSelect" class="filter-label">Experience</label>
+                                <select id="jobsExperienceSelect" class="form-select">
+                                    <option value="">Any</option>
+                                    <option value="Entry Level">Entry Level</option>
+                                    <option value="Mid Level">Mid Level</option>
+                                    <option value="Senior">Senior</option>
+                                </select>
+                            </div>
+                            <div class="filter-col">
+                                <label for="jobsTypeSelect" class="filter-label">Employment Type</label>
+                                <select id="jobsTypeSelect" class="form-select">
+                                    <option value="">Any</option>
+                                    <option value="FULL_TIME">Full-time</option>
+                                    <option value="INTERNSHIP">Internship</option>
+                                    <option value="CONTRACT">Contract</option>
+                                </select>
+                            </div>
+                            <div class="filter-col filter-col-limit">
+                                <label for="jobsLimitSelect" class="filter-label">Limit</label>
+                                <select id="jobsLimitSelect" class="form-select">
+                                    <option value="">20</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </div>
+                            <div class="filter-col filter-actions">
+                                <button type="button" id="jobsSearchBtn" class="btn-primary btn-search btn-match">
+                                    <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                    <span>Search Jobs</span>
+                                </button>
+                                <button type="button" id="jobsResetBtn" class="btn-secondary btn-reset" title="Reset search filters">
+                                    Reset
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Results -->
+                <section class="matches-results-section" id="jobsResultsSection">
+                    <div class="results-header">
+                        <div class="results-count-wrapper">
+                            <span class="results-count-num" id="jobsResultsCount">0</span>
+                            <span class="results-count-label" id="jobsResultsCountLabel">jobs</span>
+                        </div>
+                        <div class="active-query-summary" id="jobsActiveSummary"></div>
+                    </div>
+
+                    <div class="jobs-loading-container" id="jobsLoading" hidden>
+                        <div class="processing-spinner"></div>
+                        <p class="loading-text">Searching the job catalog…</p>
+                    </div>
+
+                    <div class="jobs-empty-container" id="jobsEmpty" hidden>
+                        <div class="empty-icon-wrapper">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        </div>
+                        <h3 class="empty-title">No Jobs Found</h3>
+                        <p class="empty-desc" id="jobsEmptyDesc">No jobs matched the current filters. Try broadening your keywords or removing filters.</p>
+                        <button type="button" class="btn-secondary" id="jobsEmptyResetBtn">Reset Filters &amp; Retry</button>
+                    </div>
+
+                    <div class="jobs-cards-grid" id="jobsCardsGrid"></div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Error Toast Notification Container -->
+    <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
+
+    <script src="jobDetails.js"></script>
+    <script src="jobs.js"></script>
+</body>
+</html>

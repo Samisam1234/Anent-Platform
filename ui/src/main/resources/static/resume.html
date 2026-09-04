@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume — AI Job Agent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>">
+</head>
+<body class="resume-page">
+    <div class="app-layout resume-layout">
+        <header class="app-header" id="appHeader">
+            <div class="header-brand">
+                <div class="brand-icon-wrapper">
+                    <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                        <circle cx="12" cy="12" r="4"/>
+                    </svg>
+                </div>
+                <div class="brand-info">
+                    <h1 class="brand-title">AI Job Agent</h1>
+                    <span class="brand-subtitle">Resume Upload &amp; Profile Analysis</span>
+                </div>
+            </div>
+            <nav class="header-nav">
+                <a href="index.html" class="nav-link" id="navDashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
+                    Dashboard
+                </a>
+                <a href="resume.html" class="nav-link nav-link-active" id="navResume" aria-current="page">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    Resume
+                </a>
+                <a href="jobs.html" class="nav-link" id="navJobs">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                    Jobs
+                </a>
+                <a href="matches.html" class="nav-link" id="navMatches">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                    Matches
+                </a>
+                <a href="applications.html" class="nav-link" id="navApplications">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    Applications
+                </a>
+            </nav>
+            <div class="header-actions">
+                <div class="status-badge" id="profileBadge" title="Active Candidate Profile">
+                    <span class="status-dot"></span>
+                    <span class="status-text" id="profileStatusText">No profile</span>
+                </div>
+            </div>
+        </header>
+        <main class="resume-main" id="resumeMain">
+            <div class="resume-container">
+                <section class="resume-upload-panel" id="resumeUploadPanel">
+                    <h2 class="resume-upload-title">Upload Your Resume</h2>
+                    <p class="resume-upload-desc">Upload a PDF or DOCX resume to build your candidate profile. The AI will extract your skills, experience, and education automatically.</p>
+                    <div class="resume-drop-zone" id="resumeDropZone">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="12" y1="12" x2="16" y2="12"></line></svg>
+                        <p>Drag &amp; drop your resume here, or <strong>click to browse</strong></p>
+                        <p style="font-size:.8rem;color:var(--text-muted);margin-top:8px">Supports PDF and DOCX (max 10 MB)</p>
+                    </div>
+                    <input type="file" id="resumeFileInput" accept=".pdf,.docx" hidden>
+                    <div class="resume-file-info" id="resumeFileInfo"></div>
+                    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+                        <button class="btn-primary" id="uploadBtn" disabled>Upload &amp; Analyze</button>
+                        <button class="btn-secondary" id="clearBtn">Clear</button>
+                    </div>
+                    <div class="resume-parse-status" id="resumeParseStatus" hidden></div>
+                </section>
+                <section class="resume-profile-section" id="resumeProfileSection" hidden>
+                    <div class="applications-toolbar">
+                        <h3 class="applications-toolbar-title">Candidate Profile</h3>
+                        <span class="applications-toolbar-count" id="profileIdBadge">—</span>
+                    </div>
+                    <div class="prep-review-card" id="profileDetails" style="margin-top:16px"></div>
+                </section>
+            </div>
+        </main>
+    </div>
+    <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
+    <script src="resume.js"></script>
+</body>
+</html>

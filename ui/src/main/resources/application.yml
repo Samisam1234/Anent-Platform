@@ -5,28 +5,41 @@ spring:
   application:
     name: agent-platform
 
-  # ── PostgreSQL / pgvector ──────────────────────────────────────────────────
+  # ── Default: In-memory H2 ──────────────────────────────────────────
   datasource:
-    # NOTE: These credentials match the docker-compose.yml values.
-    # The docker-compose.yml uses POSTGRES_USER=agent / POSTGRES_PASSWORD=agentpassword.
-    # Update these if you change docker-compose.yml or use an external PostgreSQL instance.
-    url: jdbc:postgresql://localhost:5432/agentdb
-    username: agent
-    password: agentpassword
-    driver-class-name: org.postgresql.Driver
+    url: jdbc:h2:mem:agentdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
 
-  # Disable JPA/Hibernate auto-configuration — we are not using JPA in this phase.
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+  jpa:
+    h2:
+      console:
+        enabled: true
+    database-platform: org.hibernate.dialect.H2Dialect
+    ddl-auto: update
 
   # ── Virtual threads (Java 21) — improves throughput for blocking LLM calls ─
   threads:
     virtual:
       enabled: true
 
-# ── Ollama AI Model Configuration ────────────────────────────────────────────
+# ── PostgreSQL / pgvector (activate with SPRING_PROFILES_ACTIVE=postgres) ─
+---
+spring:
+  config:
+    activate:
+      on-profile: postgres
+  datasource:
+    url: jdbc:postgresql://localhost:5432/agentdb
+    username: agent
+    password: agentpassword
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    ddl-auto: update
+
+# ── Ollama AI Model Configuration ────────────────────────────────────
 # These values are read by OllamaProperties and OllamaConfig in agent-core.
 ollama:
   base-url: http://localhost:11434
@@ -35,7 +48,18 @@ ollama:
   chat-model: gemma3:4b
   embedding-model: nomic-embed-text
 
-# ── Logging ──────────────────────────────────────────────────────────────────
+# ── Public Job Source (default DISABLED) ────────────────────────────
+# The public adapter (PublicApiJobSource) is off by default so the app boots and
+# serves MockJobSource data with no internet access. Enable it by setting the
+# environment variable JOB_SOURCES_PUBLIC_API_ENABLED=true and, if the provider
+# requires one, JOB_SOURCES_PUBLIC_API_API_KEY=<key>. Never hard-code credentials.
+job-sources:
+  public-api:
+    enabled: false
+    base-url: https://remotive.com/api/remote-jobs
+    api-key: ""
+
+# ── Logging ──────────────────────────────────────────────────────────
 logging:
   level:
     com.agentplatform: INFO

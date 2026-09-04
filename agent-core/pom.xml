@@ -43,6 +43,12 @@
             <artifactId>langchain4j</artifactId>
         </dependency>
 
+        <!-- LangChain4j Google AI Gemini integration (GoogleAiGeminiChatModel / GoogleAiEmbeddingModel) -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-google-ai-gemini</artifactId>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -18,16 +18,53 @@
     <description>Agent orchestration and business logic</description>
 
     <dependencies>
-        <!-- agent-core provides ChatLanguageModel bean -->
+        <!-- agent-core provides ChatModel bean -->
         <dependency>
             <groupId>com.agentplatform</groupId>
             <artifactId>agent-core</artifactId>
+        </dependency>
+
+        <!-- memory-service provides ConversationStore / InMemoryConversationStore -->
+        <dependency>
+            <groupId>com.agentplatform</groupId>
+            <artifactId>memory-service</artifactId>
+        </dependency>
+
+        <!-- tool-service provides @Tool beans + DefaultToolExecutor for agent tool-calling -->
+        <dependency>
+            <groupId>com.agentplatform</groupId>
+            <artifactId>tool-service</artifactId>
         </dependency>
 
         <!-- Spring Context for @Service -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- Spring Web for @RestController / @RequestMapping in JobApplicationController -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Spring Data JPA + Jakarta Persistence + Spring Transaction for
+             entities, JPA repositories and @Transactional persistence services -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- Apache PDFBox — resume parsing (PDF) -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+        </dependency>
+
+        <!-- Apache POI — resume parsing (DOCX) -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
         </dependency>
 
         <!-- Test -->

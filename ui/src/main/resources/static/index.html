@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — AI Job Agent</title>
+    <meta name="description" content="AI Job Agent — resume-to-match assistant. Upload a resume, search jobs, check matches, run the career agent, and prepare applications.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Shared stylesheet -->
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+</head>
+<body class="matches-page">
+    <div class="app-layout matches-layout">
+        <!-- ── Top Navigation Header ── -->
+        <header class="app-header" id="appHeader">
+            <div class="header-brand">
+                <div class="brand-icon-wrapper">
+                    <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                        <circle cx="12" cy="12" r="4"/>
+                    </svg>
+                </div>
+                <div class="brand-info">
+                    <h1 class="brand-title">AI Job Agent</h1>
+                    <span class="brand-subtitle">Resume → Job Matching Platform</span>
+                </div>
+            </div>
+
+            <nav class="header-nav">
+                <a href="index.html" class="nav-link nav-link-active" id="navDashboard" aria-current="page">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
+                    Dashboard
+                </a>
+                <a href="resume.html" class="nav-link" id="navResume">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    Resume
+                </a>
+                <a href="jobs.html" class="nav-link" id="navJobs">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                    Jobs
+                </a>
+                <a href="matches.html" class="nav-link" id="navMatches">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                    Matches
+                </a>
+                <a href="applications.html" class="nav-link" id="navApplications">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    Applications
+                </a>
+            </nav>
+
+            <div class="header-actions">
+                <div class="status-badge" id="statusBadge" title="AI Provider Status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Online</span>
+                </div>
+                <div class="status-badge" id="profileBadge" title="Active Candidate Profile">
+                    <span class="status-dot"></span>
+                    <span class="status-text" id="profileStatusText">No profile</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ── Main Dashboard Viewport ── -->
+        <main class="custom-main" id="dashboardMain">
+            <div class="custom-container">
+                <section class="custom-input-panel" aria-labelledby="dashboardHeading">
+                    <div class="custom-hero">
+                        <div class="custom-hero-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                                <circle cx="12" cy="12" r="4"/>
+                            </svg>
+                        </div>
+                        <h2 id="dashboardHeading" class="custom-hero-title">Welcome to AI Job Agent</h2>
+                        <p class="custom-hero-desc">
+                            Upload your resume to build a candidate profile, then search jobs, check match strength, run the career agent, and prepare review-ready applications — all from one place.
+                        </p>
+                    </div>
+
+                    <div class="dashboard-grid" id="dashboardFeatures">
+                        <a href="resume.html" class="dashboard-card">
+                            <div class="dashboard-card-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                            </div>
+                            <h3 class="dashboard-card-title">Upload Resume</h3>
+                            <p class="dashboard-card-desc">Parse a PDF or DOCX resume into a candidate profile (skills, education, experience).</p>
+                        </a>
+
+                        <a href="jobs.html" class="dashboard-card">
+                            <div class="dashboard-card-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                            </div>
+                            <h3 class="dashboard-card-title">Search Jobs</h3>
+                            <p class="dashboard-card-desc">Browse and filter the job catalog, then view full details and check your match strength.</p>
+                        </a>
+
+                        <a href="matches.html" class="dashboard-card">
+                            <div class="dashboard-card-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                            </div>
+                            <h3 class="dashboard-card-title">Job Matching</h3>
+                            <p class="dashboard-card-desc">Get ranked, explained matches and run the multi-agent career review.</p>
+                        </a>
+
+                        <a href="applications.html" class="dashboard-card">
+                            <div class="dashboard-card-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            </div>
+                            <h3 class="dashboard-card-title">Applications</h3>
+                            <p class="dashboard-card-desc">Review, approve, and manage the application packages you've prepared.</p>
+                        </a>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
+    <script src="dashboard.js"></script>
+</body>
+</html>

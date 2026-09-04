@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Applications — AI Job Agent</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Shared stylesheet -->
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+</head>
+<body class="applications-page">
+    <div class="app-layout applications-layout">
+        <!-- ── Top Navigation Header ── -->
+        <header class="app-header" id="appHeader">
+            <div class="header-brand">
+                <div class="brand-icon-wrapper">
+                    <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                        <circle cx="12" cy="12" r="4"/>
+                    </svg>
+                </div>
+                <div class="brand-info">
+                    <h1 class="brand-title">AI Job Agent</h1>
+                    <span class="brand-subtitle">Resume → Job Matching → Application Preparation — Milestone 5</span>
+                </div>
+            </div>
+
+            <nav class="header-nav">
+                <a href="index.html" class="nav-link" id="navDashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
+                    Dashboard
+                </a>
+                <a href="resume.html" class="nav-link" id="navResume">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    Resume
+                </a>
+                <a href="jobs.html" class="nav-link" id="navJobs">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                    Jobs
+                </a>
+                <a href="matches.html" class="nav-link" id="navMatches">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                    Matches
+                </a>
+                <a href="applications.html" class="nav-link nav-link-active" id="navApplications" aria-current="page">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    Applications
+                </a>
+            </nav>
+
+            <div class="header-actions">
+                <div class="status-badge" id="profileBadge" title="Active Candidate Profile">
+                    <span class="status-dot"></span>
+                    <span class="status-text" id="profileStatusText">No profile</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ── Main Applications Viewport ── -->
+        <main class="applications-main" id="applicationsMain">
+            <div class="applications-container">
+                <!-- Application onboarding -->
+                <section class="applications-onboarding" id="applicationsOnboarding">
+                    <div class="onboarding-card">
+                        <div class="onboarding-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
+                        <div class="onboarding-body">
+                            <h2 class="onboarding-title">No prepared applications yet</h2>
+                            <p class="onboarding-desc">Upload your resume, search and match jobs, then click "Prepare Application" on any match to create a review-ready professional summary, cover letter, and suggested answers. Development jobs and unavailable AI use a deterministic fallback.</p>
+                            <button class="btn-primary" id="goToResumeBtn">Go to Resume</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Prepared applications list -->
+                <section class="applications-list-section" id="applicationsListSection" hidden>
+                    <div class="applications-toolbar">
+                        <h2 class="applications-toolbar-title">Prepared Applications</h2>
+                        <span class="applications-toolbar-count" id="applicationsCount">0</span>
+                    </div>
+
+                    <div class="applications-cards-grid" id="applicationsCardsGrid"></div>
+
+                    <div class="applications-empty" id="applicationsEmpty" hidden>
+                        <p class="empty-message">No applications prepared yet.</p>
+                    </div>
+                </section>
+
+                <!-- Single application view -->
+                <section class="application-detail-section" id="applicationDetailSection" hidden>
+                    <div class="application-detail-header">
+                        <h2 class="application-detail-title" id="applicationDetailTitle">Application</h2>
+                        <span class="application-detail-status" id="applicationDetailStatus">STATUS</span>
+                    </div>
+
+                    <div class="application-detail-content">
+                        <div class="prep-review-banner application-review-banner">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><line x1="12" y1="8" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                            <span>Review your application before submitting it on the employer's official website.</span>
+                        </div>
+
+                        <div class="application-detail-section">
+                            <h3>Job Information</h3>
+                            <p class="application-detail-job-id" id="applicationDetailJobId">Job ID: —</p>
+                            <p class="application-detail-company" id="applicationDetailCompany">Company: —</p>
+                            <p class="application-detail-location" id="applicationDetailLocation">Location: —</p>
+                            <p class="application-detail-match-score" id="applicationDetailMatchScore">Match Score: —</p>
+                        </div>
+
+                        <div class="application-detail-section">
+                            <div class="prep-review-section-head">
+                                <h3>Professional Summary</h3>
+                                <button type="button" class="copy-btn" data-copy-target="applicationDetailSummary">Copy</button>
+                            </div>
+                            <p class="application-detail-summary" id="applicationDetailSummary">—</p>
+                        </div>
+
+                        <div class="application-detail-section">
+                            <div class="prep-review-section-head">
+                                <h3>Cover Letter</h3>
+                                <button type="button" class="copy-btn" data-copy-target="applicationDetailCoverLetter">Copy</button>
+                            </div>
+                            <p class="application-detail-cover-letter" id="applicationDetailCoverLetter">—</p>
+                        </div>
+
+                        <div class="application-detail-section">
+                            <div class="prep-review-section-head">
+                                <h3>Suggested Answers</h3>
+                                <button type="button" class="copy-btn" data-copy-target="applicationDetailAnswers">Copy</button>
+                            </div>
+                            <div class="application-detail-answers" id="applicationDetailAnswers"></div>
+                        </div>
+
+                        <div class="application-detail-section">
+                            <div class="prep-review-section-head">
+                                <h3>Resume Highlights</h3>
+                                <button type="button" class="copy-btn" data-copy-target="applicationDetailHighlights">Copy</button>
+                            </div>
+                            <ul class="application-detail-strengths" id="applicationDetailHighlights"></ul>
+                        </div>
+
+                        <div class="application-detail-section">
+                            <h3>Candidate Strengths</h3>
+                            <ul class="application-detail-strengths" id="applicationDetailStrengths"></ul>
+                        </div>
+
+                        <div class="application-detail-section">
+                            <h3>Skill Gaps</h3>
+                            <ul class="application-detail-gaps" id="applicationDetailGaps"></ul>
+                        </div>
+
+                        <div class="application-detail-section">
+                            <h3>Recommendation</h3>
+                            <span class="application-detail-recommendation" id="applicationDetailRecommendation">—</span>
+                        </div>
+                    </div>
+
+                    <div class="application-detail-actions">
+                        <button class="btn-secondary" id="editApplicationBtn">Edit Application</button>
+                        <button class="btn-primary" id="approveApplicationBtn">Approve Application</button>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Error Toast Notification Container -->
+    <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
+
+    <!-- Application Script -->
+    <script src="applications.js"></script>
+</body>
+</html>
