@@ -28,12 +28,15 @@ public class JobSearchService {
     private final JobDeduplicationService deduplicationService;
 
     public JobSearchService(List<JobSource> jobSources, JobDeduplicationService deduplicationService) {
-        this.jobSources = jobSources != null && !jobSources.isEmpty()
-                ? List.copyOf(jobSources)
-                : List.of(new MockJobSource());
         this.deduplicationService = deduplicationService != null
                 ? deduplicationService
                 : new JobDeduplicationService();
+
+        if (jobSources != null && !jobSources.isEmpty()) {
+            this.jobSources = List.copyOf(jobSources);
+        } else {
+            this.jobSources = List.of(new MockJobSource());
+        }
     }
 
     /**

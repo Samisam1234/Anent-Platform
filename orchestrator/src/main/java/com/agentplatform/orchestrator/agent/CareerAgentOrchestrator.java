@@ -145,6 +145,7 @@ public class CareerAgentOrchestrator {
             }
             if (!agent.canExecute(context)) {
                 AgentResult skipped = AgentResult.skipped(type, skipReason(type));
+                skipped = skipped.withStartTime().withCompletionTime();
                 context.record(skipped);
                 states.put(type, skipped);
                 log.info("Agent {} skipped (missing required input)", type);
@@ -152,7 +153,10 @@ public class CareerAgentOrchestrator {
             }
 
             AgentRequest request = AgentRequest.of(type);
-            context.record(new AgentResult(type, AgentStatus.RUNNING, true, "Running", null, null));
+            // Record start time
+            AgentResult running = AgentResult.completed(type, "Running");
+            running = running.withStartTime();
+            context.record(running);
 
             AgentResult result;
             try {
@@ -161,6 +165,8 @@ public class CareerAgentOrchestrator {
                 log.warn("Agent {} threw during execution: {}", type, safeMessage(e));
                 result = AgentResult.failed(type, "Agent execution failed.", "AGENT_EXECUTION_ERROR");
             }
+            // Record completion time
+            result = result.withCompletionTime();
             context.record(result);
             states.put(type, result);
 
@@ -190,9 +196,11 @@ public class CareerAgentOrchestrator {
             if (existing != null) {
                 allStates.add(existing);
             } else if (blockingFailure) {
-                allStates.add(AgentResult.skipped(t,
+                AgentResult skipped = AgentResult.skipped(t,
                         "Skipped: " + skipReason(t) + " (blocking dependency "
-                                + blockingName(stoppingAgentType) + " failed)."));
+                                + blockingName(stoppingAgentType) + " failed).");
+                skipped = skipped.withStartTime().withCompletionTime();
+                allStates.add(skipped);
             }
         }
 

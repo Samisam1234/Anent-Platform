@@ -13,8 +13,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class OllamaChatModelFactoryTest {
 
-    private final OllamaChatModelFactory factory =
-            new OllamaChatModelFactory("http://localhost:11434", "llama3.2:3b", 180000L);
+    private final OllamaChatModelFactory factory;
+
+    OllamaChatModelFactoryTest() {
+        OllamaProperties props = new OllamaProperties();
+        props.setBaseUrl("http://localhost:11434");
+        props.setChatModel("llama3.2:3b");
+        props.setReasoningTimeout(java.time.Duration.ofMinutes(3));
+        this.factory = new OllamaChatModelFactory(props);
+    }
 
     @Test
     @DisplayName("null requested model resolves to the configured default")

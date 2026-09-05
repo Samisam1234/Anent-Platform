@@ -3,8 +3,8 @@ package com.agentplatform.core.ai;
 /**
  * Classifies AI request failures into safe, actionable diagnostics so the UI
  * can tell the difference between a quota hit, an authentication failure, an
- * unsupported model and a network problem — instead of the generic "check your
- * API key" message.
+ * unsupported model, a timeout, and a network problem — instead of the generic
+ * "check your API key" message.
  *
  * <p>The LangChain4j Google AI integration surfaces HTTP failures as a plain
  * {@link RuntimeException} whose message looks like
@@ -24,6 +24,7 @@ public final class AiErrorClassifier {
         QUOTA,
         MODEL_UNAVAILABLE,
         NETWORK,
+        TIMEOUT,
         GENERIC
     }
 
@@ -53,13 +54,19 @@ public final class AiErrorClassifier {
                 "api key invalid", "API_KEY_INVALID", "401", "403");
         boolean modelGone = containsAny(text, "NOT_FOUND", "model not found", "model does not exist",
                 "does not exist for model", "models/");
+        boolean timedOut = containsAny(text, "timed out", "timeout", "SocketTimeoutException",
+                "HttpConnectTimeoutException", "ReadTimeout", "read timeout");
 
+        // Check for timeout first (before network) so timeouts get their own kind
+        if (timedOut || root instanceof java.net.SocketTimeoutException
+                || root instanceof java.net.http.HttpConnectTimeoutException
+                || root instanceof java.net.http.HttpTimeoutException) {
+            return new Failure(Kind.TIMEOUT, timeoutMessage(provider, text));
+        }
         if (root instanceof java.net.UnknownHostException
                 || root instanceof java.net.ConnectException
-                || root instanceof java.net.SocketTimeoutException
-                || root instanceof java.net.http.HttpConnectTimeoutException
                 || (root instanceof java.io.IOException && status == 0)
-                || containsAny(text, "timed out", "UnknownHost", "connection refused", "ConnectException")) {
+                || containsAny(text, "UnknownHost", "connection refused", "ConnectException")) {
             return new Failure(Kind.NETWORK, networkMessage(provider, text));
         }
         if (auth && !quota) {
@@ -134,6 +141,17 @@ public final class AiErrorClassifier {
         return "Could not reach " + providerLabel(provider) + " at http://localhost:11434. "
                 + "Check that the Ollama server is running and that the selected model is pulled, "
                 + "then try again.";
+    }
+
+    private static String timeoutMessage(String provider, String text) {
+        if (isGemini(provider)) {
+            return "Gemini request timed out. The model took too long to respond. "
+                    + "Check your internet connection and try again.";
+        }
+        return providerLabel(provider) + " request timed out. The model took too long to respond "
+                + "(cold-start model loads on CPU can be slow). "
+                + "Check that Ollama is running and the model is pulled, then try again. "
+                + "If this persists, consider increasing the ollama.reasoning-timeout setting.";
     }
 
     private static String genericMessage(String provider, String text) {

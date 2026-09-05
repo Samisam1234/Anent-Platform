@@ -139,6 +139,29 @@ class JobMatchControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/jobs/match — Check Match single-job payload (stored profile + jobs) is forwarded")
+    void match_checkMatchSingleJob_forwarded() throws Exception {
+        when(jobMatchingService.matchJobs(any(JobMatchRequest.class))).thenReturn(sampleResult());
+
+        mockMvc.perform(post(MATCH_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"candidateProfileId\":7,\"limit\":1," +
+                                "\"jobs\":[{\"id\":\"mock-sw-001\",\"title\":\"Java Developer\",\"company\":\"TechNova Solutions\"," +
+                                "\"location\":\"Hyderabad\",\"requiredSkills\":[\"Java\"]}]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.matches[0].job.title").value("Java Developer"));
+
+        ArgumentCaptor<JobMatchRequest> captor = ArgumentCaptor.forClass(JobMatchRequest.class);
+        verify(jobMatchingService).matchJobs(captor.capture());
+
+        JobMatchRequest request = captor.getValue();
+        assertEquals(7L, request.candidateProfileId());
+        assertEquals(1, request.jobs().size());
+        assertEquals("mock-sw-001", request.jobs().get(0).id());
+        assertEquals(1, request.limit());
+    }
+
+    @Test
     @DisplayName("POST /api/v1/jobs/match — invalid minScore maps to 400 Bad Request")
     void match_invalidMinScore_returns400() throws Exception {
         mockMvc.perform(post(MATCH_URL)

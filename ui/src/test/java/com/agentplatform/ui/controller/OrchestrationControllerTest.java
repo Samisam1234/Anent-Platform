@@ -42,11 +42,11 @@ class OrchestrationControllerTest {
     private OrchestrationService orchestrationService;
 
     private static final List<AgentResult> FULL_COMPLETED = List.of(
-            AgentResult.completed(AgentType.RESUME, "done"),
-            AgentResult.completed(AgentType.JOB_DISCOVERY, "done"),
-            AgentResult.completed(AgentType.MATCHING, "done"),
-            AgentResult.completed(AgentType.CAREER_ADVISOR, "done"),
-            AgentResult.completed(AgentType.APPLICATION_ADVISOR, "done")
+            AgentResult.completed(AgentType.RESUME, "done").withStartTime().withCompletionTime(),
+            AgentResult.completed(AgentType.JOB_DISCOVERY, "done").withStartTime().withCompletionTime(),
+            AgentResult.completed(AgentType.MATCHING, "done").withStartTime().withCompletionTime(),
+            AgentResult.completed(AgentType.CAREER_ADVISOR, "done").withStartTime().withCompletionTime(),
+            AgentResult.completed(AgentType.APPLICATION_ADVISOR, "done").withStartTime().withCompletionTime()
     );
 
     private String body(Long candidateId, String jobId) throws Exception {
@@ -443,5 +443,57 @@ class OrchestrationControllerTest {
             org.junit.jupiter.api.Assertions.assertFalse(raw.contains(forbidden),
                     "must not expose internal field/key: " + forbidden);
         }
+    }
+
+    // ─── 22. Timing and error code fields (Phase 6.8) ───────────────────────────
+
+    @Test
+    @DisplayName("agent execution includes startedAt, completedAt, durationMs")
+    void response_agentExecutionIncludesTiming() throws Exception {
+        OrchestrationRun run = new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
+                0, 0, true, "ok", null);
+        when(orchestrationService.orchestrate(1L, "job-1")).thenReturn(run);
+
+        mockMvc.perform(post("/api/v1/agent/orchestrate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(1L, "job-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.agentExecutions[0].startedAt").isString())
+                .andExpect(jsonPath("$.agentExecutions[0].completedAt").isString())
+                .andExpect(jsonPath("$.agentExecutions[0].durationMs").isNumber());
+    }
+
+    @Test
+    @DisplayName("errorCode is exposed for failed/timeout agents")
+    void response_errorCodeExposed() throws Exception {
+        OrchestrationRun run = new OrchestrationRun(RunStatus.PARTIAL, List.of(
+                AgentResult.completed(AgentType.RESUME, "done"),
+                AgentResult.failed(AgentType.CAREER_ADVISOR, "AI timed out", "TIMEOUT"),
+                AgentResult.completed(AgentType.APPLICATION_ADVISOR, "done")
+        ), 1, 0, false, "AI timeout occurred.", null);
+        when(orchestrationService.orchestrate(1L, "job-1")).thenReturn(run);
+
+        mockMvc.perform(post("/api/v1/agent/orchestrate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(1L, "job-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.agentExecutions[1].errorCode").value("TIMEOUT"));
+    }
+
+    @Test
+    @DisplayName("AI_BUDGET_EXHAUSTED error code is exposed when budget exhausted")
+    void response_budgetExhaustedErrorCode() throws Exception {
+        OrchestrationRun run = new OrchestrationRun(RunStatus.PARTIAL, List.of(
+                AgentResult.completed(AgentType.RESUME, "done").withStartTime().withCompletionTime(),
+                AgentResult.failed(AgentType.CAREER_ADVISOR, "AI budget exhausted", "AI_BUDGET_EXHAUSTED"),
+                AgentResult.completed(AgentType.APPLICATION_ADVISOR, "done").withStartTime().withCompletionTime()
+        ), 3, 0, false, "AI budget exhausted.", null);
+        when(orchestrationService.orchestrate(1L, "job-1")).thenReturn(run);
+
+        mockMvc.perform(post("/api/v1/agent/orchestrate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(1L, "job-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.agentExecutions[1].errorCode").value("AI_BUDGET_EXHAUSTED"));
     }
 }

@@ -27,6 +27,8 @@
         APPLICATION_ADVISOR: 'Application Advisor'
     };
 
+    const AGENT_ORDER = ['RESUME', 'JOB_DISCOVERY', 'MATCHING', 'CAREER_ADVISOR', 'APPLICATION_ADVISOR'];
+
     let overlay = null;
     let requestInFlight = false;
 
@@ -131,11 +133,8 @@
         const runBtn = modal.querySelector('.btn-run-agent');
         if (runBtn) runBtn.disabled = true;
 
-        body.innerHTML = `
-            <div class="agent-run-loading">
-                <span class="processing-spinner"></span>
-                <span>Running the career agent orchestration…</span>
-            </div>`;
+        // Initialize agent progress view with all agents in WAITING state
+        body.innerHTML = buildProgressHtml({});
 
         const payload = { candidateId: Number(candidateId), jobId: String(jobId) };
 
@@ -185,6 +184,60 @@
         }
     }
 
+    // ─── Progress rendering (during execution) ──────────────────────────────
+    function buildProgressHtml(executions) {
+        // executions is a map of agentType -> {status, message, errorCode, durationMs}
+        const items = AGENT_ORDER.map(type => {
+            const exec = executions[type] || { status: 'WAITING', message: '', errorCode: 'NONE', durationMs: -1 };
+            const status = exec.status || 'WAITING';
+            const statusClass = statusClassForProgress(status);
+            const label = AGENT_LABELS[type] || type;
+            const duration = exec.durationMs > 0 ? ` (${formatDuration(exec.durationMs)})` : '';
+            const errorNote = exec.errorCode && exec.errorCode !== 'NONE'
+                ? `<span class="agent-error-code">${esc(exec.errorCode)}</span>`
+                : '';
+            return `
+                <li class="agent-progress-item agent-progress-${statusClass}">
+                    <span class="agent-progress-dot" aria-hidden="true"></span>
+                    <div class="agent-progress-main">
+                        <span class="agent-progress-name">${esc(label)}</span>
+                        <span class="agent-progress-msg">${esc(exec.message || '')}${duration} ${errorNote}</span>
+                    </div>
+                    <span class="agent-progress-status ${statusClass}">${esc(status)}</span>
+                </li>`;
+        }).join('');
+
+        return `
+            <div class="agent-progress-section">
+                <h4 class="agent-section-title">Agent Progress</h4>
+                <ul class="agent-progress-list">${items}</ul>
+            </div>
+            <div class="agent-run-loading">
+                <span class="processing-spinner"></span>
+                <span>Running the career agent orchestration…</span>
+            </div>`;
+    }
+
+    function statusClassForProgress(status) {
+        switch (String(status || '').toUpperCase()) {
+            case 'COMPLETED': return 'completed';
+            case 'RUNNING': return 'running';
+            case 'FAILED': return 'failed';
+            case 'TIMEOUT': return 'timeout';
+            case 'SKIPPED': return 'skipped';
+            default: return 'waiting';
+        }
+    }
+
+    function formatDuration(ms) {
+        if (ms < 1000) return `${ms}ms`;
+        const sec = Math.round(ms / 1000);
+        if (sec < 60) return `${sec}s`;
+        const min = Math.floor(sec / 60);
+        const rem = sec % 60;
+        return rem > 0 ? `${min}m ${rem}s` : `${min}m`;
+    }
+
     // ─── Results rendering (safe fields only) ───────────────────────────────
     function buildResultsHtml(data) {
         const runStatus = data.runStatus || 'UNKNOWN';
@@ -199,12 +252,13 @@
             const errNote = agent.errorCode && agent.errorCode !== 'NONE'
                 ? `<span class="agent-error-code">${esc(agent.errorCode)}</span>`
                 : '';
+            const duration = agent.durationMs > 0 ? ` (${formatDuration(agent.durationMs)})` : '';
             return `
                 <li class="agent-execution agent-exec-${tone}">
                     <span class="agent-exec-dot" aria-hidden="true"></span>
                     <div class="agent-exec-main">
                         <span class="agent-exec-name">${esc(AGENT_LABELS[agent.agentType] || printable(agent.agentType))}</span>
-                        <span class="agent-exec-msg">${esc(agent.message || '')} ${errNote}</span>
+                        <span class="agent-exec-msg">${esc(agent.message || '')}${duration} ${errNote}</span>
                     </div>
                     <span class="agent-exec-status ${tone === 'good' ? 'agent-status-good' : (tone === 'skip' ? 'agent-status-skip' : 'agent-status-bad')}">${esc(state)}</span>
                 </li>`;
@@ -214,10 +268,22 @@
             ? 'The career agent completed its controlled run.'
             : 'The career agent finished with issues — review the details below.';
 
+        // Check for any timeout/failed agents for special messaging
+        const hasTimeout = (data.agentExecutions || []).some(a => a.status === 'TIMEOUT');
+        const hasFailure = (data.agentExecutions || []).some(a => a.status === 'FAILED');
+        let statusMessage = data.message || summaryLine;
+        if (hasTimeout) {
+            statusMessage = 'One or more AI reasoning steps timed out. Deterministic results are shown below. ' +
+                'You may retry or increase the Ollama timeout setting.';
+        } else if (hasFailure && !success) {
+            statusMessage = 'Some agents did not complete successfully. Deterministic results are shown where available. ' +
+                'Check the details below and retry if needed.';
+        }
+
         return `
             <div class="agent-run-summary agent-summary-${statusCls}">
                 <span class="agent-summary-status">${esc(statusLabel)}</span>
-                <span class="agent-summary-message">${esc(data.message || summaryLine)}</span>
+                <span class="agent-summary-message">${esc(statusMessage)}</span>
             </div>
 
             <div class="agent-usage-row">
@@ -234,7 +300,11 @@
                 : `<p class="modal-hint">No agent executions were reported for this run.</p>`}
 
             <p class="agent-note">The application advisor preparing material does not send email or submit applications. Sending in this platform only ever happens through the explicit, approval-gated application review flow.</p>
-        `;
+
+            <div class="agent-modal-actions">
+                <button type="button" class="btn-secondary" id="agentModalRetry">Retry</button>
+                <button type="button" class="btn-primary" id="agentModalDone">Done</button>
+            </div>`;
     }
 
     function buildErrorResult(message) {
@@ -242,6 +312,9 @@
             <div class="agent-run-summary agent-summary-bad">
                 <span class="agent-summary-status">Error</span>
                 <span class="agent-summary-message">${esc(message)}</span>
+            </div>
+            <div class="agent-modal-actions">
+                <button type="button" class="btn-primary" id="agentModalDone">Done</button>
             </div>`;
     }
 
@@ -249,6 +322,27 @@
         modal.querySelector('#agentModalBody').innerHTML = buildErrorResult(
             'A saved candidate profile is required. Upload your resume first to run the career agent.');
     }
+
+    // ─── Event delegation for modal action buttons ──────────────────────────
+    document.addEventListener('click', (e) => {
+        // Retry button
+        if (e.target.matches('#agentModalRetry')) {
+            const modal = ensureModal();
+            if (!modal.hidden) {
+                const candidateId = localStorage.getItem(LS_CANDIDATE_ID);
+                const jobId = modal.querySelector('[data-job-id]')?.getAttribute('data-job-id');
+                if (candidateId && jobId) {
+                    run(candidateId, jobId, modal);
+                }
+            }
+            return;
+        }
+        // Done button
+        if (e.target.matches('#agentModalDone')) {
+            closeModal();
+            return;
+        }
+    });
 
     // ─── Formatting utilities ───────────────────────────────────────────────
     function statusClass(status) {
@@ -269,10 +363,10 @@
         if (text === 0) return '0';
         if (text === undefined || text === null) return '';
         return String(text)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
+            .replace(/&/g, '&')
+            .replace(/</g, '<')
+            .replace(/>/g, '>')
+            .replace(/"/g, '"')
             .replace(/'/g, '&#039;');
     }
 

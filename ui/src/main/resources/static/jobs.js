@@ -85,6 +85,10 @@
         if (!data) { sourceBanner.hidden = true; return; }
         sourceBannerTitle.textContent = data.live ? 'Live Source Active' : 'Development Mock Source Active';
         sourceBannerMessage.textContent = data.message || (data.live ? 'Jobs loaded from a live source.' : 'Browsing the development mock job catalog.');
+        // Show combined source names if multiple sources were queried
+        if (data.source && data.source.includes(', ')) {
+            sourceBannerMessage.textContent += ' (' + data.source + ')';
+        }
         sourceBanner.className = 'source-info-banner' + (data.live ? ' source-live' : '');
         sourceBanner.hidden = false;
     }
@@ -228,6 +232,9 @@
             resultsCount.textContent = data.total != null ? data.total : jobs.length;
             resultsCountLabel.textContent = (data.total === 1) ? 'job' : 'jobs';
 
+            // Highlight if all results are from mock source
+            const allMock = jobs.length > 0 && jobs.every(job => job.source === 'MOCK_SOURCE');
+
             cardsGrid.innerHTML = '';
             if (jobs.length === 0) {
                 emptyDesc.textContent = 'No jobs matched the current filters. Try broadening your keywords or removing filters.';
@@ -235,6 +242,10 @@
                 return;
             }
             jobs.forEach(job => cardsGrid.appendChild(createJobCard(job)));
+            // Show notice if all results are mock data
+            if (allMock) {
+                showToast('Showing development mock jobs. Enable the public job source for live listings.', 'info');
+            }
         })
         .catch(err => {
             console.error('Error searching jobs:', err);

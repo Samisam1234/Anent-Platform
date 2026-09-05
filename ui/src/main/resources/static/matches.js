@@ -49,11 +49,27 @@
     let candidateId = localStorage.getItem(LS_CANDIDATE_ID) || null;
     let candidateName = localStorage.getItem(LS_CANDIDATE_NAME) || null;
     let isMatching = false;
+    // Selected job carried via matches.html?jobId=<id> from Job Details → Check Match.
+    // Query param is the single source of truth; candidate state stays in localStorage.
+    let selectedJobId = null;
+
+    function getSelectedJobIdFromUrl() {
+        try {
+            const params = new URLSearchParams(window.location.search || '');
+            const raw = params.get('jobId');
+            if (raw === null || raw === undefined) return null;
+            const trimmed = String(raw).trim();
+            return trimmed ? trimmed : null;
+        } catch (_) {
+            return null;
+        }
+    }
 
     // ─── Init / Profile gate ──────────────────────────────────────────────────
     function init() {
         candidateId = localStorage.getItem(LS_CANDIDATE_ID) || null;
         candidateName = localStorage.getItem(LS_CANDIDATE_NAME) || null;
+        selectedJobId = getSelectedJobIdFromUrl();
 
         if (candidateId) {
             profileBadge.classList.add('status-live');
@@ -96,6 +112,16 @@
         minScoreSelect.value = '';
         limitSelect.value = '20';
         activeSummary.innerHTML = '';
+        // Reset returns to the normal multi-job view: drop the deep-linked job
+        // without touching candidate state.
+        selectedJobId = null;
+        try {
+            const url = new URL(window.location.href);
+            if (url.searchParams.has('jobId')) {
+                url.searchParams.delete('jobId');
+                window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+            }
+        } catch (_) { /* keep filters reset even if URL cleanup fails */ }
         if (autoRun) runMatch();
     }
 
@@ -214,6 +240,35 @@
 
         empty.hidden = true;
         matches.forEach(match => cardsGrid.appendChild(createMatchCard(match)));
+        highlightSelectedJob(matches);
+    }
+
+    // ─── Selected job (Check Match deep link) ─────────────────────────────────
+    // Highlights + focuses the card carried via ?jobId=. A missing/invalid jobId
+    // never breaks the page: normal multi-job results still render.
+    function highlightSelectedJob(matches) {
+        if (!selectedJobId) return;
+        if (!Array.isArray(matches) || matches.length === 0) {
+            showToast('Selected job is not in the current matches. Showing all matches instead.', 'info');
+            return;
+        }
+        const found = matches.find(m => m && m.job && String(m.job.id) === String(selectedJobId));
+        if (!found) {
+            showToast('Selected job is not in the current matches. Showing all matches instead.', 'info');
+            return;
+        }
+        const target = Array.from(cardsGrid.children).find(
+            el => el && el.getAttribute && el.getAttribute('data-id') === String(selectedJobId)) || null;
+        activeSummary.appendChild(createChip('Selected job: ' + String(selectedJobId)));
+        if (!target) return;
+        target.classList.add('match-card-selected');
+        target.setAttribute('tabindex', '-1');
+        try {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (_) { /* non-fatal */ }
+        try {
+            target.focus({ preventScroll: true });
+        } catch (_) { /* non-fatal */ }
     }
 
     function createChip(text) {
@@ -477,10 +532,14 @@
             : '<li>No resume highlights available.</li>';
 
         prepReviewOverlay.hidden = false;
+        document.body.classList.add('modal-open');
     }
 
     function closePreparedReview() {
-        if (prepReviewOverlay) prepReviewOverlay.hidden = true;
+        if (prepReviewOverlay) {
+            prepReviewOverlay.hidden = true;
+            document.body.classList.remove('modal-open');
+        }
     }
 
     function copyElementText(sourceId, btn) {
@@ -523,6 +582,12 @@
         const copyBtn = e.target.closest('.copy-btn');
         if (copyBtn) {
             copyElementText(copyBtn.dataset.copyTarget, copyBtn);
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && prepReviewOverlay && !prepReviewOverlay.hidden) {
+            closePreparedReview();
         }
     });
 

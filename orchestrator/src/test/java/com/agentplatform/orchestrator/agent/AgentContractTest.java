@@ -26,9 +26,9 @@ class AgentContractTest {
     @DisplayName("AgentResult requires a type and status")
     void resultRequiresTypeAndStatus() {
         assertThrows(IllegalArgumentException.class,
-                () -> new AgentResult(null, AgentStatus.COMPLETED, true, "m", null, null));
+                () -> new AgentResult(null, AgentStatus.COMPLETED, true, "m", null, null, null, null));
         assertThrows(IllegalArgumentException.class,
-                () -> new AgentResult(AgentType.RESUME, null, true, "m", null, null));
+                () -> new AgentResult(AgentType.RESUME, null, true, "m", null, null, null, null));
     }
 
     @Test
@@ -39,7 +39,7 @@ class AgentContractTest {
         assertTrue(r.success());
         assertEquals(AgentStatus.COMPLETED, r.status());
         assertEquals("data", r.outputAs(String.class));
-        assertNull(r.errorCode());
+        assertEquals("NONE", r.errorCode());
     }
 
     @Test

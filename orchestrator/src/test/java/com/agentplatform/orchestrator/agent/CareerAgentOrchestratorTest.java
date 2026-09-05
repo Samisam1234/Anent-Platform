@@ -13,6 +13,7 @@ import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -413,5 +414,126 @@ class CareerAgentOrchestratorTest {
         assertThrows(IllegalArgumentException.class, () -> new CareerAgentOrchestrator(onlyOne));
         assertThrows(IllegalArgumentException.class, () -> new CareerAgentOrchestrator(null));
         assertThrows(IllegalArgumentException.class, () -> new CareerAgentOrchestrator(List.of()));
+    }
+
+    // ─── Timing and error code propagation ─────────────────────────────────
+
+    @Test
+    @DisplayName("agent results include timing information")
+    void agentResultsIncludeTiming() {
+        List<AgentType> log = new ArrayList<>();
+        CareerAgentOrchestrator orc = new CareerAgentOrchestrator(suite(log));
+        AgentContext ctx = new AgentContext();
+        ctx.setCandidateProfile(profile());
+        ctx.setJob(job("j1"));
+
+        OrchestrationRun run = orc.orchestrateTracked(ctx);
+
+        for (AgentType type : AgentType.values()) {
+            AgentResult result = run.resultOf(type);
+            assertNotNull(result, () -> "Result for " + type + " should not be null");
+            assertNotNull(result.startedAt(), () -> "startedAt should be set for " + type);
+            assertNotNull(result.completedAt(), () -> "completedAt should be set for " + type);
+            assertTrue(result.durationMs() >= 0, () -> "durationMs should be non-negative for " + type);
+        }
+    }
+
+    @Test
+    @DisplayName("skipped agents have timing information")
+    void skippedAgentsHaveTiming() {
+        List<AgentType> log = new ArrayList<>();
+        CareerAgentOrchestrator orc = new CareerAgentOrchestrator(suite(log));
+        AgentContext ctx = new AgentContext();
+        // No candidate profile - RESUME and dependents will be skipped
+        ctx.setJob(job("j1"));
+
+        OrchestrationRun run = orc.orchestrateTracked(ctx);
+
+        AgentResult resumeResult = run.resultOf(AgentType.RESUME);
+        assertEquals(AgentStatus.SKIPPED, resumeResult.status());
+        assertNotNull(resumeResult.startedAt());
+        assertNotNull(resumeResult.completedAt());
+        assertTrue(resumeResult.durationMs() >= 0);
+    }
+
+    @Test
+    @DisplayName("orchestration completes even when AI reasoning fails in agents")
+    void orchestrationCompletesAfterReasoningFailure() {
+        List<AgentType> log = new ArrayList<>();
+        // Simulate an agent that fails during reasoning (returns FAILED with error code)
+        CareerAgent failingAdvisor = realistic(AgentType.CAREER_ADVISOR, log,
+                (r, c) -> AgentResult.failed(AgentType.CAREER_ADVISOR, "AI reasoning timed out", "TIMEOUT"));
+        CareerAgentOrchestrator orc = new CareerAgentOrchestrator(
+                withReplaced(suite(log), AgentType.CAREER_ADVISOR, failingAdvisor));
+
+        AgentContext ctx = new AgentContext();
+        ctx.setCandidateProfile(profile());
+        ctx.setJob(job("j1"));
+
+        OrchestrationRun run = orc.orchestrateTracked(ctx);
+
+        // Career advisor failed but is non-blocking - orchestration should complete
+        assertEquals(AgentStatus.FAILED, run.resultOf(AgentType.CAREER_ADVISOR).status());
+        assertEquals("TIMEOUT", run.resultOf(AgentType.CAREER_ADVISOR).errorCode());
+        // APPLICATION_ADVISOR should still run
+        assertEquals(AgentStatus.COMPLETED, run.resultOf(AgentType.APPLICATION_ADVISOR).status());
+        // Run status should be PARTIAL (optional agent failed)
+        assertEquals(RunStatus.PARTIAL, run.runStatus());
+        assertFalse(run.success());
+    }
+
+    @Test
+    @DisplayName("orchestration run contains AI and tool call counts")
+    void orchestrationRunContainsCallCounts() {
+        List<AgentType> log = new ArrayList<>();
+        CareerAgentOrchestrator orc = new CareerAgentOrchestrator(suite(log));
+        AgentContext ctx = new AgentContext();
+        ctx.setCandidateProfile(profile());
+        ctx.setJob(job("j1"));
+
+        OrchestrationRun run = orc.orchestrateTracked(ctx);
+
+        assertTrue(run.aiCallsUsed() >= 0);
+        assertTrue(run.toolCallsUsed() >= 0);
+        assertNotNull(run.message());
+    }
+
+    @Test
+    @DisplayName("failed blocking agent sets stoppingAgentType in OrchestrationRun")
+    void blockingFailureSetsStoppingAgentType() {
+        List<AgentType> log = new ArrayList<>();
+        CareerAgent failingResume = realistic(AgentType.RESUME, log,
+                (r, c) -> AgentResult.failed(AgentType.RESUME, "boom", "RESUME_FAILED"));
+        CareerAgentOrchestrator orc = new CareerAgentOrchestrator(
+                withReplaced(suite(log), AgentType.RESUME, failingResume));
+
+        AgentContext ctx = new AgentContext();
+        ctx.setResumeText("some resume text that is long enough to parse");
+
+        OrchestrationRun run = orc.orchestrateTracked(ctx);
+
+        assertEquals(RunStatus.FAILED, run.runStatus());
+        assertEquals(AgentType.RESUME, run.stoppingAgentType());
+        assertEquals(AgentType.RESUME, run.resultOf(AgentType.RESUME).agentType());
+        assertEquals("RESUME_FAILED", run.resultOf(AgentType.RESUME).errorCode());
+    }
+
+    @Test
+    @DisplayName("agent results have NONE error code when successful")
+    void successfulAgentResultsHaveNoneErrorCode() {
+        List<AgentType> log = new ArrayList<>();
+        CareerAgentOrchestrator orc = new CareerAgentOrchestrator(suite(log));
+        AgentContext ctx = new AgentContext();
+        ctx.setCandidateProfile(profile());
+        ctx.setJob(job("j1"));
+
+        OrchestrationRun run = orc.orchestrateTracked(ctx);
+
+        for (AgentType type : AgentType.values()) {
+            AgentResult result = run.resultOf(type);
+            if (result.status() == AgentStatus.COMPLETED) {
+                assertEquals("NONE", result.errorCode(), "Error code should be NONE for " + type);
+            }
+        }
     }
 }

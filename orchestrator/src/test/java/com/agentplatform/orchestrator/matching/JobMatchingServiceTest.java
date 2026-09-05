@@ -585,6 +585,42 @@ class JobMatchingServiceTest {
                 () -> storedService.matchJobs(JobMatchRequest.of(999L, List.of("java"), null, 10)));
     }
 
+    // ─── 24b. Stored-profile + supplied single job (Check Match flow) ───────
+
+    @Test
+    @DisplayName("matchJobs with stored profile + supplied single job uses the supplied job, not the catalog")
+    void matchJobs_storedProfileSuppliedSingleJob() {
+        CandidateProfilePersistenceService persistence = mock(CandidateProfilePersistenceService.class);
+        JobSearchService search = mock(JobSearchService.class);
+
+        JobMatchingService storedService = new JobMatchingService(
+                search, persistence,
+                new SkillMatchingEngine(), new RoleMatchingEngine(), new LocationMatchingEngine(),
+                new ExperienceMatchingEngine(), new EducationMatchingEngine(),
+                new CareerTrackEngine(), new ExplanationGenerator(), new JobMatchingConfig());
+
+        CandidateProfileEntity entity = CandidateProfileEntity.fromDomain(softwareCandidate());
+        entity.setId(7L);
+        when(persistence.getByIdOrThrow(7L)).thenReturn(entity);
+        // Catalog holds a different job; the supplied single job must win.
+        when(search.search(any(JobSearchRequest.class)))
+                .thenReturn(new JobSearchResult(List.of(vlsiFresherJob()), 1, "mock", false,
+                        "Matched development mock job catalog against candidate profile."));
+
+        JobMatchRequest request = new JobMatchRequest(
+                7L, List.of(), null, null, null, 1, null, null, null,
+                List.of(javaBackendFresherJob()));
+
+        JobMatchResult result = storedService.matchJobs(request);
+
+        assertEquals(7L, result.candidateProfileId());
+        assertEquals("Alice", result.candidateName());
+        assertEquals(1, result.matches().size());
+        assertEquals("j1", result.matches().get(0).job().id());
+        assertEquals("user-provided", result.source());
+        assertFalse(result.live());
+    }
+
     // ─── 25. Inline profile + jobs in matchJobs ───────────────────────────────
 
     @Test

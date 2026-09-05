@@ -273,7 +273,9 @@ public class AgentContext {
                 result.success(),
                 boundedMessage(result.message()),
                 result.output(),
-                result.errorCode());
+                result.errorCode(),
+                result.startedAt(),
+                result.completedAt());
         agentResults.put(result.agentType(), stored);
         return true;
     }

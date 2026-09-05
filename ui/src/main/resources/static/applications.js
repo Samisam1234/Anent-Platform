@@ -27,13 +27,22 @@
     const applicationDetailRecommendation = document.getElementById('applicationDetailRecommendation');
     const editApplicationBtn = document.getElementById('editApplicationBtn');
     const approveApplicationBtn = document.getElementById('approveApplicationBtn');
+    const sendEmailBtn = document.getElementById('sendEmailBtn');
     const goToResumeBtn = document.getElementById('goToResumeBtn');
+    const backToApplicationsBtn = document.getElementById('backToApplicationsBtn');
     const profileBadge = document.getElementById('profileBadge');
     const profileStatusText = document.getElementById('profileStatusText');
-    const modelSelector = document.getElementById('modelSelector');
-    const modelBadgeText = document.getElementById('modelBadgeText');
+
+    // Edit mode elements
+    const editModeSection = document.getElementById('editModeSection');
+    const editCoverLetter = document.getElementById('editCoverLetter');
+    const editProfessionalSummary = document.getElementById('editProfessionalSummary');
+    const editApplicationAnswers = document.getElementById('editApplicationAnswers');
+    const saveEditBtn = document.getElementById('saveEditBtn');
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
 
     const API_ENDPOINT = '/api/v1/applications';
+    const EMAIL_ENDPOINT = '/api/v1/applications/email/send';
 
     // Shared with matches.js
     const LS_CANDIDATE_ID = 'agentplatform:candidateId';
@@ -43,6 +52,7 @@
     let candidateName = null;
     let currentApplicationId = null;
     let isEditing = false;
+    let originalData = {}; // Store original data for cancel
 
     // ─── Status Badge ─────────────────────────────────────────────────────────
     function updateProfileBadge() {
@@ -212,27 +222,16 @@
                 applicationDetailCompany.textContent = `Company: ${app.company}`;
                 applicationDetailLocation.textContent = `Location: ${app.location || 'Not Specified'}`;
                 document.getElementById('applicationDetailMatchScore').textContent = `Match Score: ${app.matchScore != null ? app.matchScore + '/100' : '—'}`;
+
+                // Store original data for edit mode
+                originalData = {
+                    coverLetter: app.coverLetter || '',
+                    professionalSummary: app.generatedResumeSummary || app.tailoredProfessionalSummary || '',
+                    applicationAnswers: app.applicationAnswers || app.suggestedAnswers || ''
+                };
+
                 applicationDetailSummary.textContent = app.generatedResumeSummary || app.tailoredProfessionalSummary || '—';
-
-                // Resume highlights (comma-joined string on the JobApplication)
-                const highlightsEl = document.getElementById('applicationDetailHighlights');
-                highlightsEl.innerHTML = '';
-                const highlights = splitList(app.resumeHighlights);
-                if (highlights.length) {
-                    highlights.forEach(h => {
-                        const li = document.createElement('li');
-                        li.textContent = esc(h);
-                        highlightsEl.appendChild(li);
-                    });
-                } else {
-                    const li = document.createElement('li');
-                    li.textContent = 'No resume highlights available.';
-                    highlightsEl.appendChild(li);
-                }
-
-                // Cover letter
-                const coverLetter = app.coverLetter || 'No cover letter generated';
-                applicationDetailCoverLetter.textContent = coverLetter;
+                applicationDetailCoverLetter.textContent = app.coverLetter || 'No cover letter generated';
 
                 // Suggested answers
                 const suggestedAnswers = splitList(app.applicationAnswers || app.suggestedAnswers);
@@ -284,6 +283,9 @@
                 const recommendation = app.recommendation || 'POSSIBLE_MATCH';
                 applicationDetailRecommendation.textContent = esc(recommendation);
 
+                // Update action buttons based on status
+                updateActionButtons(app.applicationStatus);
+
                 // Show detail section, hide onboarding/list
                 applicationDetailSection.hidden = false;
                 applicationsOnboarding.hidden = true;
@@ -293,6 +295,183 @@
                 console.error('Error viewing application:', err);
                 showToast(err.message || 'Failed to load application details.', 'error');
             });
+    }
+
+    // ─── Update action buttons based on application status ────────────────────
+    function updateActionButtons(status) {
+        const isGenerated = status === 'GENERATED' || status === 'DRAFT' || status === 'UNDER_REVIEW';
+        const isApproved = status === 'APPROVED_FOR_APPLICATION';
+        const isRejected = status === 'REJECTED';
+        const isSent = status === 'SENT'; // For future use
+
+        // Edit button: allow editing before sending (GENERATED, APPROVED)
+        if (editApplicationBtn) {
+            editApplicationBtn.hidden = !isGenerated && !isApproved;
+        }
+
+        // Approve button: only show for GENERATED/DRAFT/UNDER_REVIEW
+        if (approveApplicationBtn) {
+            approveApplicationBtn.hidden = !isGenerated;
+            approveApplicationBtn.textContent = 'Approve Application';
+        }
+
+        // Send Email button: only show for APPROVED_FOR_APPLICATION
+        if (sendEmailBtn) {
+            sendEmailBtn.hidden = !isApproved;
+        }
+    }
+
+    // ─── Edit mode ───────────────────────────────────────────────────────────
+    function enterEditMode() {
+        if (!currentApplicationId) {
+            showToast('No application selected.', 'error');
+            return;
+        }
+
+        isEditing = true;
+
+        // Hide view mode elements
+        document.getElementById('applicationDetailSummary').hidden = true;
+        document.getElementById('applicationDetailCoverLetter').hidden = true;
+        document.getElementById('applicationDetailAnswers').hidden = true;
+
+        // Show edit mode section
+        if (editModeSection) editModeSection.hidden = false;
+
+        // Populate edit fields
+        if (editCoverLetter) editCoverLetter.value = originalData.coverLetter || '';
+        if (editProfessionalSummary) editProfessionalSummary.value = originalData.professionalSummary || '';
+        if (editApplicationAnswers) editApplicationAnswers.value = originalData.applicationAnswers || '';
+
+        // Update button states
+        if (editApplicationBtn) editApplicationBtn.hidden = true;
+        if (approveApplicationBtn) approveApplicationBtn.hidden = true;
+        if (sendEmailBtn) sendEmailBtn.hidden = true;
+        if (saveEditBtn) saveEditBtn.hidden = false;
+        if (cancelEditBtn) cancelEditBtn.hidden = false;
+    }
+
+    function exitEditMode() {
+        isEditing = false;
+
+        // Show view mode elements
+        document.getElementById('applicationDetailSummary').hidden = false;
+        document.getElementById('applicationDetailCoverLetter').hidden = false;
+        document.getElementById('applicationDetailAnswers').hidden = false;
+
+        // Hide edit mode section
+        if (editModeSection) editModeSection.hidden = true;
+
+        // Restore button states based on current application status
+        fetch(`${API_ENDPOINT}/${currentApplicationId}`)
+            .then(response => response.json())
+            .then(app => {
+                updateActionButtons(app.applicationStatus);
+            })
+            .catch(() => {
+                // Fallback
+                if (editApplicationBtn) editApplicationBtn.hidden = false;
+                if (approveApplicationBtn) approveApplicationBtn.hidden = false;
+                if (sendEmailBtn) sendEmailBtn.hidden = true;
+            });
+    }
+
+    function saveEdit() {
+        if (!currentApplicationId) return;
+
+        const updates = {
+            coverLetter: editCoverLetter ? editCoverLetter.value : originalData.coverLetter,
+            professionalSummary: editProfessionalSummary ? editProfessionalSummary.value : originalData.professionalSummary,
+            applicationAnswers: editApplicationAnswers ? editApplicationAnswers.value : originalData.applicationAnswers
+        };
+
+        fetch(`${API_ENDPOINT}/${currentApplicationId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw new Error(err.detail || `HTTP ${response.status}`); });
+            }
+            return response.json();
+        })
+        .then(data => {
+            showToast('Application updated successfully.', 'success');
+            // Update original data
+            originalData = {
+                coverLetter: updates.coverLetter,
+                professionalSummary: updates.professionalSummary,
+                applicationAnswers: updates.applicationAnswers
+            };
+            // Refresh view
+            viewApplication(currentApplicationId);
+        })
+        .catch(err => {
+            console.error('Error saving application:', err);
+            showToast(err.message || 'Failed to save changes.', 'error');
+        });
+    }
+
+    .catch(err => {
+            console.error('Error saving application:', err);
+            showToast(err.message || 'Failed to save changes.', 'error');
+        });
+    }
+
+    // ─── Send Email ───────────────────────────────────────────────────────────
+    function sendEmail() {
+        if (!currentApplicationId) {
+            showToast('No application selected.', 'error');
+            return;
+        }
+
+        // Confirm before sending
+        if (!confirm('Send this application email now?\n\nThis will attempt to send the application to the recipient. This action cannot be undone.')) {
+            return;
+        }
+
+        const sendBtn = sendEmailBtn;
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+        }
+
+        fetch(EMAIL_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                applicationId: currentApplicationId,
+                approved: true
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw new Error(err.detail || `HTTP ${response.status}`); });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data && data.status === 'SENT') {
+                showToast('Application email sent successfully!', 'success');
+            } else if (data && data.status === 'FAILED') {
+                showToast('Email could not be sent: ' + (data.message || 'Unknown error'), 'error');
+            } else {
+                showToast('Email send completed: ' + (data.message || data.status), 'info');
+            }
+            // Refresh the application to get updated status
+            viewApplication(currentApplicationId);
+        })
+        .catch(err => {
+            console.error('Error sending email:', err);
+            showToast(err.message || 'Failed to send email.', 'error');
+        })
+        .finally(() => {
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send Email';
+            }
+        });
     }
 
     // ─── Approve application ──────────────────────────────────────────────────
@@ -313,14 +492,11 @@
         })
         .then(data => {
             showToast('Application approved successfully.', 'success');
-            // Refresh the list or redirect
-            if (currentApplicationId === id) {
-                // Refresh detail view
-                viewApplication(id);
-            } else {
-                // Reload list
-                loadApplications();
-            }
+            // Refresh the list and return to list view
+            currentApplicationId = null;
+            applicationDetailSection.hidden = true;
+            applicationsListSection.hidden = false;
+            loadApplications();
         })
         .catch(err => {
             console.error('Error approving application:', err);
@@ -409,30 +585,38 @@
         });
 
         // Edit application button
-        editApplicationBtn.addEventListener('click', () => {
-            if (currentApplicationId == null) {
-                showToast('No application selected.', 'error');
-                return;
-            }
-            // TODO: Implement edit mode - show editable fields
-            showToast('Edit mode coming soon. You can currently view and approve applications.', 'info');
-        });
+        if (editApplicationBtn) {
+            editApplicationBtn.addEventListener('click', enterEditMode);
+        }
+
+        // Save edit button
+        if (saveEditBtn) {
+            saveEditBtn.addEventListener('click', saveEdit);
+        }
+
+        // Cancel edit button
+        if (cancelEditBtn) {
+            cancelEditBtn.addEventListener('click', exitEditMode);
+        }
+
+        // Send email button
+        if (sendEmailBtn) {
+            sendEmailBtn.addEventListener('click', sendEmail);
+        }
 
         // Go to resume button
-        goToResumeBtn.addEventListener('click', () => {
-            window.location.href = 'resume.html';
-        });
+        if (goToResumeBtn) {
+            goToResumeBtn.addEventListener('click', () => {
+                window.location.href = 'resume.html';
+            });
+        }
 
-        // Model selector
-        if (modelSelector && modelBadgeText) {
-            const savedModel = localStorage.getItem('agentplatform:model');
-            if (savedModel) {
-                modelSelector.value = savedModel;
-            }
-            modelSelector.addEventListener('change', (e) => {
-                localStorage.setItem('agentplatform:model', e.target.value);
-                modelBadgeText.textContent = e.target.value;
-                showToast('Model selection updated. Please refresh for changes to take effect.', 'info');
+        // Back to applications button
+        if (backToApplicationsBtn) {
+            backToApplicationsBtn.addEventListener('click', () => {
+                currentApplicationId = null;
+                applicationDetailSection.hidden = true;
+                applicationsListSection.hidden = false;
             });
         }
     }

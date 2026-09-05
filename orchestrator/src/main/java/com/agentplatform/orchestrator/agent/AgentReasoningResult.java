@@ -8,12 +8,17 @@ import java.util.List;
  * <p>{@code origin} is {@link #ORIGIN_AI} when a validated model response was
  * accepted, otherwise {@link #ORIGIN_DETERMINISTIC} (fallback). The explanations
  * are always derived from authoritative deterministic facts — never invented.</p>
+ *
+ * <p>{@code errorCode} is non-null when a fallback was triggered due to a specific
+ * failure (e.g., timeout, network, quota, budget exhausted). This allows the UI
+ * to display meaningful status without exposing raw exceptions.</p>
  */
 public record AgentReasoningResult(
         AgentType agentType,
         String summary,
         List<Explanation> explanations,
-        String origin
+        String origin,
+        String errorCode
 ) {
 
     public static final String ORIGIN_AI = "AI";
@@ -25,6 +30,7 @@ public record AgentReasoningResult(
         summary = summary == null ? "" : summary.trim();
         explanations = explanations != null ? List.copyOf(explanations) : List.of();
         origin = origin == null ? ORIGIN_DETERMINISTIC : origin;
+        errorCode = errorCode == null ? "NONE" : errorCode;
     }
 
     /** Whether this result came from the AI model (vs a deterministic fallback). */

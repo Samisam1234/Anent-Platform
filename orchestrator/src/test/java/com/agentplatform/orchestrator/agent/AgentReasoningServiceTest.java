@@ -1,5 +1,6 @@
 package com.agentplatform.orchestrator.agent;
 
+import com.agentplatform.core.ai.AiErrorClassifier;
 import com.agentplatform.core.config.OllamaChatModelFactory;
 import com.agentplatform.orchestrator.gap.CareerGapAnalysis;
 import com.agentplatform.orchestrator.gap.ExperienceGap;
@@ -15,6 +16,7 @@ import dev.langchain4j.model.chat.ChatModel;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.net.SocketTimeoutException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -270,5 +272,90 @@ class AgentReasoningServiceTest {
         AgentContext ctx = resumeContext();
         service.reason(AgentType.RESUME, ctx, "explain");
         assertEquals(before, ctx.candidateProfile());
+    }
+
+    @Test
+    @DisplayName("SocketTimeoutException falls back with TIMEOUT error code")
+    void socketTimeoutFallsBackWithErrorCode() {
+        ChatModel model = mock(ChatModel.class);
+        when(model.chat(anyString())).thenThrow(new RuntimeException("Read timed out", new SocketTimeoutException("Read timed out")));
+        AgentReasoningService service = service(model);
+        AgentReasoningResult result = service.reason(AgentType.RESUME, resumeContext(), "explain");
+        assertFalse(result.aiUsed());
+        assertEquals(AiErrorClassifier.Kind.TIMEOUT.name(), result.errorCode());
+        assertNotNull(result.summary());
+    }
+
+    @Test
+    @DisplayName("HttpConnectTimeoutException falls back with TIMEOUT error code")
+    void httpConnectTimeoutFallsBackWithErrorCode() {
+        ChatModel model = mock(ChatModel.class);
+        when(model.chat(anyString())).thenThrow(new RuntimeException("Connect timed out", new java.net.http.HttpConnectTimeoutException("Connect timed out")));
+        AgentReasoningService service = service(model);
+        AgentReasoningResult result = service.reason(AgentType.CAREER_ADVISOR, careerContext(), "explain");
+        assertFalse(result.aiUsed());
+        assertEquals(AiErrorClassifier.Kind.TIMEOUT.name(), result.errorCode());
+    }
+
+    @Test
+    @DisplayName("HTTP 404 model not found falls back with MODEL_UNAVAILABLE error code")
+    void modelNotFoundFallsBackWithErrorCode() {
+        ChatModel model = mock(ChatModel.class);
+        when(model.chat(anyString())).thenThrow(new RuntimeException("HTTP error (404): model not found"));
+        AgentReasoningService service = service(model);
+        AgentReasoningResult result = service.reason(AgentType.APPLICATION_ADVISOR, applicationContext(), "explain");
+        assertFalse(result.aiUsed());
+        assertEquals(AiErrorClassifier.Kind.MODEL_UNAVAILABLE.name(), result.errorCode());
+    }
+
+    @Test
+    @DisplayName("AI budget exhausted yields deterministic behavior with AI_BUDGET_EXHAUSTED error code")
+    void budgetExhaustedFallsBackWithErrorCode() {
+        OllamaChatModelFactory factory = mock(OllamaChatModelFactory.class);
+        AgentReasoningService service = new AgentReasoningService(factory, new ObjectMapper());
+        AgentContext ctx = resumeContext();
+        ctx.setAiCallsRemaining(0);
+        AgentReasoningResult result = service.reason(AgentType.RESUME, ctx, "explain");
+        assertFalse(result.aiUsed());
+        assertEquals(AgentReasoningResult.ORIGIN_DETERMINISTIC, result.origin());
+        assertEquals("AI_BUDGET_EXHAUSTED", result.errorCode());
+        verify(factory, never()).chatModel(anyString());
+    }
+
+    @Test
+    @DisplayName("empty model response falls back with EMPTY_RESPONSE error code")
+    void emptyResponseFallsBackWithErrorCode() {
+        AgentReasoningService service = service(returning("   "));
+        AgentReasoningResult result = service.reason(AgentType.RESUME, resumeContext(), "explain");
+        assertFalse(result.aiUsed());
+        assertEquals("EMPTY_RESPONSE", result.errorCode());
+    }
+
+    @Test
+    @DisplayName("malformed non-JSON response falls back with INVALID_OUTPUT error code")
+    void malformedResponseFallsBackWithErrorCode() {
+        AgentReasoningService service = service(returning("this is not json"));
+        AgentReasoningResult result = service.reason(AgentType.RESUME, resumeContext(), "explain");
+        assertFalse(result.aiUsed());
+        assertEquals("INVALID_OUTPUT", result.errorCode());
+    }
+
+    @Test
+    @DisplayName("hallucinated topic outside authoritative set falls back with INVALID_OUTPUT error code")
+    void hallucinatedTopicRejectedWithErrorCode() {
+        AgentReasoningService service = service(returning(
+                validResponse("Neuro-engineering ninja", "invented skill")));
+        AgentReasoningResult result = service.reason(AgentType.RESUME, resumeContext(), "explain");
+        assertFalse(result.aiUsed());
+        assertEquals("INVALID_OUTPUT", result.errorCode());
+    }
+
+    @Test
+    @DisplayName("successful AI response has NONE error code")
+    void successfulResponseHasNoneErrorCode() {
+        AgentReasoningService service = service(returning(validResponse("Java", "Alice knows Java.")));
+        AgentReasoningResult result = service.reason(AgentType.RESUME, resumeContext(), "explain");
+        assertTrue(result.aiUsed());
+        assertEquals("NONE", result.errorCode());
     }
 }

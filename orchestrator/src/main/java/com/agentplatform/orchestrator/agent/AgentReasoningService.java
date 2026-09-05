@@ -77,23 +77,23 @@ public class AgentReasoningService {
      */
     public AgentReasoningResult reason(AgentType agentType, AgentContext context, String task) {
         if (agentType == null || context == null) {
-            return fallback(agentType, context, task);
+            return fallback(agentType, context, task, null);
         }
 
         // Resource control: no call slot → deterministic behavior only.
         if (!context.consumeAiCall()) {
             log.info("AI reasoning budget exhausted for {}; using deterministic reasoning", agentType);
-            return fallback(agentType, context, task);
+            return fallback(agentType, context, task, "AI_BUDGET_EXHAUSTED");
         }
 
         ReasonInput input;
         try {
             input = buildInput(agentType, context);
         } catch (Exception e) {
-            return fallback(agentType, context, task);
+            return fallback(agentType, context, task, "INPUT_BUILD_FAILED");
         }
         if (input.topics().isEmpty()) {
-            return fallback(agentType, context, task);
+            return fallback(agentType, context, task, "NO_AUTHORITATIVE_TOPICS");
         }
 
         String prompt = buildPrompt(input, task);
@@ -104,19 +104,19 @@ public class AgentReasoningService {
         } catch (Exception e) {
             AiErrorClassifier.Failure failure = AiErrorClassifier.classify(e, "Ollama");
             log.warn("Agent AI reasoning unavailable for {} ({}); deterministic fallback", agentType, failure.message());
-            return fallback(agentType, context, task);
+            return fallback(agentType, context, task, failure.kind().name());
         }
 
         if (raw == null || raw.isBlank()) {
             log.warn("Agent AI reasoning returned an empty response for {}; fallback", agentType);
-            return fallback(agentType, context, task);
+            return fallback(agentType, context, task, "EMPTY_RESPONSE");
         }
 
         try {
             return validateAndParse(agentType, raw, input);
         } catch (Exception e) {
             log.warn("Agent AI reasoning output invalid for {} ({}); fallback", agentType, safeMessage(e));
-            return fallback(agentType, context, task);
+            return fallback(agentType, context, task, "INVALID_OUTPUT");
         }
     }
 
@@ -280,7 +280,7 @@ public class AgentReasoningService {
         }
         return new AgentReasoningResult(agentType,
                 trimTo(summary.isEmpty() ? defaultSummary(agentType, input) : summary, 400),
-                explanations, AgentReasoningResult.ORIGIN_AI);
+                explanations, AgentReasoningResult.ORIGIN_AI, "NONE");
     }
 
     private static boolean containsTopic(List<String> topics, String candidate) {
@@ -339,11 +339,12 @@ public class AgentReasoningService {
 
     // ─── Deterministic fallback ───────────────────────────────────────────────
 
-    private AgentReasoningResult fallback(AgentType agentType, AgentContext context, String task) {
+    private AgentReasoningResult fallback(AgentType agentType, AgentContext context, String task, String errorCode) {
         return new AgentReasoningResult(agentType,
                 AgencyDefaults.summary(agentType, new ArrayList<>()),
                 AgencyDefaults.explanations(agentType, context),
-                AgentReasoningResult.ORIGIN_DETERMINISTIC);
+                AgentReasoningResult.ORIGIN_DETERMINISTIC,
+                errorCode);
     }
 
     /** Immutable structured input for a reasoning call. */

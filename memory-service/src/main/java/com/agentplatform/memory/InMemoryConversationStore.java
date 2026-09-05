@@ -2,7 +2,6 @@ package com.agentplatform.memory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -28,7 +27,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * messages and the store to at most {@link #MAX_CONVERSATIONS} conversations
  * (oldest-updated evicted first).</p>
  */
-@Service
 public class InMemoryConversationStore implements ConversationStore {
 
     private static final Logger log = LoggerFactory.getLogger(InMemoryConversationStore.class);

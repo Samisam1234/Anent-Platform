@@ -9,10 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/applications")
@@ -20,27 +17,25 @@ public class JobApplicationController {
 
     private static final Logger log = LoggerFactory.getLogger(JobApplicationController.class);
 
-    // In-memory storage for applications (replaces JPA for Milestone 5;
-    // will be replaced by real JPA persistence when PostgreSQL is configured)
-    private final Map<Long, JobApplication> applicationStore = new ConcurrentHashMap<>();
-    private long nextApplicationId = 1;
-
     private final JobApplicationPreparationService preparationService;
     private final com.agentplatform.orchestrator.resume.persistence.CandidateProfilePersistenceService candidateProfiles;
     private final com.agentplatform.orchestrator.job.JobSearchService jobs;
+    private final ApplicationStorageService storageService;
 
     public JobApplicationController(JobApplicationPreparationService preparationService) {
-        this(preparationService, null, null);
+        this(preparationService, null, null, null);
     }
 
     @Autowired
     public JobApplicationController(
             JobApplicationPreparationService preparationService,
             com.agentplatform.orchestrator.resume.persistence.CandidateProfilePersistenceService candidateProfiles,
-            com.agentplatform.orchestrator.job.JobSearchService jobs) {
+            com.agentplatform.orchestrator.job.JobSearchService jobs,
+            JobApplicationRepository jobApplicationRepository) {
         this.preparationService = preparationService;
         this.candidateProfiles = candidateProfiles;
         this.jobs = jobs;
+        this.storageService = new ApplicationStorageService(jobApplicationRepository);
     }
 
     /**
@@ -71,10 +66,7 @@ public class JobApplicationController {
         application.setApplicationStatus(ApplicationStatus.GENERATED);
         application.setUpdatedAt(LocalDateTime.now());
 
-        synchronized (this) {
-            application.setId(nextApplicationId++);
-            applicationStore.put(application.getId(), application);
-        }
+        storageService.store(application);
 
         result.setApplicationId(application.getId());
         result.setStatus("GENERATED");
@@ -137,8 +129,8 @@ public class JobApplicationController {
      */
     @GetMapping("/{applicationId}")
     public ResponseEntity<JobApplication> getApplication(@PathVariable Long applicationId) {
-        return Optional.ofNullable(applicationStore.get(applicationId))
-                .map(app -> ResponseEntity.ok(app))
+        return storageService.findById(applicationId)
+                .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 
@@ -150,9 +142,7 @@ public class JobApplicationController {
      */
     @GetMapping("/candidate/{candidateId}")
     public ResponseEntity<List<JobApplication>> getApplicationsByCandidate(@PathVariable Long candidateId) {
-        List<JobApplication> apps = applicationStore.values().stream()
-                .filter(app -> app.getCandidateId().equals(candidateId))
-                .collect(Collectors.toList());
+        List<JobApplication> apps = storageService.findByCandidateId(candidateId);
         return ResponseEntity.ok(apps);
     }
 
@@ -169,25 +159,17 @@ public class JobApplicationController {
             @PathVariable Long applicationId,
             @RequestBody ApplicationUpdates updates) {
 
-        JobApplication existing = applicationStore.get(applicationId);
-        if (existing == null) {
+        // Convert controller DTO to storage service DTO
+        ApplicationStorageService.ApplicationUpdates storageUpdates = new ApplicationStorageService.ApplicationUpdates();
+        storageUpdates.setCoverLetter(updates.getCoverLetter());
+        storageUpdates.setProfessionalSummary(updates.getProfessionalSummary());
+        storageUpdates.setApplicationAnswers(updates.getApplicationAnswers());
+
+        Optional<JobApplication> updated = storageService.update(applicationId, storageUpdates);
+        if (updated.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
-
-        if (updates.getCoverLetter() != null) {
-            existing.setCoverLetter(updates.getCoverLetter());
-        }
-        if (updates.getProfessionalSummary() != null) {
-            existing.setGeneratedResumeSummary(updates.getProfessionalSummary());
-        }
-        if (updates.getApplicationAnswers() != null) {
-            existing.setApplicationAnswers(updates.getApplicationAnswers());
-        }
-
-        existing.setUpdatedAt(LocalDateTime.now());
-        applicationStore.put(applicationId, existing);
-
-        return ResponseEntity.ok(existing);
+        return ResponseEntity.ok(updated.get());
     }
 
     /**
@@ -199,17 +181,12 @@ public class JobApplicationController {
      */
     @PostMapping("/{applicationId}/approve")
     public ResponseEntity<JobApplication> approveApplication(@PathVariable Long applicationId) {
-        JobApplication existing = applicationStore.get(applicationId);
-        if (existing == null) {
+        Optional<JobApplication> approved = storageService.approve(applicationId);
+        if (approved.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
-
-        existing.setApplicationStatus(ApplicationStatus.APPROVED_FOR_APPLICATION);
-        existing.setApprovedAt(LocalDateTime.now());
-        applicationStore.put(applicationId, existing);
-
         log.info("Application {} approved for manual submission", applicationId);
-        return ResponseEntity.ok(existing);
+        return ResponseEntity.ok(approved.get());
     }
 
     /**
@@ -220,16 +197,12 @@ public class JobApplicationController {
      */
     @PostMapping("/{applicationId}/reject")
     public ResponseEntity<JobApplication> rejectApplication(@PathVariable Long applicationId) {
-        JobApplication existing = applicationStore.get(applicationId);
-        if (existing == null) {
+        Optional<JobApplication> rejected = storageService.reject(applicationId);
+        if (rejected.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
-
-        existing.setApplicationStatus(ApplicationStatus.REJECTED);
-        applicationStore.put(applicationId, existing);
-
         log.info("Application {} rejected", applicationId);
-        return ResponseEntity.ok(existing);
+        return ResponseEntity.ok(rejected.get());
     }
 
     /**

@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.net.http.HttpConnectTimeoutException;
+import java.net.http.HttpTimeoutException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -67,12 +69,49 @@ class AiErrorClassifierTest {
     }
 
     @Test
-    @DisplayName("SocketTimeoutException cause classifies as network")
-    void socketTimeout_classifiesAsNetwork() {
+    @DisplayName("SocketTimeoutException cause classifies as timeout")
+    void socketTimeout_classifiesAsTimeout() {
         AiErrorClassifier.Failure failure = AiErrorClassifier.classify(
                 new RuntimeException("RetryUtils: request failed", new SocketTimeoutException("Read timed out")));
 
-        assertThat(failure.kind()).isEqualTo(AiErrorClassifier.Kind.NETWORK);
+        assertThat(failure.kind()).isEqualTo(AiErrorClassifier.Kind.TIMEOUT);
+        assertThat(failure.message()).contains("timed out");
+    }
+
+    @Test
+    @DisplayName("HttpConnectTimeoutException cause classifies as timeout")
+    void httpConnectTimeout_classifiesAsTimeout() {
+        AiErrorClassifier.Failure failure = AiErrorClassifier.classify(
+                new RuntimeException("connect failed", new HttpConnectTimeoutException("Connect timed out")));
+
+        assertThat(failure.kind()).isEqualTo(AiErrorClassifier.Kind.TIMEOUT);
+    }
+
+    @Test
+    @DisplayName("HttpTimeoutException cause classifies as timeout")
+    void httpTimeout_classifiesAsTimeout() {
+        AiErrorClassifier.Failure failure = AiErrorClassifier.classify(
+                new RuntimeException("read failed", new HttpTimeoutException("Read timed out")));
+
+        assertThat(failure.kind()).isEqualTo(AiErrorClassifier.Kind.TIMEOUT);
+    }
+
+    @Test
+    @DisplayName("message containing 'timed out' classifies as timeout")
+    void timedOutMessage_classifiesAsTimeout() {
+        AiErrorClassifier.Failure failure = AiErrorClassifier.classify(
+                new RuntimeException("Request timed out after 120000ms"));
+
+        assertThat(failure.kind()).isEqualTo(AiErrorClassifier.Kind.TIMEOUT);
+    }
+
+    @Test
+    @DisplayName("message containing 'timeout' classifies as timeout")
+    void timeoutMessage_classifiesAsTimeout() {
+        AiErrorClassifier.Failure failure = AiErrorClassifier.classify(
+                new RuntimeException("Request timeout exceeded"));
+
+        assertThat(failure.kind()).isEqualTo(AiErrorClassifier.Kind.TIMEOUT);
     }
 
     @Test
@@ -88,7 +127,7 @@ class AiErrorClassifierTest {
     @DisplayName("ConnectException cause classifies as network")
     void connectException_classifiesAsNetwork() {
         AiErrorClassifier.Failure failure = AiErrorClassifier.classify(
-                new RuntimeException("connect failed", new ConnectException("Connection timed out")));
+                new RuntimeException("connect failed", new ConnectException("Connection refused")));
 
         assertThat(failure.kind()).isEqualTo(AiErrorClassifier.Kind.NETWORK);
     }
@@ -127,6 +166,16 @@ class AiErrorClassifierTest {
 
         assertThat(failure.kind()).isEqualTo(AiErrorClassifier.Kind.NETWORK);
         assertThat(failure.message()).contains("Ollama").contains("11434");
+    }
+
+    @Test
+    @DisplayName("non-Gemini provider timeout failure names the local model server")
+    void ollama_timeout_mentionsServer() {
+        AiErrorClassifier.Failure failure = AiErrorClassifier.classify(
+                new RuntimeException("connect failed", new SocketTimeoutException("Read timed out")), "Ollama");
+
+        assertThat(failure.kind()).isEqualTo(AiErrorClassifier.Kind.TIMEOUT);
+        assertThat(failure.message()).contains("Ollama").contains("timed out");
     }
 
     @Test

@@ -115,7 +115,8 @@
                             <p class="application-detail-match-score" id="applicationDetailMatchScore">Match Score: —</p>
                         </div>
 
-                        <div class="application-detail-section">
+                        <!-- View mode -->
+                        <div class="application-detail-section" id="viewModeSection">
                             <div class="prep-review-section-head">
                                 <h3>Professional Summary</h3>
                                 <button type="button" class="copy-btn" data-copy-target="applicationDetailSummary">Copy</button>
@@ -123,7 +124,7 @@
                             <p class="application-detail-summary" id="applicationDetailSummary">—</p>
                         </div>
 
-                        <div class="application-detail-section">
+                        <div class="application-detail-section" id="viewModeCoverLetter">
                             <div class="prep-review-section-head">
                                 <h3>Cover Letter</h3>
                                 <button type="button" class="copy-btn" data-copy-target="applicationDetailCoverLetter">Copy</button>
@@ -131,7 +132,7 @@
                             <p class="application-detail-cover-letter" id="applicationDetailCoverLetter">—</p>
                         </div>
 
-                        <div class="application-detail-section">
+                        <div class="application-detail-section" id="viewModeAnswers">
                             <div class="prep-review-section-head">
                                 <h3>Suggested Answers</h3>
                                 <button type="button" class="copy-btn" data-copy-target="applicationDetailAnswers">Copy</button>
@@ -139,11 +140,31 @@
                             <div class="application-detail-answers" id="applicationDetailAnswers"></div>
                         </div>
 
-                        <div class="application-detail-section">
+                        <!-- Edit mode -->
+                        <div class="application-detail-section edit-mode-section" id="editModeSection" hidden>
                             <div class="prep-review-section-head">
-                                <h3>Resume Highlights</h3>
-                                <button type="button" class="copy-btn" data-copy-target="applicationDetailHighlights">Copy</button>
+                                <h3>Edit Application</h3>
+                                <span class="edit-mode-badge">Editing mode</span>
                             </div>
+
+                            <div class="edit-form-group">
+                                <label for="editProfessionalSummary">Professional Summary</label>
+                                <textarea id="editProfessionalSummary" class="form-textarea" rows="4" placeholder="Professional summary..."></textarea>
+                            </div>
+
+                            <div class="edit-form-group">
+                                <label for="editCoverLetter">Cover Letter</label>
+                                <textarea id="editCoverLetter" class="form-textarea" rows="6" placeholder="Cover letter..."></textarea>
+                            </div>
+
+                            <div class="edit-form-group">
+                                <label for="editApplicationAnswers">Suggested Answers (one per line)</label>
+                                <textarea id="editApplicationAnswers" class="form-textarea" rows="4" placeholder="Answer 1\nAnswer 2\n..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="application-detail-section">
+                            <h3>Resume Highlights</h3>
                             <ul class="application-detail-strengths" id="applicationDetailHighlights"></ul>
                         </div>
 
@@ -164,8 +185,10 @@
                     </div>
 
                     <div class="application-detail-actions">
+                        <button class="btn-secondary" id="backToApplicationsBtn">Back to Applications</button>
                         <button class="btn-secondary" id="editApplicationBtn">Edit Application</button>
                         <button class="btn-primary" id="approveApplicationBtn">Approve Application</button>
+                        <button class="btn-primary btn-send" id="sendEmailBtn" hidden>Send Email</button>
                     </div>
                 </section>
             </div>

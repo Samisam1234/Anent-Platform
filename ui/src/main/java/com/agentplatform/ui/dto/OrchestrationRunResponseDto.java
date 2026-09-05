@@ -3,6 +3,7 @@ package com.agentplatform.ui.dto;
 import com.agentplatform.orchestrator.agent.AgentResult;
 import com.agentplatform.orchestrator.agent.OrchestrationRun;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -58,16 +59,24 @@ public record OrchestrationRunResponseDto(
             String status,
             boolean success,
             String message,
-            String errorCode
+            String errorCode,
+            String startedAt,
+            String completedAt,
+            long durationMs
     ) {
 
         public static AgentExecutionDto from(AgentResult r) {
+            Instant started = r.startedAt();
+            Instant completed = r.completedAt();
             return new AgentExecutionDto(
                     r.agentType() == null ? null : r.agentType().name(),
                     r.status() == null ? null : r.status().name(),
                     r.success(),
                     r.message(),
-                    r.errorCode()
+                    r.errorCode(),
+                    started == null ? null : started.toString(),
+                    completed == null ? null : completed.toString(),
+                    r.durationMs()
             );
         }
     }

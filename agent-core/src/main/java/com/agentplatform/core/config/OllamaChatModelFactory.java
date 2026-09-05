@@ -2,7 +2,6 @@ package com.agentplatform.core.config;
 
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.ollama.OllamaChatModel;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -18,6 +17,7 @@ import java.time.Duration;
  * ollama:
  *   base-url: http://localhost:11434
  *   default-model: llama3.2:3b
+ *   reasoning-timeout: 120s
  * </pre>
  *
  * <p>A {@code null}/blank requested model resolves to the configured default
@@ -31,7 +31,7 @@ public class OllamaChatModelFactory {
 
     public static final String DEFAULT_MODEL = "llama3.2:3b";
 
-    public static final Duration DEFAULT_TIMEOUT = Duration.ofMillis(30000);
+    public static final Duration DEFAULT_TIMEOUT = Duration.ofMinutes(2);
 
     private final String baseUrl;
 
@@ -39,13 +39,10 @@ public class OllamaChatModelFactory {
 
     private final Duration timeout;
 
-    public OllamaChatModelFactory(
-            @Value("${ollama.base-url:http://localhost:11434}") String baseUrl,
-            @Value("${ollama.default-model:llama3.2:3b}") String defaultModel,
-            @Value("${ollama.timeout:180000}") long timeout) {
-        this.baseUrl = baseUrl;
-        this.defaultModel = defaultModel;
-        this.timeout = Duration.ofMillis(timeout);
+    public OllamaChatModelFactory(OllamaProperties props) {
+        this.baseUrl = props.getBaseUrl();
+        this.defaultModel = props.getChatModel();
+        this.timeout = props.getReasoningTimeout();
     }
 
     /**
@@ -59,7 +56,7 @@ public class OllamaChatModelFactory {
     /**
      * Returns a ready-to-use {@link ChatModel} backed by Ollama at
      * {@code baseUrl} running {@code resolveModelName(model)}.
-     * The model has a configurable request timeout (default 180s) to prevent
+     * The model has a configurable request timeout (default 2 minutes) to prevent
      * long UI hangs during cold-start model loads.
      */
     public ChatModel chatModel(String model) {

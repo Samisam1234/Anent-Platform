@@ -7,9 +7,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.lang.reflect.Field;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -24,20 +24,24 @@ class JobApplicationControllerTest {
     @Mock
     private JobApplicationPreparationService preparationService;
 
+    @Mock
+    private JobApplicationRepository jobApplicationRepository;
+
     private JobApplicationController controller;
+
+    private final AtomicLong nextId = new AtomicLong(1);
 
     @BeforeEach
     void setUp() {
-        controller = new JobApplicationController(preparationService);
-        try {
-            Field field = JobApplicationController.class.getDeclaredField("applicationStore");
-            field.setAccessible(true);
-            @SuppressWarnings("unchecked")
-            Map<Long, JobApplication> testStore = new ConcurrentHashMap<>();
-            field.set(controller, testStore);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        controller = new JobApplicationController(preparationService, null, null, jobApplicationRepository);
+        // Configure mock repository to assign IDs when saving - lenient to avoid unnecessary stubbing errors
+        lenient().when(jobApplicationRepository.save(any(JobApplication.class))).thenAnswer(inv -> {
+            JobApplication app = inv.getArgument(0);
+            if (app.getId() == null) {
+                app.setId(nextId.getAndIncrement());
+            }
+            return app;
+        });
     }
 
     // ─── 1. Prepare application ────────────────────────────
@@ -73,6 +77,16 @@ class JobApplicationControllerTest {
                 eq("Hyderabad"), eq("Focus on Java"), eq(false)))
                 .thenReturn(expectedResult);
 
+        // The mock repository should return the stored application when queried by candidate
+        var savedApp = new JobApplication();
+        savedApp.setId(1L);
+        savedApp.setCandidateId(1L);
+        savedApp.setJobTitle("Software Engineer");
+        savedApp.setCompany("Test Company");
+        savedApp.setMatchScore(88);
+        savedApp.setMatchingSkills("Java, Spring Boot");
+        when(jobApplicationRepository.findByCandidateId(1L)).thenReturn(List.of(savedApp));
+
         // Act
         var response = controller.prepareApplication(request);
 
@@ -94,6 +108,9 @@ class JobApplicationControllerTest {
         assertEquals("Software Engineer", saved.getJobTitle());
         assertEquals(88, saved.getMatchScore());
         assertEquals("Java, Spring Boot", saved.getMatchingSkills());
+        
+        // Verify the mock repository was called
+        verify(jobApplicationRepository).findByCandidateId(1L);
     }
 
     // ─── 2. Get application by ID ──────────────────────────
@@ -116,7 +133,7 @@ class JobApplicationControllerTest {
         var app = new JobApplication();
         app.setId(1L);
         app.setCandidateId(1L);
-        putAppInStore(1L, app);
+        when(jobApplicationRepository.findById(1L)).thenReturn(Optional.of(app));
 
         // Act
         var response = controller.getApplication(1L);
@@ -137,12 +154,12 @@ class JobApplicationControllerTest {
         var app1 = new JobApplication();
         app1.setId(1L);
         app1.setCandidateId(1L);
-        putAppInStore(1L, app1);
 
         var app2 = new JobApplication();
         app2.setId(2L);
         app2.setCandidateId(1L);
-        putAppInStore(2L, app2);
+
+        when(jobApplicationRepository.findByCandidateId(1L)).thenReturn(List.of(app1, app2));
 
         // Act
         var response = controller.getApplicationsByCandidate(1L);
@@ -153,6 +170,7 @@ class JobApplicationControllerTest {
         var body = response.getBody();
         assertNotNull(body);
         assertEquals(2, body.size());
+        verify(jobApplicationRepository).findByCandidateId(1L);
     }
 
     // ─── 4. Update application ─────────────────────────────
@@ -164,7 +182,8 @@ class JobApplicationControllerTest {
         var app = new JobApplication();
         app.setId(1L);
         app.setCandidateId(1L);
-        putAppInStore(1L, app);
+        when(jobApplicationRepository.findById(1L)).thenReturn(Optional.of(app));
+        when(jobApplicationRepository.save(app)).thenReturn(app);
 
         var updates = new JobApplicationController.ApplicationUpdates();
         updates.setCoverLetter("New cover letter");
@@ -177,6 +196,8 @@ class JobApplicationControllerTest {
         assertNotNull(response.getBody());
         assertEquals("New cover letter", response.getBody().getCoverLetter());
         assertEquals("New summary", response.getBody().getGeneratedResumeSummary());
+        verify(jobApplicationRepository).findById(1L);
+        verify(jobApplicationRepository).save(app);
     }
 
     @Test
@@ -190,7 +211,7 @@ class JobApplicationControllerTest {
         assertEquals(404, response.getStatusCodeValue());
     }
 
-    // ─── 5. Approve application ────────────────────────────
+    // ─── 5. Approve application ─────────────────────────────
 
     @Test
     @DisplayName("Approve application sets status to APPROVED_FOR_APPLICATION")
@@ -199,7 +220,8 @@ class JobApplicationControllerTest {
         var app = new JobApplication();
         app.setId(1L);
         app.setCandidateId(1L);
-        putAppInStore(1L, app);
+        when(jobApplicationRepository.findById(1L)).thenReturn(Optional.of(app));
+        when(jobApplicationRepository.save(app)).thenReturn(app);
 
         // Act
         var response = controller.approveApplication(1L);
@@ -209,6 +231,8 @@ class JobApplicationControllerTest {
         assertEquals(ApplicationStatus.APPROVED_FOR_APPLICATION.name(),
                 response.getBody().getApplicationStatus().name());
         assertNotNull(response.getBody().getApprovedAt());
+        verify(jobApplicationRepository).findById(1L);
+        verify(jobApplicationRepository).save(app);
     }
 
     @Test
@@ -231,7 +255,8 @@ class JobApplicationControllerTest {
         app.setId(1L);
         app.setCandidateId(1L);
         app.setApplicationStatus(ApplicationStatus.GENERATED);
-        putAppInStore(1L, app);
+        when(jobApplicationRepository.findById(1L)).thenReturn(Optional.of(app));
+        when(jobApplicationRepository.save(app)).thenReturn(app);
 
         // Act
         var response = controller.rejectApplication(1L);
@@ -240,6 +265,8 @@ class JobApplicationControllerTest {
         assertNotNull(response.getBody());
         assertEquals(ApplicationStatus.REJECTED.name(),
                 response.getBody().getApplicationStatus().name());
+        verify(jobApplicationRepository).findById(1L);
+        verify(jobApplicationRepository).save(app);
     }
 
     @Test
@@ -250,19 +277,5 @@ class JobApplicationControllerTest {
 
         // Assert
         assertEquals(404, response.getStatusCodeValue());
-    }
-
-    // ─── Helper ────────────────────────────────────────────
-
-    @SuppressWarnings("unchecked")
-    private void putAppInStore(Long id, JobApplication app) {
-        try {
-            Field field = JobApplicationController.class.getDeclaredField("applicationStore");
-            field.setAccessible(true);
-            Map<Long, JobApplication> store = (Map<Long, JobApplication>) field.get(controller);
-            store.put(id, app);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 }

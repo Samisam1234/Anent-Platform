@@ -210,7 +210,7 @@
         const candidateId = localStorage.getItem(LS_CANDIDATE_ID);
         const candidateName = localStorage.getItem(LS_CANDIDATE_NAME);
         if (candidateId) {
-            checkBtn.addEventListener('click', () => runCheckMatch(job, Number(candidateId), checkBtn));
+            checkBtn.addEventListener('click', () => navigateToMatches(job));
         } else {
             checkBtn.addEventListener('click', () => {
                 const matchArea = fetchMatchArea();
@@ -235,7 +235,31 @@
         footer.appendChild(meta);
     }
 
+    // ─── Check Match → Matches page (Phase 6.10) ────────────────────────────
+    // The dedicated Matches portal owns scoring. Check Match navigates to
+    // matches.html?jobId=<id> so the selected job survives navigation and is
+    // highlighted there. Candidate context stays in localStorage; nothing here
+    // clears it.
+    function buildMatchesUrl(jobId) {
+        return 'matches.html?jobId=' + encodeURIComponent(String(jobId));
+    }
+
+    function navigateToMatches(job) {
+        const jobId = job && job.id ? String(job.id).trim() : '';
+        if (!jobId) {
+            const matchArea = fetchMatchArea();
+            if (matchArea) {
+                matchArea.hidden = false;
+                matchArea.innerHTML = '<div class="modal-match-error">This listing has no job id, so it cannot be opened in Matches.</div>';
+            }
+            return;
+        }
+        window.location.href = buildMatchesUrl(jobId);
+    }
+
     // ─── Check Match (deterministic scoring for this single job) ────────────
+    // Legacy inline scorer, kept for reference. The Check Match button now
+    // navigates to the Matches page instead of rendering here.
     async function runCheckMatch(job, candidateId, btn) {
         if (matchInFlight) return;
         matchInFlight = true;
@@ -400,6 +424,7 @@
         actionLabel: actionLabel,
         isMock: isMock,
         hasValidUrl: hasValidUrl,
+        buildMatchesUrl: buildMatchesUrl,
         register: (job) => {
             if (job && job.id) jobRegistry.set(job.id, job);
         }
