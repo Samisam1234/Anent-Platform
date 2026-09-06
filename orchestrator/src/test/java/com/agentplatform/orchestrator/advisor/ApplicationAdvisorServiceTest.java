@@ -157,16 +157,63 @@ class ApplicationAdvisorServiceTest {
     // ─── Tests ────────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("readiness score comes directly from AtsReadinessAnalysis.score")
+    @DisplayName("Phase 7.5: 60% ATS + 40% JobMatch composite formula — ATS 90 + JobMatch 50 = 74")
+    void compositeScoreFormulaAts90JobMatch50() {
+        CareerGapAnalysis gap = gapWith(List.of(), List.of(), List.of(), expGap(0, 0, 0, false), false, GapSeverity.NO_GAP, List.of());
+        AtsReadinessAnalysis readiness = ats(90, false, false);
+        ApplicationAdvisorResponse resp = serviceForWithJobMatch(gap, readiness, JOB, 50).advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
+
+        assertEquals(74, resp.applicationReadinessScore()); // round(0.6*90 + 0.4*50) = 54 + 20 = 74
+        assertEquals(50, resp.jobMatchScore());
+        assertEquals(ApplicationRecommendation.APPLY_WITH_IMPROVEMENTS, resp.recommendation());
+    }
+
+    @Test
+    @DisplayName("Phase 7.5: composite formula — ATS 40 + JobMatch 85 = 58")
+    void compositeScoreFormulaAts40JobMatch85() {
+        CareerGapAnalysis gap = gapWith(List.of(), List.of(), List.of(), expGap(0, 0, 0, false), false, GapSeverity.NO_GAP, List.of());
+        AtsReadinessAnalysis readiness = ats(40, false, false);
+        ApplicationAdvisorResponse resp = serviceForWithJobMatch(gap, readiness, JOB, 85).advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
+
+        assertEquals(58, resp.applicationReadinessScore()); // round(0.6*40 + 0.4*85) = 24 + 34 = 58
+        assertEquals(85, resp.jobMatchScore());
+        assertEquals(ApplicationRecommendation.LOW_PRIORITY, resp.recommendation());
+    }
+
+    @Test
+    @DisplayName("Phase 7.5: composite formula — ATS 95 + JobMatch 95 = 95 (STRONGLY_RECOMMENDED)")
+    void compositeScoreFormulaAts95JobMatch95() {
+        CareerGapAnalysis gap = gapWith(List.of(), List.of(), List.of(), expGap(0, 0, 0, false), false, GapSeverity.NO_GAP, List.of());
+        AtsReadinessAnalysis readiness = ats(95, false, false);
+        ApplicationAdvisorResponse resp = serviceForWithJobMatch(gap, readiness, JOB, 95).advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
+
+        assertEquals(95, resp.applicationReadinessScore()); // round(0.6*95 + 0.4*95) = 57 + 38 = 95
+        assertEquals(95, resp.jobMatchScore());
+        assertEquals(ApplicationRecommendation.STRONGLY_RECOMMENDED, resp.recommendation());
+    }
+
+    @Test
+    @DisplayName("Phase 7.5: composite formula — ATS 30 + JobMatch 30 = 30 (NOT_RECOMMENDED)")
+    void compositeScoreFormulaAts30JobMatch30() {
+        CareerGapAnalysis gap = gapWith(List.of(), List.of(), List.of(), expGap(0, 0, 0, false), false, GapSeverity.NO_GAP, List.of());
+        AtsReadinessAnalysis readiness = ats(30, false, false);
+        ApplicationAdvisorResponse resp = serviceForWithJobMatch(gap, readiness, JOB, 30).advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
+
+        assertEquals(30, resp.applicationReadinessScore()); // round(0.6*30 + 0.4*30) = 18 + 12 = 30
+        assertEquals(30, resp.jobMatchScore());
+        assertEquals(ApplicationRecommendation.NOT_RECOMMENDED, resp.recommendation());
+    }
+
+    @Test
+    @DisplayName("readiness score combines 60% ATS score and 40% JobMatch score")
     void readinessScoreFromAts() {
         CareerGapAnalysis gap = gapWith(List.of(skill("Java")), List.of(skillNoEvidence("Kubernetes")),
                 List.of(), expGap(3, 2, 1, true), false, GapSeverity.MEDIUM, List.of());
         AtsReadinessAnalysis readiness = ats(72, true, true);
-        ResumeTailoringAnalysis tailoring = tailoring(readiness);
 
         ApplicationAdvisorResponse resp = serviceFor(gap, readiness, JOB).advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
 
-        assertEquals(72, resp.applicationReadinessScore());
+        assertEquals(63, resp.applicationReadinessScore()); // round(0.6*72 + 0.4*50) = 43.2 + 20 = 63.2 -> 63
     }
 
     @Test
@@ -174,7 +221,6 @@ class ApplicationAdvisorServiceTest {
     void scoreBounds() {
         // ATS already clamps, but verify our service doesn't break it
         AtsReadinessAnalysis readiness = ats(150, false, false); // will be clamped to 100 by ATS
-        ResumeTailoringAnalysis tailoring = tailoring(readiness);
         CareerGapAnalysis gap = gapWith(List.of(), List.of(), List.of(),
                 expGap(0, 0, 0, false), false, GapSeverity.NO_GAP, List.of());
 
@@ -216,12 +262,13 @@ class ApplicationAdvisorServiceTest {
         assertEquals(ApplicationRecommendation.NOT_RECOMMENDED,
                 recommendationForScore(39));
     }
-private ApplicationRecommendation recommendationForScore(int score) {
+
+    private ApplicationRecommendation recommendationForScore(int score) {
         AtsReadinessAnalysis readiness = ats(score, false, false);
         CareerGapAnalysis gap = gapWith(List.of(), List.of(), List.of(),
                 expGap(0, 0, 0, false), false, GapSeverity.NO_GAP, List.of());
 
-        ApplicationAdvisorResponse resp = serviceFor(gap, readiness, JOB).advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
+        ApplicationAdvisorResponse resp = serviceForWithJobMatch(gap, readiness, JOB, score).advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
         return resp.recommendation();
     }
 
@@ -235,14 +282,8 @@ private ApplicationRecommendation recommendationForScore(int score) {
                 expGap(3, 3, 0, false), false, GapSeverity.LOW, List.of());
 
         AtsReadinessAnalysis readiness = ats(85, true, true);
-        ResumeTailoringAnalysis tailoring = tailoring(readiness);
 
-        CandidateProfilePersistenceService profileSvc = mock(CandidateProfilePersistenceService.class);
-        when(profileSvc.getByIdOrThrow(1L)).thenReturn(profileEntity());
-
-        ApplicationAdvisorService service = new ApplicationAdvisorService(                profileSvc, jobService(JOB), gapService(gap), tailoringService(tailoring), mock(JobMatchingService.class));
-
-        ApplicationAdvisorResponse resp = service.advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
+        ApplicationAdvisorResponse resp = serviceFor(gap, readiness, JOB).advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
 
         // Should contain matched skills
         assertTrue(resp.strengths().stream().anyMatch(s -> s.contains("Java")));
@@ -265,14 +306,8 @@ private ApplicationRecommendation recommendationForScore(int score) {
                 List.of());
 
         AtsReadinessAnalysis readiness = ats(55, false, false);
-        ResumeTailoringAnalysis tailoring = tailoring(readiness);
 
-        CandidateProfilePersistenceService profileSvc = mock(CandidateProfilePersistenceService.class);
-        when(profileSvc.getByIdOrThrow(1L)).thenReturn(profileEntity());
-
-        ApplicationAdvisorService service = new ApplicationAdvisorService(                profileSvc, jobService(JOB), gapService(gap), tailoringService(tailoring), mock(JobMatchingService.class));
-
-        ApplicationAdvisorResponse resp = service.advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
+        ApplicationAdvisorResponse resp = serviceFor(gap, readiness, JOB).advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
 
         // Missing required skills
         assertTrue(resp.concerns().stream().anyMatch(c -> c.contains("Kubernetes") && c.contains("required")));
@@ -302,14 +337,8 @@ private ApplicationRecommendation recommendationForScore(int score) {
                 expGap(5, 2, 3, true), false, GapSeverity.HIGH, priorities);
 
         AtsReadinessAnalysis readiness = ats(50, false, false);
-        ResumeTailoringAnalysis tailoring = tailoring(readiness);
 
-        CandidateProfilePersistenceService profileSvc = mock(CandidateProfilePersistenceService.class);
-        when(profileSvc.getByIdOrThrow(1L)).thenReturn(profileEntity());
-
-        ApplicationAdvisorService service = new ApplicationAdvisorService(                profileSvc, jobService(JOB), gapService(gap), tailoringService(tailoring), mock(JobMatchingService.class));
-
-        ApplicationAdvisorResponse resp = service.advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
+        ApplicationAdvisorResponse resp = serviceFor(gap, readiness, JOB).advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
 
         List<String> actions = resp.recommendedActions();
         assertEquals(5, actions.size());
@@ -331,12 +360,8 @@ private ApplicationRecommendation recommendationForScore(int score) {
                 expGap(3, 2, 1, true), false, GapSeverity.MEDIUM, List.of());
 
         AtsReadinessAnalysis readiness = ats(68, true, false);
-        ResumeTailoringAnalysis tailoring = tailoring(readiness);
 
-        CandidateProfilePersistenceService profileSvc = mock(CandidateProfilePersistenceService.class);
-        when(profileSvc.getByIdOrThrow(1L)).thenReturn(profileEntity());
-
-        ApplicationAdvisorService service = new ApplicationAdvisorService(                profileSvc, jobService(JOB), gapService(gap), tailoringService(tailoring), mock(JobMatchingService.class));
+        ApplicationAdvisorService service = serviceFor(gap, readiness, JOB);
 
         ApplicationAdvisorResponse a = service.advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
         ApplicationAdvisorResponse b = service.advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
@@ -359,14 +384,21 @@ private ApplicationRecommendation recommendationForScore(int score) {
 
     private static ApplicationAdvisorService serviceFor(CareerGapAnalysis gap,
                                                         AtsReadinessAnalysis readiness, Job job) {
+        return serviceForWithJobMatch(gap, readiness, job, 50);
+    }
+
+    private static ApplicationAdvisorService serviceForWithJobMatch(CareerGapAnalysis gap,
+                                                                AtsReadinessAnalysis readiness, Job job, int jobMatchScore) {
         CandidateProfilePersistenceService profileSvc = mock(CandidateProfilePersistenceService.class);
         when(profileSvc.getByIdOrThrow(1L)).thenReturn(profileEntity());
+        when(profileSvc.getByIdOrThrow(999L)).thenThrow(new CandidateProfileNotFoundException(999L));
+        JobSearchService jobSvc = jobService(job);
         JobMatchingService jobMatchingSvc = mock(JobMatchingService.class);
-        JobMatch jobMatch = new JobMatch(job, 50, RecommendationLevel.POSSIBLE_MATCH, List.of(), List.of(), List.of(), List.of(), false, false, ExperienceMatchLevel.NO_MATCH, CareerTrack.UNKNOWN, "test", List.of(), List.of(), 0.5, 0.5, 0.5, 0.5, 0.5, 0.5);
+        JobMatch jobMatch = new JobMatch(job, jobMatchScore, RecommendationLevel.POSSIBLE_MATCH, List.of(), List.of(), List.of(), List.of(), false, false, ExperienceMatchLevel.NO_MATCH, CareerTrack.UNKNOWN, "test", List.of(), List.of(), 0.5, 0.5, 0.5, 0.5, 0.5, 0.5);
         JobMatchResult matchResult = new JobMatchResult(1L, "Alice", 1, List.of(jobMatch), "mock", false, "ok");
         when(jobMatchingSvc.matchProfileAgainstJobs(any(CandidateProfile.class), anyList(), any(), any(), anyInt())).thenReturn(matchResult);
         return new ApplicationAdvisorService(
-                profileSvc, jobService(job), gapService(gap), tailoringService(tailoring(readiness)), jobMatchingSvc);
+                profileSvc, jobSvc, gapService(gap), tailoringService(tailoring(readiness)), jobMatchingSvc);
     }
 
     @Test
@@ -591,8 +623,8 @@ private ApplicationRecommendation recommendationForScore(int score) {
         ApplicationAdvisorResponse resp = serviceFor(gap, ats(88, true, true), JOB)
                 .advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
 
-        assertEquals(88, resp.applicationReadinessScore());
-        assertEquals(ApplicationRecommendation.RECOMMENDED, resp.recommendation());
+        assertEquals(73, resp.applicationReadinessScore());
+        assertEquals(ApplicationRecommendation.APPLY_WITH_IMPROVEMENTS, resp.recommendation());
         assertEquals(List.of(
                 "Kubernetes is required by the target job but is not present in the candidate profile.",
                 "AWS is preferred by the target job but is currently missing."),
@@ -611,11 +643,9 @@ private ApplicationRecommendation recommendationForScore(int score) {
 
         ApplicationAdvisorResponse resp = serviceFor(gap, readiness, JOB).advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
 
-        ApplicationAdvisorResponse resp = service.advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
-
         assertNotNull(resp);
-        assertEquals(ApplicationRecommendation.RECOMMENDED, resp.recommendation());
-        assertEquals(80, resp.applicationReadinessScore());
+        assertEquals(ApplicationRecommendation.APPLY_WITH_IMPROVEMENTS, resp.recommendation());
+        assertEquals(68, resp.applicationReadinessScore());
         assertTrue(resp.strengths().size() > 0);
     }
 
@@ -626,9 +656,7 @@ private ApplicationRecommendation recommendationForScore(int score) {
                 expGap(0, 0, 0, false), false, GapSeverity.NO_GAP, List.of());
         AtsReadinessAnalysis readiness = ats(50, false, false);
 
-        ApplicationAdvisorResponse resp = serviceFor(gap, readiness, JOB).advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
-
-        ApplicationAdvisorResponse resp = service.adviseFromDomain(1L, PROFILE, JOB);
+        ApplicationAdvisorResponse resp = serviceFor(gap, readiness, JOB).adviseFromDomain(1L, PROFILE, JOB);
 
         assertNotNull(resp);
         assertEquals(50, resp.applicationReadinessScore());
@@ -676,12 +704,10 @@ private ApplicationRecommendation recommendationForScore(int score) {
         CareerGapAnalysis gap = gapWith(List.of(), List.of(), List.of(),
                 expGap(0, 0, 0, false), false, GapSeverity.NO_GAP, List.of());
         AtsReadinessAnalysis readiness = ats(50, false, false);
+        ApplicationAdvisorService service = serviceFor(gap, readiness, JOB);
 
-        ApplicationAdvisorResponse resp = serviceFor(gap, readiness, JOB).advise(ApplicationAdvisorRequest.fromDomain(999L, "job-1"));
-
-        assertThrows(CandidateProfileNotFoundException.class, () -> { });
-        // The serviceFor mock throws CandidateProfileNotFoundException for candidateId 999L
-        // The exception is thrown in advise() before reaching JobMatchingService
+        assertThrows(CandidateProfileNotFoundException.class,
+                () -> service.advise(ApplicationAdvisorRequest.fromDomain(999L, "job-1")));
     }
 
     @Test
@@ -690,12 +716,10 @@ private ApplicationRecommendation recommendationForScore(int score) {
         CareerGapAnalysis gap = gapWith(List.of(skill("Java")), List.of(), List.of(),
                 expGap(0, 0, 0, false), false, GapSeverity.NO_GAP, List.of());
         AtsReadinessAnalysis readiness = ats(50, false, false);
+        ApplicationAdvisorService service = serviceFor(gap, readiness, JOB);
 
-        ApplicationAdvisorResponse resp = serviceFor(gap, readiness, "unknown").advise(ApplicationAdvisorRequest.fromDomain(1L, "unknown"));
-
-        assertThrows(JobNotFoundException.class, () -> { });
-        // The serviceFor mock throws JobNotFoundException for jobId "unknown"
-        // The exception is thrown in advise() before reaching JobMatchingService
+        assertThrows(JobNotFoundException.class,
+                () -> service.advise(ApplicationAdvisorRequest.fromDomain(1L, "unknown")));
     }
 
     @Test
@@ -705,9 +729,7 @@ private ApplicationRecommendation recommendationForScore(int score) {
                 expGap(0, 0, 0, false), false, GapSeverity.NO_GAP, List.of());
         AtsReadinessAnalysis readiness = ats(50, false, false);
 
-        ApplicationAdvisorResponse resp = serviceFor(gap, readiness, JOB).advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
-
-        ApplicationAdvisorResponse resp = service.adviseFromDomain(1L, PROFILE, JOB);
+        ApplicationAdvisorResponse resp = serviceFor(gap, readiness, JOB).adviseFromDomain(1L, PROFILE, JOB);
 
         String toString = resp.toString();
         assertTrue(!toString.contains("email"));
@@ -723,9 +745,7 @@ private ApplicationRecommendation recommendationForScore(int score) {
                 expGap(0, 0, 0, false), false, GapSeverity.NO_GAP, List.of());
         AtsReadinessAnalysis readiness = ats(50, false, false);
 
-        ApplicationAdvisorResponse resp = serviceFor(gap, readiness, JOB).advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
-
-        ApplicationAdvisorResponse resp = service.adviseFromDomain(1L, PROFILE, JOB);
+        ApplicationAdvisorResponse resp = serviceFor(gap, readiness, JOB).adviseFromDomain(1L, PROFILE, JOB);
 
         String toString = resp.toString();
         assertTrue(!toString.contains("applicationId"));
@@ -741,7 +761,7 @@ private ApplicationRecommendation recommendationForScore(int score) {
                 List.of(), expGap(3, 2, 1, true), false, GapSeverity.MEDIUM, List.of());
         AtsReadinessAnalysis readiness = ats(72, true, true);
 
-        ApplicationAdvisorResponse resp = serviceFor(gap, readiness, JOB).advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
+        ApplicationAdvisorService service = serviceFor(gap, readiness, JOB);
 
         ApplicationAdvisorResponse a = service.advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
         ApplicationAdvisorResponse b = service.advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));

@@ -117,19 +117,19 @@ public class ApplicationAdvisorService {
         int atsReadinessScore = readiness.score();
 
         // Phase 7.5: composite score = 60% ATS + 40% Job Match, clamped 0–100
-        int compositeScore = (int) Math.round(0.60 * atsReadinessScore + 0.40 * jobMatch.matchScore());
+        int compositeScore = (int) Math.round(0.60 * atsReadinessScore + 0.40 * jobMatchScore);
         compositeScore = Math.max(0, Math.min(100, compositeScore));
 
         // Deterministic recommendation mapping (matches RecommendationLevel bands)
         ApplicationRecommendation recommendation = mapScoreToRecommendation(compositeScore);
 
         // Strengths: matched required skills with evidence, ATS evidence flags,
-        // matched preferred skills, complete-coverage line, and JobMatch role alignment
-        List<String> strengths = buildStrengths(gap, readiness, jobMatch);
+        // matched preferred skills, complete-coverage line
+        List<String> strengths = buildStrengths(gap, readiness);
 
         // Concerns: coverage summary, missing skills, experience shortfall/caveat,
-        // track mismatch, location/education mismatches, overall severity last
-        List<String> concerns = buildConcerns(gap, job, jobMatch);
+        // track mismatch, overall severity last
+        List<String> concerns = buildConcerns(gap, job);
 
         // Recommended actions: directly from ImprovementPriority descriptions (preserves rank order)
         List<String> recommendedActions = new ArrayList<>();
@@ -168,13 +168,12 @@ public class ApplicationAdvisorService {
 
     /**
      * Builds strengths from matched required skills, ATS evidence flags, matched
-     * preferred skills, complete-coverage line, and JobMatch role alignment.
+     * preferred skills, and complete-coverage line.
      *
      * <p>Deterministic order: required skills, ATS evidence lines, preferred skills,
-     * complete-coverage line, JobMatch role alignment. Required-skill wording and order
-     * are unchanged from Phase 7.2/7.3.</p>
+     * complete-coverage line. Required-skill wording and order are unchanged from Phase 7.2/7.3.</p>
      */
-    private static List<String> buildStrengths(CareerGapAnalysis gap, AtsReadinessAnalysis readiness, JobMatch jobMatch) {
+    private static List<String> buildStrengths(CareerGapAnalysis gap, AtsReadinessAnalysis readiness) {
         List<String> strengths = new ArrayList<>();
 
         // Matched required skills with evidence sources (Phase 7.2 behavior, unchanged)
@@ -225,26 +224,18 @@ public class ApplicationAdvisorService {
             strengths.add("Complete required-skill coverage (" + totalRequired + "/" + totalRequired + ")");
         }
 
-        // Phase 7.5: JobMatch role alignment strength
-        if (jobMatch != null && jobMatch.roleScore() >= 0.80) {
-            int rolePct = (int) Math.round(jobMatch.roleScore() * 100);
-            strengths.add("Strong role alignment (score: " + rolePct + "%)");
-        }
-
         return List.copyOf(strengths);
     }
 
     /**
      * Builds concerns from the coverage summary, missing skills, experience
-     * shortfall (or unknown-experience caveat), track mismatch, location/education
-     * mismatches from JobMatch, and overall severity.
+     * shortfall (or unknown-experience caveat), track mismatch, and overall severity.
      *
      * <p>Deterministic order: coverage summary, missing required lines, missing
-     * preferred lines, experience line, location mismatch, education mismatch,
-     * track mismatch, overall severity (final). Per-skill, shortfall, mismatch
-     * and severity wording are unchanged from Phase 7.2/7.3.</p>
+     * preferred lines, experience line, track mismatch, overall severity (final).
+     * Per-skill, shortfall, mismatch and severity wording are unchanged from Phase 7.2/7.3.</p>
      */
-    private static List<String> buildConcerns(CareerGapAnalysis gap, Job job, JobMatch jobMatch) {
+    private static List<String> buildConcerns(CareerGapAnalysis gap, Job job) {
         List<String> concerns = new ArrayList<>();
 
         int matchedRequired = gap.matchedRequiredSkills() != null ? gap.matchedRequiredSkills().size() : 0;
@@ -282,18 +273,6 @@ public class ApplicationAdvisorService {
                 && gap.experienceGap() != null && !gap.experienceGap().knowable()) {
             // Phase 7.3: explicit caveat when a requirement exists but years are not determinable
             concerns.add("Experience requirement present but candidate years not determinable from structured data");
-        }
-
-        // Phase 7.5: JobMatch location mismatch concern
-        if (jobMatch != null && jobMatch.locationScore() < 0.50) {
-            int locPct = (int) Math.round(jobMatch.locationScore() * 100);
-            concerns.add("Location mismatch (score: " + locPct + "%)");
-        }
-
-        // Phase 7.5: JobMatch education mismatch concern
-        if (jobMatch != null && jobMatch.educationScore() < 0.50) {
-            int eduPct = (int) Math.round(jobMatch.educationScore() * 100);
-            concerns.add("Education mismatch (score: " + eduPct + "%)");
         }
 
         // Track mismatch (Phase 7.2 behavior, unchanged)
