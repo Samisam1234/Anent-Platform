@@ -1,5 +1,6 @@
 package com.agentplatform.ui.controller;
 
+import com.agentplatform.logging.PiiSanitizer;
 import com.agentplatform.orchestrator.job.exception.JobNotFoundException;
 import com.agentplatform.orchestrator.resume.exception.CandidateProfileNotFoundException;
 import com.agentplatform.orchestrator.service.AgentChatException;
@@ -35,7 +36,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(AgentChatException.class)
     public ProblemDetail handleAgentChatException(AgentChatException ex) {
-        log.error("Ollama communication error: {}", ex.getMessage());
+        log.error("AI model unavailable: status={}, type={}, detail={}",
+                HttpStatus.SERVICE_UNAVAILABLE.value(),
+                "https://agentplatform.local/errors/model-unavailable", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.SERVICE_UNAVAILABLE,
                 ex.getMessage()
@@ -53,7 +56,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(CandidateProfileNotFoundException.class)
     public ProblemDetail handleCandidateProfileNotFound(CandidateProfileNotFoundException ex) {
-        log.warn("Candidate profile not found: {}", ex.getMessage());
+        log.warn("Candidate profile not found: status={}, type={}, detail={}",
+                HttpStatus.NOT_FOUND.value(),
+                "https://agentplatform.local/errors/candidate-profile-not-found", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.NOT_FOUND,
                 ex.getMessage()
@@ -70,7 +75,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgument(IllegalArgumentException ex) {
-        log.warn("Bad request: {}", ex.getMessage());
+        log.warn("Bad request: status={}, type={}, detail={}",
+                HttpStatus.BAD_REQUEST.value(),
+                "https://agentplatform.local/errors/bad-request", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
                 ex.getMessage()
@@ -87,7 +94,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(JobNotFoundException.class)
     public ProblemDetail handleJobNotFound(JobNotFoundException ex) {
-        log.warn("Job not found: {}", ex.getMessage());
+        log.warn("Job not found: status={}, type={}, detail={}",
+                HttpStatus.NOT_FOUND.value(),
+                "https://agentplatform.local/errors/job-not-found", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.NOT_FOUND,
                 ex.getMessage()
@@ -105,7 +114,13 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneric(Exception ex) {
-        log.error("Unhandled server error", ex);
+        // The stack trace (which may echo request content in nested messages)
+        // is kept at DEBUG so ERROR output stays clean and PII-free.
+        log.error("Unhandled server error: status={}, type={}, detail={}",
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "https://agentplatform.local/errors/internal-server-error",
+                PiiSanitizer.sanitize(ex.getMessage()));
+        log.debug("Unhandled server error stack trace", ex);
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "An unexpected error occurred. Please try again later."
@@ -118,11 +133,14 @@ public class GlobalExceptionHandler {
     /**
      * Malformed/unreadable request body.
      *
-     * <p>Returns HTTP 400 Bad Request.</p>
+     * <p>Returns HTTP 400 Bad Request. The parse error message is deliberately
+     * not logged because it can echo fragments of the raw request body.</p>
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ProblemDetail handleUnreadableBody(HttpMessageNotReadableException ex) {
-        log.warn("Malformed or unreadable request body: {}", ex.getMessage());
+        log.warn("Malformed or unreadable request body: status={}, type={}, cause={}",
+                HttpStatus.BAD_REQUEST.value(),
+                "https://agentplatform.local/errors/bad-request", ex.getClass().getSimpleName());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
                 "Malformed or unreadable request body."
@@ -140,7 +158,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(NoResourceFoundException.class)
     public ProblemDetail handleNoResource(NoResourceFoundException ex) {
-        log.warn("No resource found: {}", ex.getResourcePath());
+        log.warn("No resource found: status={}, type={}, resourcePath={}",
+                HttpStatus.NOT_FOUND.value(),
+                "https://agentplatform.local/errors/not-found", PiiSanitizer.sanitize(ex.getResourcePath()));
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.NOT_FOUND,
                 "The requested resource was not found."
@@ -157,7 +177,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ProblemDetail handleMethodNotAllowed(HttpRequestMethodNotSupportedException ex) {
-        log.warn("Method not allowed for path: {}", ex.getMessage());
+        log.warn("Method not allowed: status={}, type={}, method={}",
+                HttpStatus.METHOD_NOT_ALLOWED.value(),
+                "https://agentplatform.local/errors/method-not-allowed", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.METHOD_NOT_ALLOWED,
                 "HTTP method not supported for this resource."
@@ -174,7 +196,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ProblemDetail handleMediaType(HttpMediaTypeNotSupportedException ex) {
-        log.warn("Unsupported media type: {}", ex.getMessage());
+        log.warn("Unsupported media type: status={}, type={}, contentType={}",
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE.value(),
+                "https://agentplatform.local/errors/unsupported-media-type", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.UNSUPPORTED_MEDIA_TYPE,
                 "Unsupported media type."
@@ -191,7 +215,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
-        log.warn("Argument type mismatch: {}", ex.getName());
+        log.warn("Argument type mismatch: status={}, type={}, parameter={}",
+                HttpStatus.BAD_REQUEST.value(),
+                "https://agentplatform.local/errors/bad-request", ex.getName());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
                 "Invalid request parameter."

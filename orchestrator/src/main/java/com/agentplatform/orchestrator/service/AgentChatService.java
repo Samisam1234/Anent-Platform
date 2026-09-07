@@ -2,6 +2,8 @@ package com.agentplatform.orchestrator.service;
 
 import com.agentplatform.core.ai.AiErrorClassifier;
 import com.agentplatform.core.config.OllamaChatModelFactory;
+import com.agentplatform.logging.LoggingContext;
+import com.agentplatform.logging.PiiSanitizer;
 import com.agentplatform.memory.ConversationMessage;
 import com.agentplatform.memory.ConversationStore;
 import com.agentplatform.tools.DefaultToolExecutor;
@@ -28,6 +30,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Core agent chat service.
@@ -78,7 +81,7 @@ public class AgentChatService {
             specs.addAll(ToolSpecifications.toolSpecificationsFrom(emailTools));
         } catch (Exception ex) {
             log.warn("Failed to introspect tool specifications; tool-calling offered to the model only: {}",
-                    ex.getMessage());
+                    PiiSanitizer.sanitize(ex.getMessage()));
         }
         this.toolSpecifications = List.copyOf(specs);
     }
@@ -104,27 +107,41 @@ public class AgentChatService {
             throw new IllegalArgumentException("User message must not be blank");
         }
 
+        LoggingContext.setRunId(UUID.randomUUID().toString());
+        long startNanos = System.nanoTime();
         String effectiveId = (conversationId == null || conversationId.isBlank())
                 ? UUID.randomUUID().toString() : conversationId;
-
-        // Image-intent prompts are short-circuited so the <img> HTML always
-        // renders regardless of whether the selected model supports tools.
-        if (ImageTools.isImageRequest(userMessage)) {
-            String html = this.imageTools.generateImage(userMessage);
-            persistTurn(effectiveId, userMessage, html);
-            return new AgentChatResult(effectiveId, html);
-        }
-
-        List<ChatMessage> messages = buildRequestMessages(systemPrompt, userMessage, effectiveId);
-
         try {
-            String responseText = runModelWithTools(messages, model);
-            persistTurn(effectiveId, userMessage, responseText);
-            return new AgentChatResult(effectiveId, responseText);
-        } catch (AgentChatException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            throw classifiedFailure(ex);
+            log.info("Chat turn START: conversationId={}, model={}, promptChars={}",
+                    effectiveId, model, userMessage.length());
+
+            // Image-intent prompts are short-circuited so the <img> HTML always
+            // renders regardless of whether the selected model supports tools.
+            if (ImageTools.isImageRequest(userMessage)) {
+                String html = this.imageTools.generateImage(userMessage);
+                persistTurn(effectiveId, userMessage, html);
+                log.info("Chat turn COMPLETE (image): conversationId={}, durationMs={}",
+                        effectiveId, elapsedMs(startNanos));
+                return new AgentChatResult(effectiveId, html);
+            }
+
+            List<ChatMessage> messages = buildRequestMessages(systemPrompt, userMessage, effectiveId);
+
+            try {
+                String responseText = runModelWithTools(messages, model);
+                persistTurn(effectiveId, userMessage, responseText);
+                log.info("Chat turn COMPLETE: conversationId={}, durationMs={}",
+                        effectiveId, elapsedMs(startNanos));
+                return new AgentChatResult(effectiveId, responseText);
+            } catch (AgentChatException ex) {
+                log.error("Chat turn FAILED: conversationId={}, durationMs={}, error={}",
+                        effectiveId, elapsedMs(startNanos), ex.getMessage());
+                throw ex;
+            } catch (Exception ex) {
+                throw classifiedFailure(ex);
+            }
+        } finally {
+            LoggingContext.clear();
         }
     }
 
@@ -148,17 +165,37 @@ public class AgentChatService {
         if (userMessage == null || userMessage.isBlank()) {
             throw new IllegalArgumentException("User message must not be blank");
         }
-        if (ImageTools.isImageRequest(userMessage)) {
-            return this.imageTools.generateImage(userMessage);
-        }
 
-        List<ChatMessage> messages = buildRequestMessages(systemPrompt, userMessage, null);
+        // Reuse an outer runId (e.g. already established by a controller) so
+        // nested stateless calls stay correlated; own the MDC only when free.
+        boolean ownsRunId = LoggingContext.getRunId() == null;
+        if (ownsRunId) {
+            LoggingContext.setRunId(UUID.randomUUID().toString());
+        }
+        long startNanos = System.nanoTime();
         try {
-            return runModelWithTools(messages, model);
-        } catch (AgentChatException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            throw classifiedFailure(ex);
+            log.info("Chat turn START: model={}, promptChars={}", model, userMessage.length());
+            if (ImageTools.isImageRequest(userMessage)) {
+                String html = this.imageTools.generateImage(userMessage);
+                log.info("Chat turn COMPLETE (image): durationMs={}", elapsedMs(startNanos));
+                return html;
+            }
+
+            List<ChatMessage> messages = buildRequestMessages(systemPrompt, userMessage, null);
+            try {
+                String responseText = runModelWithTools(messages, model);
+                log.info("Chat turn COMPLETE: durationMs={}", elapsedMs(startNanos));
+                return responseText;
+            } catch (AgentChatException ex) {
+                log.error("Chat turn FAILED: durationMs={}, error={}", elapsedMs(startNanos), ex.getMessage());
+                throw ex;
+            } catch (Exception ex) {
+                throw classifiedFailure(ex);
+            }
+        } finally {
+            if (ownsRunId) {
+                LoggingContext.clear();
+            }
         }
     }
 
@@ -224,7 +261,11 @@ public class AgentChatService {
 
     private static AgentChatException classifiedFailure(Exception ex) {
         String message = AiErrorClassifier.classify(ex, "Ollama").message();
-        log.error("Agent chat failed ({}): {}", "Ollama", ex.getMessage());
+        log.error("Agent chat failed ({}): {}", "Ollama", PiiSanitizer.sanitize(ex.getMessage()));
         return new AgentChatException(message, ex);
+    }
+
+    private static long elapsedMs(long startNanos) {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
     }
 }

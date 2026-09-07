@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -58,12 +59,16 @@ public class DefaultToolExecutor {
         if (tool == null) {
             return ToolExecutionResultMessage.from(request, unknownToolMessage(toolName));
         }
+        long startNanos = System.nanoTime();
         try {
             Map<String, Object> args = parseArguments(request.arguments());
             String result = tool.execute(args);
+            log.info("Tool '{}' executed: success=true, durationMs={}",
+                    toolName, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos));
             return ToolExecutionResultMessage.from(request, result);
         } catch (Exception ex) {
-            log.warn("Tool '{}' failed: {}", toolName, ex.getMessage());
+            log.warn("Tool '{}' failed: success=false, durationMs={}",
+                    toolName, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos));
             return ToolExecutionResultMessage.from(
                     request, "Tool '" + toolName + "' failed: " + ex.getMessage());
         }

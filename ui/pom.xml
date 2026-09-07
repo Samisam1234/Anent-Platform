@@ -30,6 +30,12 @@
             <artifactId>orchestrator</artifactId>
         </dependency>
 
+        <!-- logging provides logback-spring.xml (classpath), LoggingContext + PiiSanitizer -->
+        <dependency>
+            <groupId>com.agentplatform</groupId>
+            <artifactId>logging</artifactId>
+        </dependency>
+
         <!-- Spring Boot DevTools (optional, speeds up restart during dev) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

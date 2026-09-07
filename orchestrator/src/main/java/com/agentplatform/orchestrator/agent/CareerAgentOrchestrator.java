@@ -1,5 +1,7 @@
 package com.agentplatform.orchestrator.agent;
 
+import com.agentplatform.logging.LoggingContext;
+import com.agentplatform.logging.PiiSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -9,6 +11,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Bounded sequential orchestrator for the career-agent pipeline.
@@ -132,6 +136,19 @@ public class CareerAgentOrchestrator {
      * {@code executed} semantics while also providing the full ordered state list.
      */
     private PipelineTrace runPipeline(AgentContext context) {
+        LoggingContext.setRunId(UUID.randomUUID().toString());
+        long runStartNanos = System.nanoTime();
+        log.info("Orchestration RUN START: runId={}", LoggingContext.getRunId());
+        try {
+            return doRunPipeline(context);
+        } finally {
+            log.info("Orchestration RUN COMPLETE: totalDurationMs={}",
+                    TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - runStartNanos));
+            LoggingContext.clear();
+        }
+    }
+
+    private PipelineTrace doRunPipeline(AgentContext context) {
         List<AgentResult> executed = new ArrayList<>();
         Map<AgentType, AgentResult> states = new LinkedHashMap<>();
         AgentType stoppingAgentType = null;
@@ -148,7 +165,7 @@ public class CareerAgentOrchestrator {
                 skipped = skipped.withStartTime().withCompletionTime();
                 context.record(skipped);
                 states.put(type, skipped);
-                log.info("Agent {} skipped (missing required input)", type);
+                log.info("Agent SKIPPED: type={}, reason={}", type, skipReason(type));
                 continue;
             }
 
@@ -158,11 +175,12 @@ public class CareerAgentOrchestrator {
             running = running.withStartTime();
             context.record(running);
 
+            log.info("Agent START: type={}", type);
             AgentResult result;
             try {
                 result = agent.execute(request, context);
             } catch (Exception e) {
-                log.warn("Agent {} threw during execution: {}", type, safeMessage(e));
+                log.warn("Agent {} threw during execution: {}", type, PiiSanitizer.sanitize(e.getMessage()));
                 result = AgentResult.failed(type, "Agent execution failed.", "AGENT_EXECUTION_ERROR");
             }
             // Record completion time
@@ -171,6 +189,8 @@ public class CareerAgentOrchestrator {
             states.put(type, result);
 
             if (!result.success()) {
+                log.warn("Agent FAILED: type={}, durationMs={}, errorCode={}, blocking={}",
+                        type, result.durationMs(), result.errorCode(), BLOCKING_FAILURES.contains(type));
                 if (BLOCKING_FAILURES.contains(type)) {
                     log.warn("Blocking agent {} failed; aborting pipeline", type);
                     stoppingAgentType = type;
@@ -179,6 +199,8 @@ public class CareerAgentOrchestrator {
                     break;
                 }
                 log.warn("Non-blocking agent {} failed; continuing", type);
+            } else {
+                log.info("Agent COMPLETE: type={}, durationMs={}", type, result.durationMs());
             }
             executed.add(result);
 
@@ -257,10 +279,5 @@ public class CareerAgentOrchestrator {
             String blockingMessage,
             boolean allSuccess
     ) {
-    }
-
-    private static String safeMessage(Object value) {
-        String s = value == null ? "unknown" : value.toString();
-        return s.length() > 220 ? s.substring(0, 220) + "…" : s;
     }
 }

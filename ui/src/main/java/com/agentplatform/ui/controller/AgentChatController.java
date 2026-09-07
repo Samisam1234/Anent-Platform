@@ -1,5 +1,6 @@
 package com.agentplatform.ui.controller;
 
+import com.agentplatform.logging.PiiSanitizer;
 import com.agentplatform.orchestrator.service.AgentChatService;
 import com.agentplatform.ui.dto.ChatRequest;
 import com.agentplatform.ui.dto.ChatResponse;
@@ -44,7 +45,8 @@ public class AgentChatController {
      */
     @PostMapping("/chat")
     public ResponseEntity<ChatResponse> chat(@RequestBody ChatRequest request) {
-        log.info("Received chat request: query='{}'", request.query());
+        // Never log the raw user query — only safe metadata (character count).
+        log.info("Received chat request: queryChars={}", PiiSanitizer.safeLength(request.query()));
 
         String aiResponse = agentChatService.chat(request.query());
         return ResponseEntity.ok(new ChatResponse(aiResponse));

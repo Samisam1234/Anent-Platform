@@ -10,10 +10,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
@@ -360,9 +363,22 @@ class ApplicationEmailServiceTest {
     class PIISafeLoggingTests {
 
         @Test
-        @DisplayName("service does not log P-sensitive data")
-        void noPIILogging() {
-            assertTrue(true);
+        @ExtendWith(OutputCaptureExtension.class)
+        @DisplayName("service does not log recipient email or message body")
+        void noPIILogging(CapturedOutput output) {
+            ApplicationEmailDraft draft = new ApplicationEmailDraft(
+                    "j1", null, "Acme", "Java Developer",
+                    "Hiring Manager", "secret.recipient@example.com",
+                    "Application for Java Developer",
+                    "Body",
+                    "DRAFT_ONLY",
+                    ApplicationDraftStatus.REVIEW_REQUIRED,
+                    List.of());
+            service.send(draft, true);
+            assertFalse(output.getAll().contains("secret.recipient@example.com"),
+                    "recipient email must not appear in logs");
+            assertTrue(output.getAll().contains("maskedRecipient"),
+                    "safe masked recipient metadata should be present");
         }
     }
 

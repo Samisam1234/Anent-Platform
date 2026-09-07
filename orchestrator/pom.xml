@@ -18,6 +18,12 @@
     <description>Agent orchestration and business logic</description>
 
     <dependencies>
+        <!-- logging provides LoggingContext (MDC runId) + PiiSanitizer (redaction) -->
+        <dependency>
+            <groupId>com.agentplatform</groupId>
+            <artifactId>logging</artifactId>
+        </dependency>
+
         <!-- agent-core provides ChatModel bean -->
         <dependency>
             <groupId>com.agentplatform</groupId>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Phase 8.3 centralized Logback configuration.
+
+  Console-only, plain structured text: timestamp, level, runId (from MDC),
+  logger, message. INFO for application logs, WARN for the noisy LangChain4j
+  third-party logs. No file rotation, no persistence, no JSON, no SIEM.
+-->
+<configuration>
+
+    <property name="CONSOLE_PATTERN"
+              value="%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{runId:-}] [%logger{40}] %msg%n"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <charset>UTF-8</charset>
+            <pattern>${CONSOLE_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Application logs at INFO by default. -->
+    <logger name="com.agentplatform" level="INFO"/>
+
+    <!-- Third-party LangChain4j chatter is noisy; keep it WARN. -->
+    <logger name="dev.langchain4j" level="WARN"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>

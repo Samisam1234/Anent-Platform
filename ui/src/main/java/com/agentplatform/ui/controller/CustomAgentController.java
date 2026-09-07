@@ -1,5 +1,7 @@
 package com.agentplatform.ui.controller;
 
+import com.agentplatform.logging.LoggingContext;
+import com.agentplatform.logging.PiiSanitizer;
 import com.agentplatform.orchestrator.service.AgentChatException;
 import com.agentplatform.orchestrator.service.AgentChatService;
 import com.agentplatform.ui.dto.AgentProcessResponse;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -74,22 +77,33 @@ public class CustomAgentController {
             throw new IllegalArgumentException("Prompt must not be blank");
         }
 
+        LoggingContext.setRunId(UUID.randomUUID().toString());
         long startNanos = System.nanoTime();
         TaskType taskType = request.taskType() != null ? request.taskType() : TaskType.GENERAL;
-        log.info("Received custom process request: taskType={}, promptChars={}", taskType, request.prompt().length());
+        log.info("Custom process START: runId={}, taskType={}, promptChars={}",
+                LoggingContext.getRunId(), taskType, request.prompt().length());
 
         try {
             String modelOutput = agentChatService.chat(taskType.systemPrompt(), request.prompt(), request.model());
             StructuredAgentResult result = StructuredAgentResult.fromJson(modelOutput);
             long executionTimeMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
 
-            log.info("Completed custom process: taskType={}, executionTimeMs={}", taskType, executionTimeMs);
+            log.info("Custom process COMPLETE: taskType={}, executionTimeMs={}", taskType, executionTimeMs);
             return ResponseEntity.ok(new AgentProcessResponse(request.prompt(), taskType, result, executionTimeMs));
         } catch (AgentChatException e) {
+            log.error("Custom process FAILED: taskType={}, executionTimeMs={}, error={}",
+                    taskType, elapsedMs(startNanos), PiiSanitizer.sanitize(e.getMessage()));
             throw e;
         } catch (Exception e) {
-            log.error("Failed to parse structured response for taskType={}: {}", taskType, e.getMessage());
+            log.error("Custom process FAILED: taskType={}, cause={}, error={}",
+                    taskType, e.getClass().getSimpleName(), PiiSanitizer.sanitize(e.getMessage()));
             throw new AgentChatException("The AI model returned an invalid structured response.", e);
+        } finally {
+            LoggingContext.clear();
         }
+    }
+
+    private static long elapsedMs(long startNanos) {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
     }
 }

@@ -1,5 +1,6 @@
 package com.agentplatform.orchestrator.application;
 
+import com.agentplatform.logging.PiiSanitizer;
 import com.agentplatform.tools.EmailTools;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,19 +86,20 @@ public class ApplicationEmailService {
             try {
                 String result = emailTools.sendEmail(recipient, subject, body);
                 if (result != null && result.startsWith("Failed to send")) {
-                    log.warn("Email send failed: {}", result);
+                    log.warn("Email send failed: {}", PiiSanitizer.sanitize(result));
                     return ApplicationSendResult.failed(result);
                 }
-                log.info("Email sent successfully to {} (subject: {}).", recipient, subject);
+                log.info("Email sent successfully: maskedRecipient={}, subjectChars={}",
+                        PiiSanitizer.safeEmail(recipient), PiiSanitizer.safeLength(subject));
                 return ApplicationSendResult.SENT;
             } catch (Exception e) {
-                log.error("Email send exception: {}", e.getMessage());
+                log.error("Email send exception: {}", PiiSanitizer.sanitize(e.getMessage()));
                 return ApplicationSendResult.failed("Email send failed: " + e.getMessage());
             }
         }
 
-        log.info("Email validation passed; ready to send (simulated). " +
-                "Recipient: {}, Subject: {}, JobId: {}", recipient, subject, jobId);
+        log.info("Email validation passed; ready to send (simulated): maskedRecipient={}, subjectChars={}, jobId={}",
+                PiiSanitizer.safeEmail(recipient), PiiSanitizer.safeLength(subject), jobId);
         return ApplicationSendResult.SENT;
     }
 }

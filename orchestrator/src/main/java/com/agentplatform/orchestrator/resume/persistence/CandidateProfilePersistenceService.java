@@ -1,5 +1,6 @@
 package com.agentplatform.orchestrator.resume.persistence;
 
+import com.agentplatform.logging.PiiSanitizer;
 import com.agentplatform.orchestrator.resume.CandidateProfile;
 import com.agentplatform.orchestrator.resume.entity.CandidateProfileEntity;
 import com.agentplatform.orchestrator.resume.exception.CandidateProfileNotFoundException;
@@ -27,7 +28,9 @@ public class CandidateProfilePersistenceService {
         }
         CandidateProfileEntity entity = CandidateProfileEntity.fromDomain(profile);
         CandidateProfileEntity saved = (CandidateProfileEntity)this.repository.save(entity);
-        log.info("Persisted candidate profile: id={}, name='{}', email='{}'", new Object[]{saved.getId(), saved.getName(), saved.getEmail()});
+        // Never log the candidate's email or raw resume text — only safe metadata.
+        log.info("Persisted candidate profile: id={}, nameChars={}",
+                saved.getId(), PiiSanitizer.safeLength(saved.getName()));
         return saved;
     }
 

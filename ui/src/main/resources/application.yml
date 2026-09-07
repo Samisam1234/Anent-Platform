@@ -74,6 +74,10 @@ logging:
   level:
     com.agentplatform: INFO
     dev.langchain4j: WARN
+  app:
+    # Master switch for the Phase 8.3 centralized correlated logging
+    # (LoggingContext, MDC runId, lifecycle logging). Independent of logging.level.
+    enabled: true
 
 # ── RAG Service (Phase 8.2) ──────────────────────────────────────────
 # Standalone retrieval-augmented generation foundation. Dormant unless

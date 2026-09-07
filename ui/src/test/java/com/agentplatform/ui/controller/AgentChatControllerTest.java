@@ -5,12 +5,19 @@ import com.agentplatform.orchestrator.service.AgentChatService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -23,6 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * no Ollama connection required). {@link AgentChatService} is mocked.</p>
  */
 @WebMvcTest(controllers = {AgentChatController.class, GlobalExceptionHandler.class})
+@ExtendWith(OutputCaptureExtension.class)
 class AgentChatControllerTest {
 
     @Autowired
@@ -71,7 +79,7 @@ class AgentChatControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // ─── Error: Ollama down ───────────────────────────────────────────────────
+    // ─── Ollama unavailable ───────────────────────────────────────────────────
 
     @Test
     @DisplayName("POST /api/v1/agent/chat — returns 503 when Ollama is unreachable")
@@ -88,5 +96,25 @@ class AgentChatControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
                 .andExpect(status().isServiceUnavailable());
+    }
+
+    // ─── E1. Raw query is never logged ──────────────────────────────────────
+
+    @Test
+    @DisplayName("POST /api/v1/agent/chat — does not log the raw user query")
+    void chat_doesNotLogRawQuery(CapturedOutput output) throws Exception {
+        String secret = "super-secret-query-" + UUID.randomUUID();
+        when(agentChatService.chat(secret)).thenReturn("ok");
+
+        mockMvc.perform(post("/api/v1/agent/chat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new com.agentplatform.ui.dto.ChatRequest(secret))))
+                .andExpect(status().isOk());
+
+        assertFalse(output.getAll().contains(secret),
+                "the raw user query must never appear in application logs");
+        assertTrue(output.getAll().contains("queryChars"),
+                "safe query length metadata should be present");
     }
 }
