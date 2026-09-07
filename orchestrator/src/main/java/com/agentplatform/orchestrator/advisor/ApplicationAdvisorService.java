@@ -125,11 +125,11 @@ public class ApplicationAdvisorService {
 
         // Strengths: matched required skills with evidence, ATS evidence flags,
         // matched preferred skills, complete-coverage line
-        List<String> strengths = buildStrengths(gap, readiness);
+        List<String> strengths = buildStrengths(gap, readiness, jobMatch);
 
         // Concerns: coverage summary, missing skills, experience shortfall/caveat,
-        // track mismatch, overall severity last
-        List<String> concerns = buildConcerns(gap, job);
+        // track mismatch, location/education mismatches, overall severity last
+        List<String> concerns = buildConcerns(gap, job, jobMatch);
 
         // Recommended actions: directly from ImprovementPriority descriptions (preserves rank order)
         List<String> recommendedActions = new ArrayList<>();
@@ -166,14 +166,15 @@ public class ApplicationAdvisorService {
         return ApplicationRecommendation.NOT_RECOMMENDED;
     }
 
-    /**
+/**
      * Builds strengths from matched required skills, ATS evidence flags, matched
      * preferred skills, and complete-coverage line.
      *
      * <p>Deterministic order: required skills, ATS evidence lines, preferred skills,
-     * complete-coverage line. Required-skill wording and order are unchanged from Phase 7.2/7.3.</p>
+     * complete-coverage line. Required-skill wording and order are unchanged from
+     * Phase 7.2/7.3.</p>
      */
-    private static List<String> buildStrengths(CareerGapAnalysis gap, AtsReadinessAnalysis readiness) {
+    private static List<String> buildStrengths(CareerGapAnalysis gap, AtsReadinessAnalysis readiness, JobMatch jobMatch) {
         List<String> strengths = new ArrayList<>();
 
         // Matched required skills with evidence sources (Phase 7.2 behavior, unchanged)
@@ -224,18 +225,26 @@ public class ApplicationAdvisorService {
             strengths.add("Complete required-skill coverage (" + totalRequired + "/" + totalRequired + ")");
         }
 
+        // Phase 7.5B: Strong role alignment explanation
+        if (jobMatch != null && jobMatch.roleScore() >= 0.80) {
+            int rolePct = (int) Math.round(jobMatch.roleScore() * 100);
+            strengths.add("Strong role alignment (score: " + rolePct + "%)");
+        }
+
         return List.copyOf(strengths);
     }
 
     /**
      * Builds concerns from the coverage summary, missing skills, experience
-     * shortfall (or unknown-experience caveat), track mismatch, and overall severity.
+     * shortfall (or unknown-experience caveat), track mismatch, location/education
+     * mismatches from JobMatch, and overall severity.
      *
      * <p>Deterministic order: coverage summary, missing required lines, missing
-     * preferred lines, experience line, track mismatch, overall severity (final).
-     * Per-skill, shortfall, mismatch and severity wording are unchanged from Phase 7.2/7.3.</p>
+     * preferred lines, experience line, location mismatch, education mismatch,
+     * track mismatch, overall severity (final). Per-skill, shortfall, mismatch
+     * and severity wording are unchanged from Phase 7.2/7.3.</p>
      */
-    private static List<String> buildConcerns(CareerGapAnalysis gap, Job job) {
+    private static List<String> buildConcerns(CareerGapAnalysis gap, Job job, JobMatch jobMatch) {
         List<String> concerns = new ArrayList<>();
 
         int matchedRequired = gap.matchedRequiredSkills() != null ? gap.matchedRequiredSkills().size() : 0;
@@ -278,6 +287,18 @@ public class ApplicationAdvisorService {
         // Track mismatch (Phase 7.2 behavior, unchanged)
         if (gap.trackMismatch()) {
             concerns.add("Career track mismatch: candidate track (" + gap.candidateTrack() + ") differs from job track (" + gap.jobTrack() + ")");
+        }
+
+        // Phase 7.5B: Location mismatch explanation
+        if (jobMatch != null && jobMatch.locationScore() < 0.50) {
+            int locPct = (int) Math.round(jobMatch.locationScore() * 100);
+            concerns.add("Location mismatch (score: " + locPct + "%)");
+        }
+
+        // Phase 7.5B: Education mismatch explanation
+        if (jobMatch != null && jobMatch.educationScore() < 0.50) {
+            int eduPct = (int) Math.round(jobMatch.educationScore() * 100);
+            concerns.add("Education mismatch (score: " + eduPct + "%)");
         }
 
         // Overall gap severity, exactly once and always final (Phase 7.2 behavior, unchanged)

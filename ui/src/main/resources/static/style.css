@@ -267,6 +267,56 @@ a:hover{text-decoration:underline}
 .toast svg{width:18px;height:18px;flex-shrink:0}
 @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
 
+/* ── Application Advisor ── */
+.btn-advisor {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    background: var(--warning-light);
+    color: var(--warning);
+    border: 1px solid var(--warning);
+    border-radius: var(--radius);
+    font-size: .875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .2s;
+}
+.btn-advisor svg { width: 16px; height: 16px; }
+.btn-advisor:hover:not(:disabled) { background: var(--warning); color: #fff; }
+.btn-advisor:disabled { opacity: .45; cursor: not-allowed; }
+
+.advisor-review-overlay { position: fixed; inset: 0; background: rgba(2,6,23,.75); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 24px; }
+.advisor-review-modal { width: 100%; max-width: 640px; max-height: 80vh; overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow); display: flex; flex-direction: column; }
+.advisor-review-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 24px; border-bottom: 1px solid var(--border); }
+.advisor-review-title { font-size: 1.15rem; font-weight: 700; }
+.advisor-review-subtitle { font-size: .85rem; color: var(--text-secondary); }
+.advisor-review-close { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-secondary); cursor: pointer; }
+.advisor-review-close svg { width: 16px; height: 16px; }
+.advisor-review-banner { display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: var(--warning-light); border: 1px solid rgba(245,158,11,.3); border-radius: var(--radius); margin: 16px 16px 0; font-size: .85rem; color: var(--warning); }
+.advisor-review-banner svg { width: 20px; height: 20px; flex-shrink: 0; }
+.advisor-review-body { padding: 20px 24px; }
+.advisor-review-row { display: flex; gap: 16px; margin-bottom: 16px; }
+.advisor-review-stat { flex: 1; text-align: center; }
+.advisor-review-stat-label { font-size: .75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+.advisor-review-stat-value { font-size: 1.1rem; font-weight: 600; }
+.advisor-review-section { margin-bottom: 20px; }
+.advisor-review-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.advisor-review-section-head h3 { font-size: .9rem; font-weight: 600; }
+.advisor-review-card { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; font-size: .85rem; color: var(--text-secondary); line-height: 1.7; }
+.advisor-review-card .advisor-ul { list-style: none; padding-left: 0; }
+.advisor-review-card .advisor-ul li { padding: 2px 0; }
+.advisor-review-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.advisor-review-section-head h3 { font-size: .9rem; font-weight: 600; }
+.advisor-review-card { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; font-size: .85rem; color: var(--text-secondary); line-height: 1.7; }
+.advisor-review-card .advisor-ul { list-style: none; padding-left: 0; }
+.advisor-review-card .advisor-ul li { padding: 2px 0; }
+.advisor-review-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.advisor-review-section-head h3 { font-size: .9rem; font-weight: 600; }
+.advisor-review-card .advisor-ul { list-style: none; padding-left: 0; }
+.advisor-review-card .advisor-ul li { padding: 2px 0; }
+.advisor-review-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
+
 /* ── Career Agent (orchestration) ── */
 .btn-career-agent{display:inline-flex;align-items:center;gap:6px;padding:10px 16px;background:var(--accent-light);color:var(--accent);border:1px solid var(--accent);border-radius:var(--radius);font-size:.875rem;font-weight:500;cursor:pointer;transition:all .2s}
 .btn-career-agent svg{width:16px;height:16px}

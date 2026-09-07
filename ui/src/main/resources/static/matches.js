@@ -45,6 +45,7 @@
     const toastContainer = document.getElementById('toastContainer');
 
     const API_ENDPOINT = '/api/v1/jobs/match';
+const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
 
     let candidateId = localStorage.getItem(LS_CANDIDATE_ID) || null;
     let candidateName = localStorage.getItem(LS_CANDIDATE_NAME) || null;
@@ -388,6 +389,13 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 </button>
                 ` : ''}
+
+                ${candidateId ? `
+                <button type="button" class="btn-advisor application-advisor-btn" data-candidate-id="${candidateId}" data-job-id="${job.id || ''}" data-job-title="${esc(job.title || '')}" data-company="${esc(job.company || '')}" data-location="${esc(job.location || '')}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                    <span>Run Application Advisor</span>
+                </button>
+                ` : ''}
         `;
 
         if (window.jobDetails) window.jobDetails.register(job);
@@ -451,10 +459,50 @@
         }, 4000);
     }
 
-    // ─── Prepare Application button ──────────────────────────────────────────
+    // ─── Application Advisor button ────────────────────────────────────────────
     document.addEventListener('click', (e) => {
-        const btn = e.target.closest('.application-prepare-btn');
-        if (!btn) return;
+        const btn = e.target.closest('.application-advisor-btn');
+        if (btn) {
+            const candidateId = Number(btn.dataset.candidateId);
+            const jobId = btn.dataset.jobId;
+            const jobTitle = btn.dataset.jobTitle;
+            const company = btn.dataset.company;
+            const location = btn.dataset.location;
+
+            if (!candidateId || !jobId) {
+                showToast('Missing required information to run application advisor.', 'error');
+                return;
+            }
+
+            // Show confirmation
+            if (!confirm(`Run Application Advisor for "${jobTitle}" at ${company}?\n\nThis will evaluate your application readiness against the job using your profile and the job requirements.`)) {
+                return;
+            }
+
+            fetch('/api/v1/jobs/advisor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    candidateId: candidateId,
+                    jobId: jobId
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw new Error(err.detail || `HTTP ${response.status}`); });
+                }
+                return response.json();
+            })
+            .then(data => {
+                showToast('Application Advisor completed.', 'success');
+                openAdvisorReview(data);
+            })
+            .catch(err => {
+                console.error('Error running application advisor:', err);
+                showToast(err.message || 'Failed to run application advisor.', 'error');
+            });
+            return;
+        }
 
         const candidateId = Number(btn.dataset.candidateId);
         const jobId = btn.dataset.jobId;
@@ -573,11 +621,20 @@
     }
 
     document.addEventListener('click', (e) => {
+        // Advisor Review Modal close/done
+        if (e.target.closest('#advisorReviewClose') || e.target.closest('#advisorReviewDone')) {
+            closeAdvisorReview();
+            return;
+        }
+
+        // Prepared Application review modal
         if (e.target.closest('#prepReviewClose') || e.target.closest('#prepReviewDone')) {
             closePreparedReview();
+            return;
         }
         if (e.target === prepReviewOverlay) {
             closePreparedReview();
+            return;
         }
         const copyBtn = e.target.closest('.copy-btn');
         if (copyBtn) {
@@ -586,10 +643,60 @@
     });
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && prepReviewOverlay && !prepReviewOverlay.hidden) {
-            closePreparedReview();
+        if (e.key === 'Escape') {
+            if (prepReviewOverlay && !prepReviewOverlay.hidden) {
+                closePreparedReview();
+            }
+            if (advisorReviewOverlay && !advisorReviewOverlay.hidden) {
+                closeAdvisorReview();
+            }
         }
     });
+
+    // ─── Application Advisor Review Modal ─────────────────────────────────
+    const advisorReviewOverlay = document.getElementById('advisorReviewOverlay');
+
+    function openAdvisorReview(data) {
+        if (!advisorReviewOverlay) return;
+        const adv = data || {};
+        document.getElementById('advisorReviewSubtitle').textContent = `Score: ${adv.applicationReadinessScore || '—'}/100`;
+        document.getElementById('advisorReviewJobTitle').textContent = adv.jobTitle || '—';
+        document.getElementById('advisorReviewCompany').textContent = adv.company || '—';
+
+        document.getElementById('advisorReviewRecommendation').textContent = adv.recommendation || '—';
+        document.getElementById('advisorReviewReadiness').textContent = `${adv.applicationReadinessScore || '—'}/100`;
+        document.getElementById('advisorReviewJobMatch').textContent = `${adv.jobMatchScore || '—'}/100`;
+
+        const strengthsUl = document.getElementById('advisorReviewStrengths');
+        strengthsUl.innerHTML = (adv.strengths && adv.strengths.length)
+            ? adv.strengths.map(s => `<li>${esc(s)}</li>`).join('')
+            : '<li>No strengths listed.</li>';
+
+        const concernsUl = document.getElementById('advisorReviewConcerns');
+        concernsUl.innerHTML = (adv.concerns && adv.concerns.length)
+            ? adv.concerns.map(c => `<li>${esc(c)}</li>`).join('')
+            : '<li>No concerns listed.</li>';
+
+        const actionsUl = document.getElementById('advisorReviewActions');
+        actionsUl.innerHTML = (adv.recommendedActions && adv.recommendedActions.length)
+            ? adv.recommendedActions.map(a => `<li>${esc(a)}</li>`).join('')
+            : '<li>No recommended actions.</li>';
+
+        const detailsUl = document.getElementById('advisorReviewDetails');
+        detailsUl.innerHTML = (adv.recommendedActionDetails && adv.recommendedActionDetails.length)
+            ? adv.recommendedActionDetails.map(d => `<li><strong>${esc(d.focus)}</strong> (${esc(d.type)}): ${esc(d.description)}</li>`).join('')
+            : '<li>No action details available.</li>';
+
+        advisorReviewOverlay.hidden = false;
+        document.body.classList.add('modal-open');
+    }
+
+    function closeAdvisorReview() {
+        if (advisorReviewOverlay) {
+            advisorReviewOverlay.hidden = true;
+            document.body.classList.remove('modal-open');
+        }
+    }
 
     // ─── Boot ─────────────────────────────────────────────────────────────────
     init();

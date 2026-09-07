@@ -289,6 +289,7 @@
             <div class="agent-usage-row">
                 <div class="agent-usage-cell"><span class="agent-usage-num">${Number(data.aiCallsUsed) || 0}</span><span class="agent-usage-label">AI calls</span></div>
                 <div class="agent-usage-cell"><span class="agent-usage-num">${Number(data.toolCallsUsed) || 0}</span><span class="agent-usage-label">Tool calls</span></div>
+                <div class="agent-usage-cell"><span class="agent-usage-num">${Number(data.jobMatchScore) || 0}</span><span class="agent-usage-label">Job Match</span></div>
                 <div class="agent-usage-cell"><span class="agent-usage-num">${esc(printable(data.stoppingAgentType) || '—')}</span><span class="agent-usage-label">Stopped at</span></div>
             </div>
 
@@ -298,6 +299,19 @@
             ${executions
                 ? `<ul class="agent-executions-list">${executions}</ul>`
                 : `<p class="modal-hint">No agent executions were reported for this run.</p>`}
+
+            ${data.recommendedActionDetails && data.recommendedActionDetails.length ? `
+            <div class="advisor-action-details">
+                <h4 class="agent-section-title">Recommended Action Details</h4>
+                <ul class="advisor-action-details-list">
+                    ${data.recommendedActionDetails.map(d => `
+                        <li>
+                            <strong>${esc(d.focus)}</strong> (${esc(d.type)}): ${esc(d.description)}
+                            ${d.reason ? `<br><small class="agent-action-reason">${esc(d.reason)}</small>` : ''}
+                        </li>`).join('')}
+                </ul>
+            </div>
+            ` : ''}
 
             <p class="agent-note">The application advisor preparing material does not send email or submit applications. Sending in this platform only ever happens through the explicit, approval-gated application review flow.</p>
 

@@ -223,6 +223,9 @@
                 applicationDetailLocation.textContent = `Location: ${app.location || 'Not Specified'}`;
                 document.getElementById('applicationDetailMatchScore').textContent = `Match Score: ${app.matchScore != null ? app.matchScore + '/100' : '—'}`;
 
+                // Fetch and display Application Advisor results
+                loadApplicationAdvisor(app.jobId);
+
                 // Store original data for edit mode
                 originalData = {
                     coverLetter: app.coverLetter || '',
@@ -618,6 +621,79 @@
                 applicationDetailSection.hidden = true;
                 applicationsListSection.hidden = false;
             });
+        }
+    }
+
+    // ─── Load Application Advisor results ──────────────────────────────────────
+    function loadApplicationAdvisor(jobId) {
+        if (!candidateId || !jobId) return;
+
+        fetch('/api/v1/jobs/advisor', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ candidateId, jobId })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw new Error(err.detail || `HTTP ${response.status}`); });
+            }
+            return response.json();
+        })
+        .then(data => {
+            renderApplicationAdvisor(data);
+        })
+        .catch(err => {
+            console.error('Error loading application advisor:', err);
+        });
+    }
+
+    function renderApplicationAdvisor(data) {
+        const adv = data || {};
+        
+        // Update recommendation badge
+        const recEl = document.getElementById('applicationDetailRecommendation');
+        if (recEl) recEl.textContent = adv.recommendation || '—';
+
+        // Add readiness score next to match score
+        const matchScoreEl = document.getElementById('applicationDetailMatchScore');
+        if (matchScoreEl && adv.applicationReadinessScore != null) {
+            matchScoreEl.textContent = `Match Score: ${app.matchScore != null ? app.matchScore + '/100' : '—'} | Readiness: ${adv.applicationReadinessScore}/100 | Job Match: ${adv.jobMatchScore || '—'}/100`;
+        }
+
+        // Strengths
+        const strengthsUl = document.getElementById('applicationDetailStrengths');
+        if (strengthsUl && adv.strengths && adv.strengths.length) {
+            strengthsUl.innerHTML = adv.strengths.map(s => `<li>${esc(s)}</li>`).join('');
+        }
+
+        // Concerns
+        const gapsUl = document.getElementById('applicationDetailGaps');
+        if (gapsUl && adv.concerns && adv.concerns.length) {
+            gapsUl.innerHTML = adv.concerns.map(c => `<li>${esc(c)}</li>`).join('');
+        }
+
+        // Recommended actions
+        const recActionsContainer = document.createElement('div');
+        recActionsContainer.className = 'application-detail-section';
+        recActionsContainer.innerHTML = `
+            <h3>Recommended Actions</h3>
+            <ul class="application-detail-actions-list">
+                ${(adv.recommendedActions && adv.recommendedActions.length)
+                    ? adv.recommendedActions.map(a => `<li>${esc(a)}</li>`).join('')
+                    : '<li>No recommended actions.</li>'}
+            </ul>
+            ${adv.recommendedActionDetails && adv.recommendedActionDetails.length ? `
+                <h4>Action Details</h4>
+                <ul class="advisor-action-details-list">
+                    ${adv.recommendedActionDetails.map(d => `<li><strong>${esc(d.focus)}</strong> (${esc(d.type)}): ${esc(d.description)} ${d.reason ? `<br><small>${esc(d.reason)}</small>` : ''}</li>`).join('')}
+                </ul>
+            ` : ''}
+        `;
+
+        // Insert after recommendation section
+        const recSection = document.getElementById('applicationDetailRecommendation');
+        if (recSection && recSection.parentElement) {
+            recSection.parentElement.insertAdjacentElement('afterend', recActionsContainer);
         }
     }
 
