@@ -15,13 +15,90 @@
     <artifactId>rag-service</artifactId>
     <packaging>jar</packaging>
     <name>rag-service</name>
-    <description>Retrieval-augmented generation with pgvector (reserved for future implementation)</description>
+    <description>Retrieval-augmented generation with pgvector (document ingestion, chunking, vector search, context assembly)</description>
 
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
         </dependency>
+
+        <!-- Spring Data JPA for persistent document/chunk storage -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- LangChain4j core for EmbeddingModel -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+        </dependency>
+
+        <!-- memory-service reuse: VectorUserType + PostgresVectorDialect / H2VectorDialect -->
+        <dependency>
+            <groupId>com.agentplatform</groupId>
+            <artifactId>memory-service</artifactId>
+        </dependency>
+
+        <!-- agent-core reuse: the EmbeddingModel bean defined by OllamaConfig -->
+        <dependency>
+            <groupId>com.agentplatform</groupId>
+            <artifactId>agent-core</artifactId>
+        </dependency>
+
+        <!-- pgvector JDBC type support (same as memory-service; VectorUserType depends on it) -->
+        <dependency>
+            <groupId>com.pgvector</groupId>
+            <artifactId>pgvector</artifactId>
+            <version>0.1.6</version>
+        </dependency>
+
+        <!-- PostgreSQL JDBC driver (used by JPA/native pgvector queries and Testcontainers) -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Testcontainers for pgvector integration tests (2.x modules) -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <version>2.0.5</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <version>2.0.5</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <version>2.0.5</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Testcontainers BOM for version alignment -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>2.0.5</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
 </project>

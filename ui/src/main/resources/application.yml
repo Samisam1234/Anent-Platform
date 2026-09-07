@@ -74,3 +74,16 @@ logging:
   level:
     com.agentplatform: INFO
     dev.langchain4j: WARN
+
+# ── RAG Service (Phase 8.2) ──────────────────────────────────────────
+# Standalone retrieval-augmented generation foundation. Dormant unless
+#   rag.enabled=true AND SPRING_PROFILES_ACTIVE=postgres
+# (rag-service is not yet wired into the bootable app).
+rag:
+  enabled: false
+  chunk:
+    max-size: 1000          # max characters per chunk
+    overlap: 100            # characters of overlap carried between chunks
+  retrieval:
+    similarity-threshold: 0.0   # 1 - cosine_distance; minimum score for returned chunks
+    max-context-tokens: 2000    # token budget for retrieveForContext()
