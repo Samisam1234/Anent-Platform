@@ -1,6 +1,8 @@
 package com.agentplatform.memory.entity;
 
+import com.pgvector.PGvector;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Type;
 
 /**
  * Persistent JPA entity for a single conversation message.
@@ -25,6 +27,10 @@ public class ConversationMessageEntity {
 
     @Column(name = "content", columnDefinition = "TEXT", nullable = false)
     private String content;
+
+    @Column(name = "embedding")
+    @Type(VectorUserType.class)
+    private float[] embedding;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private java.time.Instant createdAt;
@@ -90,5 +96,13 @@ public class ConversationMessageEntity {
 
     public void setCreatedAt(java.time.Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public float[] getEmbedding() {
+        return embedding;
+    }
+
+    public void setEmbedding(float[] embedding) {
+        this.embedding = embedding;
     }
 }

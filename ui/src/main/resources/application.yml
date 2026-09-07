@@ -16,7 +16,7 @@ spring:
     h2:
       console:
         enabled: true
-    database-platform: org.hibernate.dialect.H2Dialect
+    database-platform: com.agentplatform.memory.dialect.H2VectorDialect
     ddl-auto: update
 
   # ── Virtual threads (Java 21) — improves throughput for blocking LLM calls ─
@@ -36,7 +36,7 @@ spring:
     password: agentpassword
     driver-class-name: org.postgresql.Driver
   jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    database-platform: com.agentplatform.memory.dialect.PostgresVectorDialect
     ddl-auto: update
 
 # ── Ollama AI Model Configuration ────────────────────────────────────
