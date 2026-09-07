@@ -1,5 +1,7 @@
 package com.agentplatform.orchestrator.agent;
 
+import com.agentplatform.orchestrator.advisor.ApplicationAdvisorResponse;
+import com.agentplatform.orchestrator.advisor.ApplicationAdvisorService;
 import com.agentplatform.orchestrator.application.ApplicationEmailDraft;
 import com.agentplatform.orchestrator.application.ApplicationPreparationService;
 import com.agentplatform.orchestrator.gap.CareerGapAnalysis;
@@ -14,10 +16,11 @@ import org.springframework.stereotype.Component;
 
 /**
  * {@link CareerAgent} responsible for application materials — ATS tailoring
- * analysis, a tailored resume draft, and an email draft.
+ * analysis, a tailored resume draft, an email draft, and deterministic application advice.
  *
  * <p>Delegates to the existing {@link ResumeTailoringAnalysisService},
- * {@link TailoredResumeDraftService} and {@link ApplicationPreparationService}.
+ * {@link TailoredResumeDraftService}, {@link ApplicationPreparationService},
+ * and {@link ApplicationAdvisorService}.
  * It NEVER sends email: producing a review-only draft is a distinct, explicitly
  * user-approved action downstream.</p>
  *
@@ -37,25 +40,37 @@ public class ApplicationAdvisorAgent implements CareerAgent {
     private final TailoredResumeDraftService tailoredResumeDraftService;
     private final ApplicationPreparationService applicationPreparationService;
     private final AgentReasoningService reasoningService;
+    private final ApplicationAdvisorService applicationAdvisorService;
 
-    /** Backward-compatible constructor (no reasoning layer wired). */
+    /** Backward-compatible constructor (no reasoning layer or advisor service wired). */
     public ApplicationAdvisorAgent(ResumeTailoringAnalysisService tailoringAnalysisService,
                                    TailoredResumeDraftService tailoredResumeDraftService,
                                    ApplicationPreparationService applicationPreparationService) {
         this(tailoringAnalysisService, tailoredResumeDraftService,
-                applicationPreparationService, null);
+                applicationPreparationService, null, null);
     }
 
-    /** Full constructor with optional controlled reasoning. */
-    @Autowired
+    /** Constructor with reasoning layer (no advisor service wired). */
     public ApplicationAdvisorAgent(ResumeTailoringAnalysisService tailoringAnalysisService,
                                    TailoredResumeDraftService tailoredResumeDraftService,
                                    ApplicationPreparationService applicationPreparationService,
                                    AgentReasoningService reasoningService) {
+        this(tailoringAnalysisService, tailoredResumeDraftService,
+                applicationPreparationService, reasoningService, null);
+    }
+
+    /** Full constructor with optional controlled reasoning and advisor service. */
+    @Autowired
+    public ApplicationAdvisorAgent(ResumeTailoringAnalysisService tailoringAnalysisService,
+                                   TailoredResumeDraftService tailoredResumeDraftService,
+                                   ApplicationPreparationService applicationPreparationService,
+                                   @Autowired(required = false) AgentReasoningService reasoningService,
+                                   @Autowired(required = false) ApplicationAdvisorService applicationAdvisorService) {
         this.tailoringAnalysisService = tailoringAnalysisService;
         this.tailoredResumeDraftService = tailoredResumeDraftService;
         this.applicationPreparationService = applicationPreparationService;
         this.reasoningService = reasoningService;
+        this.applicationAdvisorService = applicationAdvisorService;
     }
 
     @Override
@@ -92,10 +107,21 @@ public class ApplicationAdvisorAgent implements CareerAgent {
                     context.candidateProfile(), context.job(), draft);
             context.setApplicationDraft(emailDraft);
 
+            if (applicationAdvisorService != null) {
+                Long candidateId = (context.candidateId() != null && context.candidateId() > 0)
+                        ? context.candidateId()
+                        : 1L;
+                ApplicationAdvisorResponse advisorResponse = applicationAdvisorService.adviseFromDomain(
+                        candidateId,
+                        context.candidateProfile(),
+                        context.job());
+                context.setApplicationAdvisorResponse(advisorResponse);
+            }
+
             return AgentResult.completed(AgentType.APPLICATION_ADVISOR,
                     withReasoning(AgentType.APPLICATION_ADVISOR, context,
                             "Application materials prepared (review-only; no email sent), ATS readiness: "
-                                    + tailoring.atsReadiness().score() + "."),
+                                     + tailoring.atsReadiness().score() + "."),
                     emailDraft);
         } catch (Exception e) {
             log.warn("ApplicationAdvisorAgent failed: {}", safeMessage(e));

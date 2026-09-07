@@ -1,5 +1,9 @@
 package com.agentplatform.orchestrator.agent;
 
+import com.agentplatform.orchestrator.advisor.ApplicationAdvisorResponse;
+import com.agentplatform.orchestrator.advisor.ApplicationAdvisorService;
+import com.agentplatform.orchestrator.advisor.ApplicationRecommendation;
+import com.agentplatform.orchestrator.advisor.RecommendedActionDetail;
 import com.agentplatform.orchestrator.application.ApplicationEmailDraft;
 import com.agentplatform.orchestrator.application.ApplicationDraftStatus;
 import com.agentplatform.orchestrator.application.ApplicationPreparationService;
@@ -19,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -121,5 +126,115 @@ class ApplicationAdvisorAgentTest {
         assertFalse(result.success());
         assertEquals(AgentStatus.FAILED, result.status());
         verify(draftSvc, never()).generate(any(), any(), any());
+    }
+
+    // ─── Phase 7.6: ApplicationAdvisorService integration ──────────────────────
+
+    @Test
+    @DisplayName("invokes ApplicationAdvisorService and stores response in context")
+    void invokesAdvisorServiceAndStoresResponse() {
+        ResumeTailoringAnalysisService tailoringSvc = mock(ResumeTailoringAnalysisService.class);
+        TailoredResumeDraftService draftSvc = mock(TailoredResumeDraftService.class);
+        ApplicationPreparationService prepSvc = mock(ApplicationPreparationService.class);
+        ApplicationAdvisorService advisorSvc = mock(ApplicationAdvisorService.class);
+
+        ResumeTailoringAnalysis analysis = analysis();
+        TailoredResumeDraft draft = draft();
+        ApplicationEmailDraft email = emailDraft();
+
+        when(tailoringSvc.analyze(profile(), job("j1"), null)).thenReturn(analysis);
+        when(draftSvc.generate(profile(), job("j1"), analysis)).thenReturn(draft);
+        when(prepSvc.prepare(profile(), job("j1"), draft)).thenReturn(email);
+        when(advisorSvc.adviseFromDomain(eq(1L), eq(profile()), eq(job("j1"))))
+                .thenReturn(new ApplicationAdvisorResponse(
+                        ApplicationRecommendation.RECOMMENDED, 85, List.of(), List.of(), List.of(), List.of(), 70));
+
+        ApplicationAdvisorAgent agent = new ApplicationAdvisorAgent(tailoringSvc, draftSvc, prepSvc, null, advisorSvc);
+        AgentContext ctx = new AgentContext();
+        ctx.setCandidateProfile(profile());
+        ctx.setJob(job("j1"));
+        ctx.setCandidateId(1L);
+
+        AgentResult result = agent.execute(AgentRequest.of(AgentType.APPLICATION_ADVISOR), ctx);
+
+        assertTrue(result.success());
+        verify(tailoringSvc).analyze(profile(), job("j1"), null);
+        verify(draftSvc).generate(profile(), job("j1"), analysis);
+        verify(prepSvc).prepare(profile(), job("j1"), draft);
+        verify(advisorSvc).adviseFromDomain(eq(1L), eq(profile()), eq(job("j1")));
+
+        // Verify the response is stored in context
+        ApplicationAdvisorResponse stored = ctx.applicationAdvisorResponse();
+        assertEquals(ApplicationRecommendation.RECOMMENDED, stored.recommendation());
+        assertEquals(85, stored.applicationReadinessScore());
+        assertEquals(70, stored.jobMatchScore());
+    }
+
+    @Test
+    @DisplayName("advisor service failure is contained and does not crash the agent")
+    void advisorServiceFailureIsContained() {
+        ResumeTailoringAnalysisService tailoringSvc = mock(ResumeTailoringAnalysisService.class);
+        TailoredResumeDraftService draftSvc = mock(TailoredResumeDraftService.class);
+        ApplicationPreparationService prepSvc = mock(ApplicationPreparationService.class);
+        ApplicationAdvisorService advisorSvc = mock(ApplicationAdvisorService.class);
+
+        ResumeTailoringAnalysis analysis = analysis();
+        TailoredResumeDraft draft = draft();
+        ApplicationEmailDraft email = emailDraft();
+
+        when(tailoringSvc.analyze(profile(), job("j1"), null)).thenReturn(analysis);
+        when(draftSvc.generate(profile(), job("j1"), analysis)).thenReturn(draft);
+        when(prepSvc.prepare(profile(), job("j1"), draft)).thenReturn(email);
+        when(advisorSvc.adviseFromDomain(any(), any(), any())).thenThrow(new RuntimeException("advisor boom"));
+
+        ApplicationAdvisorAgent agent = new ApplicationAdvisorAgent(tailoringSvc, draftSvc, prepSvc, null, advisorSvc);
+        AgentContext ctx = new AgentContext();
+        ctx.setCandidateProfile(profile());
+        ctx.setJob(job("j1"));
+
+        AgentResult result = agent.execute(AgentRequest.of(AgentType.APPLICATION_ADVISOR), ctx);
+
+        // Agent should not crash; it should return a FAILED result
+        assertFalse(result.success());
+        assertEquals(AgentStatus.FAILED, result.status());
+        // Tailoring and draft should still have been called
+        verify(tailoringSvc).analyze(profile(), job("j1"), null);
+        verify(draftSvc).generate(profile(), job("j1"), analysis);
+        verify(prepSvc).prepare(profile(), job("j1"), draft);
+    }
+
+    @Test
+    @DisplayName("advisor response is stored in context for downstream consumers")
+    void advisorResponseStoredInContext() {
+        ResumeTailoringAnalysisService tailoringSvc = mock(ResumeTailoringAnalysisService.class);
+        TailoredResumeDraftService draftSvc = mock(TailoredResumeDraftService.class);
+        ApplicationPreparationService prepSvc = mock(ApplicationPreparationService.class);
+        ApplicationAdvisorService advisorSvc = mock(ApplicationAdvisorService.class);
+
+        ResumeTailoringAnalysis analysis = analysis();
+        TailoredResumeDraft draft = draft();
+        ApplicationEmailDraft email = emailDraft();
+
+        when(tailoringSvc.analyze(profile(), job("j1"), null)).thenReturn(analysis);
+        when(draftSvc.generate(profile(), job("j1"), analysis)).thenReturn(draft);
+        when(prepSvc.prepare(profile(), job("j1"), draft)).thenReturn(email);
+        when(advisorSvc.adviseFromDomain(eq(1L), eq(profile()), eq(job("j1"))))
+                .thenReturn(new ApplicationAdvisorResponse(
+                        ApplicationRecommendation.APPLY_WITH_IMPROVEMENTS, 65, List.of(), List.of(), List.of(), List.of(), 60));
+
+        ApplicationAdvisorAgent agent = new ApplicationAdvisorAgent(tailoringSvc, draftSvc, prepSvc, null, advisorSvc);
+        AgentContext ctx = new AgentContext();
+        ctx.setCandidateProfile(profile());
+        ctx.setJob(job("j1"));
+        ctx.setCandidateId(1L);
+
+        agent.execute(AgentRequest.of(AgentType.APPLICATION_ADVISOR), ctx);
+
+        ApplicationAdvisorResponse stored = ctx.applicationAdvisorResponse();
+        assertEquals(ApplicationRecommendation.APPLY_WITH_IMPROVEMENTS, stored.recommendation());
+        assertEquals(65, stored.applicationReadinessScore());
+        assertEquals(60, stored.jobMatchScore());
+        // Verify the response object is the same instance stored
+        assertEquals(stored, ctx.applicationAdvisorResponse());
     }
 }

@@ -1,5 +1,6 @@
 package com.agentplatform.orchestrator.agent;
 
+import com.agentplatform.orchestrator.advisor.ApplicationAdvisorResponse;
 import com.agentplatform.orchestrator.application.ApplicationEmailDraft;
 import com.agentplatform.orchestrator.gap.CareerGapAnalysis;
 import com.agentplatform.orchestrator.gap.CareerImprovementPlan;
@@ -64,6 +65,7 @@ public class AgentContext {
     private ResumeTailoringAnalysis tailoringAnalysis;
     private TailoredResumeDraft tailoredDraft;
     private ApplicationEmailDraft applicationDraft;
+    private ApplicationAdvisorResponse applicationAdvisorResponse;
 
     private final Map<AgentType, AgentResult> agentResults = new LinkedHashMap<>();
 
@@ -242,6 +244,14 @@ public class AgentContext {
 
     public void setApplicationDraft(ApplicationEmailDraft applicationDraft) {
         this.applicationDraft = applicationDraft;
+    }
+
+    public ApplicationAdvisorResponse applicationAdvisorResponse() {
+        return applicationAdvisorResponse;
+    }
+
+    public void setApplicationAdvisorResponse(ApplicationAdvisorResponse applicationAdvisorResponse) {
+        this.applicationAdvisorResponse = applicationAdvisorResponse;
     }
 
     /**
