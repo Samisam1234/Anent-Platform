@@ -92,8 +92,15 @@ public class ResumeProfileService {
      * fallback in {@link #buildProfileOutcome}.
      */
     private String callLlm(String resumeText) {
+        // A non-positive deadline means "not configured", not "fail immediately".
+        // Mockito's default answer for a Duration-returning method is Duration.ZERO (not
+        // null), and `ollama.reasoning-timeout: 0s` would produce the same value. Either
+        // way future.get(0, ...) times out before the model can answer, so every call
+        // silently falls back to the deterministic parser and the AI profile is lost.
         Duration configured = ollamaChatModelFactory.timeout();
-        Duration deadline = configured != null ? configured : OllamaChatModelFactory.DEFAULT_TIMEOUT;
+        Duration deadline = configured != null && configured.toMillis() > 0
+                ? configured
+                : OllamaChatModelFactory.DEFAULT_TIMEOUT;
         Future<String> future = AI_EXECUTOR.submit(() -> doCallLlm(resumeText));
         try {
             return future.get(deadline.toMillis(), TimeUnit.MILLISECONDS);
