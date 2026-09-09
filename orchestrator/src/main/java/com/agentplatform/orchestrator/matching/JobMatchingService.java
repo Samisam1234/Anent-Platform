@@ -88,7 +88,11 @@ public class JobMatchingService {
             live = false;
             resultMsg = "Matched supplied job listings against candidate profile.";
         } else {
-            JobSearchRequest searchReq = new JobSearchRequest(request.keywords(), request.location(), request.experience(), request.employmentType(), null, 100);
+            // No free-text keywords are collected from the UI any more. Passing the resolved
+            // candidateId lets JobSearchService derive relevance keywords from the parsed
+            // profile's skills, so discovery follows the resume. Explicit keywords, when a
+            // caller still supplies them, continue to take precedence.
+            JobSearchRequest searchReq = new JobSearchRequest(request.keywords(), request.location(), request.experience(), request.employmentType(), null, 100, null, candidateId);
             JobSearchResult searchResult = this.jobSearchService.search(searchReq);
             candidateJobs = searchResult.jobs();
             source = searchResult.source();

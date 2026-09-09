@@ -1,13 +1,17 @@
 package com.agentplatform.orchestrator.job;
 
+import com.agentplatform.orchestrator.resume.CandidateProfile;
+import com.agentplatform.orchestrator.resume.persistence.CandidateProfilePersistenceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -18,19 +22,44 @@ import java.util.HashSet;
  * Orchestrates job discovery across configured {@link JobSource}s,
  * deduplicates listings via {@link JobDeduplicationService}, and applies
  * deterministic keyword/location/experience/type/date filters.
+ *
+ * <p>When a request carries a {@code candidateProfileId} and no explicit keywords, the
+ * relevance keywords are derived from that stored profile's parsed skills. This is what
+ * lets job discovery follow the uploaded resume; the source contract itself is unchanged
+ * (derived keywords are applied as a local relevance filter, never sent upstream).</p>
  */
 @Service
 public class JobSearchService {
 
     private static final Logger log = LoggerFactory.getLogger(JobSearchService.class);
 
+    /** Upper bound on derived keywords so a skill-rich resume cannot over-narrow discovery. */
+    private static final int MAX_DERIVED_KEYWORDS = 12;
+
     private final List<JobSource> jobSources;
     private final JobDeduplicationService deduplicationService;
+    private final CandidateProfilePersistenceService candidateProfiles;
 
+    /**
+     * Test/standalone constructor: no candidate persistence, so profile-driven keyword
+     * derivation is skipped and searches behave exactly as before.
+     */
     public JobSearchService(List<JobSource> jobSources, JobDeduplicationService deduplicationService) {
+        this(jobSources, deduplicationService, null);
+    }
+
+    /**
+     * Production constructor. {@code @Autowired} is explicit because the class declares
+     * more than one constructor.
+     */
+    @Autowired
+    public JobSearchService(List<JobSource> jobSources,
+                            JobDeduplicationService deduplicationService,
+                            CandidateProfilePersistenceService candidateProfiles) {
         this.deduplicationService = deduplicationService != null
                 ? deduplicationService
                 : new JobDeduplicationService();
+        this.candidateProfiles = candidateProfiles;
 
         if (jobSources != null && !jobSources.isEmpty()) {
             this.jobSources = List.copyOf(jobSources);
@@ -78,8 +107,12 @@ public class JobSearchService {
             throw new IllegalArgumentException("Limit must be between 1 and 100");
         }
         long startTime = System.currentTimeMillis();
+
+        // Explicit keywords always win; otherwise fall back to the stored profile's skills.
+        List<String> relevanceKeywords = resolveRelevanceKeywords(request);
+
         log.info("Starting job search: keywords={}, location='{}', experience='{}', type='{}', date='{}', limit={}",
-                request.keywords(), request.location(), request.experience(),
+                relevanceKeywords, request.location(), request.experience(),
                 request.employmentType(), request.datePosted(), request.limit());
 
         List<JobSource> activeSources = jobSources.stream().filter(JobSource::isAvailable).toList();
@@ -98,11 +131,14 @@ public class JobSearchService {
                 List<Job> jobs = source.search(request);
                 if (jobs != null) {
                     rawListings.addAll(jobs);
+                    // A live source only counts as live if it actually contributed listings.
+                    // An enabled-but-unreachable public API must not make the UI claim live
+                    // data while every row really came from the mock catalog.
+                    if (source.isLive() && !jobs.isEmpty()) {
+                        anyLive = true;
+                    }
                 }
                 sourceNames.add(source.getSourceName());
-                if (source.isLive()) {
-                    anyLive = true;
-                }
             } catch (Exception ex) {
                 failedSources++;
                 log.error("Error retrieving jobs from source '{}': {}", source.getSourceName(), ex.getMessage(), ex);
@@ -120,7 +156,7 @@ public class JobSearchService {
 
         List<Job> filtered = deduplicated.stream()
                 .filter(JobSearchService::hasMinimalQuality)
-                .filter(job -> matchesKeywords(job, request.keywords()))
+                .filter(job -> matchesKeywords(job, relevanceKeywords))
                 .filter(job -> matchesLocation(job, request.location()))
                 .filter(job -> matchesSource(job, request.source()))
                 .filter(job -> matchesExperience(job, request.experience()))
@@ -134,9 +170,12 @@ public class JobSearchService {
 
         long durationMs = System.currentTimeMillis() - startTime;
         String combinedSourceName = String.join(", ", sourceNames);
+        boolean liveConfigured = activeSources.stream().anyMatch(JobSource::isLive);
         String message = anyLive
                 ? "Live job search completed successfully."
-                : "Live job source not configured. Returning development mock data.";
+                : (liveConfigured
+                        ? "The live job source returned no listings, so results fall back to the development mock catalog."
+                        : "Live job source not configured. Returning development mock data.");
         log.info("Job search complete in {} ms: sources=[{}], raw={}, afterDedup={}, afterFilter={}, returned={}",
                 durationMs, combinedSourceName, rawCount, afterDedupCount, afterFilterCount, limitedResults.size());
         return new JobSearchResult(limitedResults, afterFilterCount, combinedSourceName, anyLive, message);
@@ -166,6 +205,66 @@ public class JobSearchService {
         String query = requestedSource.trim().toLowerCase();
         String jobSource = job.source() != null ? job.source().toLowerCase() : "";
         return jobSource.equals(query);
+    }
+
+    /**
+     * Returns the keywords that decide which discovered listings are relevant.
+     *
+     * <p>Explicit caller keywords are used verbatim (backwards compatible). When none are
+     * supplied but the request names a stored candidate profile, the profile's parsed
+     * skills become the relevance keywords — this is the profile-driven discovery that
+     * replaces the removed free-text "Keywords &amp; Skills" field. When neither is
+     * available, an empty list is returned and nothing is filtered out.</p>
+     */
+    private List<String> resolveRelevanceKeywords(JobSearchRequest request) {
+        List<String> explicit = request.keywords();
+        if (explicit != null && !explicit.isEmpty()) {
+            return explicit;
+        }
+        Long profileId = request.candidateProfileId();
+        if (candidateProfiles == null || profileId == null) {
+            return List.of();
+        }
+        try {
+            return candidateProfiles.findById(profileId)
+                    .map(entity -> deriveProfileKeywords(entity.toDomain()))
+                    .orElseGet(() -> {
+                        log.debug("Candidate profile {} not found — searching without profile keywords", profileId);
+                        return List.of();
+                    });
+        } catch (Exception ex) {
+            log.warn("Could not derive job-search keywords from candidate profile {}: {}",
+                    profileId, ex.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * Builds relevance keywords from a parsed profile: canonical skills first, then the
+     * track-specific skill lists and inferred preferred roles. Order is stable and the
+     * list is capped so a skill-rich resume cannot over-narrow discovery.
+     */
+    static List<String> deriveProfileKeywords(CandidateProfile profile) {
+        if (profile == null) {
+            return List.of();
+        }
+        LinkedHashSet<String> keywords = new LinkedHashSet<>();
+        addAll(keywords, profile.skills());
+        addAll(keywords, profile.softwareSkills());
+        addAll(keywords, profile.hardwareSkills());
+        addAll(keywords, profile.preferredRoles());
+        return keywords.stream().limit(MAX_DERIVED_KEYWORDS).toList();
+    }
+
+    private static void addAll(Set<String> target, List<String> values) {
+        if (values == null) {
+            return;
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                target.add(value.trim());
+            }
+        }
     }
 
     private boolean matchesKeywords(Job job, List<String> keywords) {

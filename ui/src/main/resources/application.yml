@@ -24,21 +24,6 @@ spring:
     virtual:
       enabled: true
 
-# ── PostgreSQL / pgvector (activate with SPRING_PROFILES_ACTIVE=postgres) ─
----
-spring:
-  config:
-    activate:
-      on-profile: postgres
-  datasource:
-    url: jdbc:postgresql://localhost:5432/agentdb
-    username: agent
-    password: agentpassword
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    database-platform: com.agentplatform.memory.dialect.PostgresVectorDialect
-    ddl-auto: update
-
 # ── Ollama AI Model Configuration ────────────────────────────────────
 # These values are read by OllamaProperties and OllamaConfig in agent-core.
 ollama:
@@ -58,14 +43,19 @@ ollama:
 conversation:
   store: inmemory
 
-# ── Public Job Source (default DISABLED) ────────────────────────────
-# The public adapter (PublicApiJobSource) is off by default so the app boots and
-# serves MockJobSource data with no internet access. Enable it by setting the
-# environment variable JOB_SOURCES_PUBLIC_API_ENABLED=true and, if the provider
-# requires one, JOB_SOURCES_PUBLIC_API_API_KEY=<key>. Never hard-code credentials.
+# ── Public Job Source (LIVE — the normal user-facing source) ──
+# PublicApiJobSource is the primary job source. It fails safe: if the provider is
+# unreachable it logs a warning and returns no listings, and JobSearchService then serves
+# MockJobSource as an offline/development fallback. The result's `live` flag only reports
+# true when a live source actually contributed listings, so the UI never claims live data
+# while showing mock rows.
+# Override without touching this file:
+#   JOB_SOURCES_PUBLIC_API_ENABLED=false  to force the mock catalog
+#   JOB_SOURCES_PUBLIC_API_API_KEY=<key>  if a provider ever requires one
+# Never hard-code credentials. Remotive's public feed needs no key.
 job-sources:
   public-api:
-    enabled: false
+    enabled: true
     base-url: https://remotive.com/api/remote-jobs
     api-key: ""
 
@@ -91,3 +81,20 @@ rag:
   retrieval:
     similarity-threshold: 0.0   # 1 - cosine_distance; minimum score for returned chunks
     max-context-tokens: 2000    # token budget for retrieveForContext()
+
+
+# ──────────────────────────────────────────────────────────────────
+# ── PostgreSQL / pgvector (activate with SPRING_PROFILES_ACTIVE=postgres) ─
+---
+spring:
+  config:
+    activate:
+      on-profile: postgres
+  datasource:
+    url: jdbc:postgresql://localhost:5432/agentdb
+    username: agent
+    password: agentpassword
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    database-platform: com.agentplatform.memory.dialect.PostgresVectorDialect
+    ddl-auto: update

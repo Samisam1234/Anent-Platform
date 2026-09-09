@@ -22,7 +22,6 @@
 
     const matchControls = document.getElementById('matchControls');
     const matchesSearchForm = document.getElementById('matchesSearchForm');
-    const keywordsInput = document.getElementById('matchesKeywordsInput');
     const locationInput = document.getElementById('matchesLocationInput');
     const trackSelect = document.getElementById('matchesTrackSelect');
     const minScoreSelect = document.getElementById('matchesMinScoreSelect');
@@ -96,18 +95,15 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         resetBtn.addEventListener('click', () => resetFilters(true));
         if (emptyResetBtn) emptyResetBtn.addEventListener('click', () => resetFilters(true));
 
-        [keywordsInput, locationInput].forEach(input => {
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    runMatch();
-                }
-            });
+        locationInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                runMatch();
+            }
         });
     }
 
     function resetFilters(autoRun = true) {
-        keywordsInput.value = '';
         locationInput.value = '';
         trackSelect.value = 'ALL';
         minScoreSelect.value = '';
@@ -136,14 +132,13 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         empty.hidden = true;
         cardsGrid.innerHTML = '';
 
-        const rawKeywords = keywordsInput.value.trim();
-        const keywords = rawKeywords ? rawKeywords.split(/[,+]/).map(s => s.trim()).filter(Boolean) : null;
         const track = trackSelect.value;
         const minScore = minScoreSelect.value;
 
+        // No free-text keywords: the backend derives relevance keywords from the stored
+        // profile's parsed skills, and every engine below already scores against it.
         const payload = {
             candidateProfileId: Number(candidateId),
-            keywords: keywords,
             location: locationInput.value.trim() || null,
             limit: parseInt(limitSelect.value, 10) || 20,
             minScore: minScore ? Number(minScore) : null,
@@ -212,7 +207,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             bannerTitle.textContent = `Live Job Source Active (${sourceName})`;
         } else {
             sourceBanner.className = 'source-info-banner';
-            bannerTitle.textContent = `Development Mock Source Active (${sourceName})`;
+            bannerTitle.textContent = `Live Source Unavailable — Sample Jobs (${sourceName})`;
         }
         bannerMessage.textContent = data.message || 'Matched against the job catalog.';
 
@@ -223,9 +218,6 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         // Active query summary
         activeSummary.innerHTML = '';
         if (candidateName) activeSummary.appendChild(createChip('Profile: ' + candidateName));
-        if (payload.keywords && payload.keywords.length) {
-            activeSummary.appendChild(createChip('Keywords: ' + payload.keywords.join(', ')));
-        }
         if (payload.location) activeSummary.appendChild(createChip('Location: ' + payload.location));
         if (payload.minScore) activeSummary.appendChild(createChip('Min score: ' + payload.minScore));
         if (payload.careerTrack) activeSummary.appendChild(createChip('Track: ' + payload.careerTrack));
@@ -233,7 +225,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         cardsGrid.innerHTML = '';
         if (matches.length === 0) {
             emptyDesc.textContent = data.totalJobs === 0
-                ? 'No jobs were found for the search parameters. Try broadening keywords or removing the location filter.'
+                ? 'No jobs were found for the search parameters. Try removing the location filter.'
                 : 'No roles cleared the current filters. Try lowering the minimum score or removing the track filter.';
             empty.hidden = false;
             return;
@@ -443,6 +435,27 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             .replace(/'/g, '&#039;');
     }
 
+    /**
+     * Writes text into #id. A missing element is a no-op instead of a TypeError —
+     * the review modals are optional chrome, and one absent node must never abort
+     * the rest of the render (the modal has to open either way).
+     */
+    function setText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    }
+
+    /**
+     * Writes <li> rows into the <ul> #id, or a single placeholder row when empty.
+     */
+    function setList(id, items, render, emptyHtml) {
+        const ul = document.getElementById(id);
+        if (!ul) return;
+        ul.innerHTML = (items && items.length)
+            ? items.map(render).join('')
+            : emptyHtml;
+    }
+
     function showToast(message, type = 'info') {
         const toast = document.createElement('div');
         toast.className = `toast ${type === 'error' ? 'toast-error' : ''}`;
@@ -460,49 +473,59 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
     }
 
     // ─── Application Advisor button ────────────────────────────────────────────
+    // One delegated listener per action. Both branches must guard on their own
+    // selector: the prepare-application code used to sit in this listener's
+    // fall-through and dereferenced the advisor button, so every click that was not
+    // on the advisor button threw "Cannot read properties of null (reading 'dataset')"
+    // and the prepare request never fired at all.
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('.application-advisor-btn');
-        if (btn) {
-            const candidateId = Number(btn.dataset.candidateId);
-            const jobId = btn.dataset.jobId;
-            const jobTitle = btn.dataset.jobTitle;
-            const company = btn.dataset.company;
-            const location = btn.dataset.location;
+        if (!btn) return;
 
-            if (!candidateId || !jobId) {
-                showToast('Missing required information to run application advisor.', 'error');
-                return;
-            }
+        const candidateId = Number(btn.dataset.candidateId);
+        const jobId = btn.dataset.jobId;
+        const jobTitle = btn.dataset.jobTitle;
+        const company = btn.dataset.company;
+        const location = btn.dataset.location;
 
-            // Show confirmation
-            if (!confirm(`Run Application Advisor for "${jobTitle}" at ${company}?\n\nThis will evaluate your application readiness against the job using your profile and the job requirements.`)) {
-                return;
-            }
-
-            fetch('/api/v1/jobs/advisor', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    candidateId: candidateId,
-                    jobId: jobId
-                })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => { throw new Error(err.detail || `HTTP ${response.status}`); });
-                }
-                return response.json();
-            })
-            .then(data => {
-                showToast('Application Advisor completed.', 'success');
-                openAdvisorReview(data);
-            })
-            .catch(err => {
-                console.error('Error running application advisor:', err);
-                showToast(err.message || 'Failed to run application advisor.', 'error');
-            });
+        if (!candidateId || !jobId) {
+            showToast('Missing required information to run application advisor.', 'error');
             return;
         }
+
+        // Show confirmation
+        if (!confirm(`Run Application Advisor for "${jobTitle}" at ${company}?\n\nThis will evaluate your application readiness against the job using your profile and the job requirements.`)) {
+            return;
+        }
+
+        fetch('/api/v1/jobs/advisor', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                candidateId: candidateId,
+                jobId: jobId
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw new Error(err.detail || `HTTP ${response.status}`); });
+            }
+            return response.json();
+        })
+        .then(data => {
+            showToast('Application Advisor completed.', 'success');
+            openAdvisorReview(data, jobTitle, company);
+        })
+        .catch(err => {
+            console.error('Error running application advisor:', err);
+            showToast(err.message || 'Failed to run application advisor.', 'error');
+        });
+    });
+
+    // ─── Prepare Application button ──────────────────────────────────────────
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.application-prepare-btn');
+        if (!btn) return;
 
         const candidateId = Number(btn.dataset.candidateId);
         const jobId = btn.dataset.jobId;
@@ -551,33 +574,24 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
 
     function openPreparedReview(data) {
         if (!prepReviewOverlay) return;
-        const app = data && data.applicationId != null ? data : {};
-        document.getElementById('prepReviewSubtitle').textContent = app.jobTitle || 'Job';
-        document.getElementById('prepReviewJobTitle').textContent = app.jobTitle || '—';
-        document.getElementById('prepReviewCompany').textContent = app.company || '—';
-        document.getElementById('prepReviewMatchScore').textContent = app.matchScore != null ? `${app.matchScore}/100` : '—';
+        // Render whatever the API returned. Gating on applicationId used to blank the
+        // whole modal whenever the id was absent, even though every content field was
+        // present; the id is only used for the Applications page deep link.
+        const app = data || {};
 
-        const matching = app.matchingSkills || [];
-        const missing = app.missingSkills || [];
-        const highlights = app.resumeHighlights || [];
+        setText('prepReviewSubtitle', app.jobTitle || 'Job');
+        setText('prepReviewJobTitle', app.jobTitle || '—');
+        setText('prepReviewCompany', app.company || '—');
+        setText('prepReviewMatchScore', app.matchScore != null ? `${app.matchScore}/100` : '—');
+        setText('prepReviewSummary', app.tailoredProfessionalSummary || '—');
+        setText('prepReviewCoverLetter', app.coverLetter || '—');
 
-        const matchingUl = document.getElementById('prepReviewMatching');
-        matchingUl.innerHTML = matching.length
-            ? matching.map(s => `<li>${esc(s)}</li>`).join('')
-            : '<li>No matching skills listed.</li>';
-
-        const missingUl = document.getElementById('prepReviewMissing');
-        missingUl.innerHTML = missing.length
-            ? missing.map(s => `<li>${esc(s)}</li>`).join('')
-            : '<li>No missing skills to address.</li>';
-
-        document.getElementById('prepReviewSummary').textContent = app.tailoredProfessionalSummary || '—';
-        document.getElementById('prepReviewCoverLetter').textContent = app.coverLetter || '—';
-
-        const highlightsUl = document.getElementById('prepReviewHighlights');
-        highlightsUl.innerHTML = highlights.length
-            ? highlights.map(s => `<li>${esc(s)}</li>`).join('')
-            : '<li>No resume highlights available.</li>';
+        setList('prepReviewMatching', app.matchingSkills,
+            s => `<li>${esc(s)}</li>`, '<li>No matching skills listed.</li>');
+        setList('prepReviewMissing', app.missingSkills,
+            s => `<li>${esc(s)}</li>`, '<li>No missing skills to address.</li>');
+        setList('prepReviewHighlights', app.resumeHighlights,
+            s => `<li>${esc(s)}</li>`, '<li>No resume highlights available.</li>');
 
         prepReviewOverlay.hidden = false;
         document.body.classList.add('modal-open');
@@ -656,36 +670,29 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
     // ─── Application Advisor Review Modal ─────────────────────────────────
     const advisorReviewOverlay = document.getElementById('advisorReviewOverlay');
 
-    function openAdvisorReview(data) {
+    function openAdvisorReview(data, fallbackJobTitle, fallbackCompany) {
         if (!advisorReviewOverlay) return;
         const adv = data || {};
-        document.getElementById('advisorReviewSubtitle').textContent = `Score: ${adv.applicationReadinessScore || '—'}/100`;
-        document.getElementById('advisorReviewJobTitle').textContent = adv.jobTitle || '—';
-        document.getElementById('advisorReviewCompany').textContent = adv.company || '—';
 
-        document.getElementById('advisorReviewRecommendation').textContent = adv.recommendation || '—';
-        document.getElementById('advisorReviewReadiness').textContent = `${adv.applicationReadinessScore || '—'}/100`;
-        document.getElementById('advisorReviewJobMatch').textContent = `${adv.jobMatchScore || '—'}/100`;
+        setText('advisorReviewSubtitle', `Score: ${adv.applicationReadinessScore || '—'}/100`);
+        // The API echoes jobTitle/company; the card the user clicked carries the same
+        // values, so a partial response still renders the right role.
+        setText('advisorReviewJobTitle', adv.jobTitle || fallbackJobTitle || '—');
+        setText('advisorReviewCompany', adv.company || fallbackCompany || '—');
 
-        const strengthsUl = document.getElementById('advisorReviewStrengths');
-        strengthsUl.innerHTML = (adv.strengths && adv.strengths.length)
-            ? adv.strengths.map(s => `<li>${esc(s)}</li>`).join('')
-            : '<li>No strengths listed.</li>';
+        setText('advisorReviewRecommendation', adv.recommendation || '—');
+        setText('advisorReviewReadiness', `${adv.applicationReadinessScore || '—'}/100`);
+        setText('advisorReviewJobMatch', `${adv.jobMatchScore || '—'}/100`);
 
-        const concernsUl = document.getElementById('advisorReviewConcerns');
-        concernsUl.innerHTML = (adv.concerns && adv.concerns.length)
-            ? adv.concerns.map(c => `<li>${esc(c)}</li>`).join('')
-            : '<li>No concerns listed.</li>';
-
-        const actionsUl = document.getElementById('advisorReviewActions');
-        actionsUl.innerHTML = (adv.recommendedActions && adv.recommendedActions.length)
-            ? adv.recommendedActions.map(a => `<li>${esc(a)}</li>`).join('')
-            : '<li>No recommended actions.</li>';
-
-        const detailsUl = document.getElementById('advisorReviewDetails');
-        detailsUl.innerHTML = (adv.recommendedActionDetails && adv.recommendedActionDetails.length)
-            ? adv.recommendedActionDetails.map(d => `<li><strong>${esc(d.focus)}</strong> (${esc(d.type)}): ${esc(d.description)}</li>`).join('')
-            : '<li>No action details available.</li>';
+        setList('advisorReviewStrengths', adv.strengths,
+            s => `<li>${esc(s)}</li>`, '<li>No strengths listed.</li>');
+        setList('advisorReviewConcerns', adv.concerns,
+            c => `<li>${esc(c)}</li>`, '<li>No concerns listed.</li>');
+        setList('advisorReviewActions', adv.recommendedActions,
+            a => `<li>${esc(a)}</li>`, '<li>No recommended actions.</li>');
+        setList('advisorReviewDetails', adv.recommendedActionDetails,
+            d => `<li><strong>${esc(d.focus)}</strong> (${esc(d.type)}): ${esc(d.description)}</li>`,
+            '<li>No action details available.</li>');
 
         advisorReviewOverlay.hidden = false;
         document.body.classList.add('modal-open');

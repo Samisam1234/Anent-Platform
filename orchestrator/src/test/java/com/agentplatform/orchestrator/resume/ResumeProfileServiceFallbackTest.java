@@ -7,7 +7,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -113,6 +119,85 @@ class ResumeProfileServiceFallbackTest {
             ResumeProfileService service = newService(unavailableFactory());
             assertThrows(IllegalArgumentException.class, () -> service.buildProfile("   "));
             assertThrows(IllegalArgumentException.class, () -> service.buildProfile(null));
+        }
+    }
+
+    @Nested
+    @DisplayName("Bounded AI call — the request must never wait indefinitely")
+    class DeadlineTests {
+
+        private ChatModel chatModelReturning(String response) {
+            ChatModel chatModel = mock(ChatModel.class);
+            when(chatModel.chat(anyString())).thenReturn(response);
+            return chatModel;
+        }
+
+        private OllamaChatModelFactory factoryReturning(ChatModel model, Duration timeout) {
+            OllamaChatModelFactory factory = mock(OllamaChatModelFactory.class);
+            when(factory.resolveModelName(any())).thenReturn("gemma3:4b");
+            when(factory.timeout()).thenReturn(timeout);
+            when(factory.chatModel(any())).thenReturn(model);
+            return factory;
+        }
+
+        @Test
+        @DisplayName("an AI call that never returns is cut off at the deadline and falls back")
+        void hangingAiIsCutOffAtDeadline() {
+            ChatModel hanging = mock(ChatModel.class);
+            when(hanging.chat(anyString())).thenAnswer(invocation -> {
+                Thread.sleep(30_000);
+                return "{\"name\":\"Never Reached\"}";
+            });
+            ResumeProfileService service =
+                    newService(factoryReturning(hanging, Duration.ofMillis(200)));
+
+            long startNanos = System.nanoTime();
+            ResumeProfileService.ProfileOutcome outcome = service.buildProfileOutcome(RESUME);
+            long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+
+            assertTrue(elapsedMillis < 5_000,
+                    "must return close to the 200ms deadline, took " + elapsedMillis + "ms");
+            assertFalse(outcome.aiUsed());
+            assertNotNull(outcome.notice());
+            assertTrue(outcome.notice().contains("did not respond within"),
+                    "notice should explain the timeout, was: " + outcome.notice());
+            assertEquals("Alice Johnson", outcome.profile().name());
+        }
+
+        @Test
+        @DisplayName("a successful AI parse reports aiUsed=true and carries no notice")
+        void successfulParseReportsAiUsed() {
+            ResumeProfileService service = newService(factoryReturning(
+                    chatModelReturning("{\"name\":\"Alice Johnson\",\"email\":\"alice@example.com\"}"),
+                    Duration.ofSeconds(30)));
+
+            ResumeProfileService.ProfileOutcome outcome = service.buildProfileOutcome(RESUME);
+
+            assertTrue(outcome.aiUsed());
+            assertNull(outcome.notice());
+            assertEquals("Alice Johnson", outcome.profile().name());
+        }
+
+        @Test
+        @DisplayName("an unavailable provider reports aiUsed=false with an explanatory notice")
+        void unavailableProviderReportsNotice() {
+            ResumeProfileService service =
+                    newService(factoryReturning(chatModelReturning(""), Duration.ofSeconds(30)));
+
+            ResumeProfileService.ProfileOutcome outcome = service.buildProfileOutcome(RESUME);
+
+            assertFalse(outcome.aiUsed());
+            assertNotNull(outcome.notice());
+            assertEquals("Alice Johnson", outcome.profile().name());
+        }
+
+        @Test
+        @DisplayName("buildProfile still returns just the profile (ResumeAgent back-compat)")
+        void buildProfileStillReturnsProfileOnly() {
+            ResumeProfileService service = newService(factoryReturning(
+                    chatModelReturning(""), Duration.ofSeconds(30)));
+
+            assertEquals("Alice Johnson", service.buildProfile(RESUME).name());
         }
     }
 }

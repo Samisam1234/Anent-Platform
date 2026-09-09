@@ -3,17 +3,22 @@
  * Uses the deterministic /api/v1/jobs/search engine (no LLM) to browse the
  * job catalog, and the shared jobDetails.js modal for per-job detail + match
  * checking.
+ *
+ * There is no free-text keyword field: the stored candidate profile id is sent
+ * with every search so the backend derives relevance keywords from the parsed
+ * resume skills (JobSearchService.deriveProfileKeywords).
  */
 (() => {
     'use strict';
 
     const API_ENDPOINT = '/api/v1/jobs/search';
+    const LS_CANDIDATE_ID = 'agentplatform:candidateId';
+    const LS_CANDIDATE_NAME = 'agentplatform:candidateName';
 
     const searchBtn = document.getElementById('jobsSearchBtn');
     const resetBtn = document.getElementById('jobsResetBtn');
     const form = document.getElementById('jobsSearchForm');
 
-    const keywordsInput = document.getElementById('jobsKeywordsInput');
     const locationInput = document.getElementById('jobsLocationInput');
     const experienceSelect = document.getElementById('jobsExperienceSelect');
     const typeSelect = document.getElementById('jobsTypeSelect');
@@ -62,13 +67,6 @@
             .replace(/'/g, '&#039;');
     }
 
-    function parseKeywords(value) {
-        return String(value || '')
-            .split(',')
-            .map(s => s.trim())
-            .filter(Boolean);
-    }
-
     function formatEmploymentType(type) {
         if (!type) return 'Full-time';
         switch (String(type).toUpperCase()) {
@@ -83,8 +81,12 @@
     // ─── Source banner ──────────────────────────────────────────────────────
     function updateSourceBanner(data) {
         if (!data) { sourceBanner.hidden = true; return; }
-        sourceBannerTitle.textContent = data.live ? 'Live Source Active' : 'Development Mock Source Active';
-        sourceBannerMessage.textContent = data.message || (data.live ? 'Jobs loaded from a live source.' : 'Browsing the development mock job catalog.');
+        // `live` is only true when a live source actually returned listings, so the mock
+        // wording below is a genuine offline/fallback notice rather than the normal state.
+        sourceBannerTitle.textContent = data.live ? 'Live Job Source Active' : 'Live Source Unavailable — Using Sample Jobs';
+        sourceBannerMessage.textContent = data.message || (data.live
+            ? 'Jobs loaded from the live public job source.'
+            : 'The live job source returned nothing, so sample jobs are shown so you can keep working.');
         // Show combined source names if multiple sources were queried
         if (data.source && data.source.includes(', ')) {
             sourceBannerMessage.textContent += ' (' + data.source + ')';
@@ -103,8 +105,10 @@
 
     function renderActiveSummary(payload) {
         activeSummary.innerHTML = '';
-        if (payload.keywords && payload.keywords.length) {
-            activeSummary.appendChild(createChip('Keywords: ' + payload.keywords.join(', ')));
+        const candidateName = localStorage.getItem(LS_CANDIDATE_NAME);
+        if (payload.candidateProfileId) {
+            activeSummary.appendChild(createChip(
+                candidateName ? 'Skills from resume: ' + candidateName : 'Skills from parsed resume'));
         }
         if (payload.location) activeSummary.appendChild(createChip('Location: ' + payload.location));
         if (payload.experience) activeSummary.appendChild(createChip('Experience: ' + payload.experience));
@@ -193,8 +197,9 @@
     // ─── Search ─────────────────────────────────────────────────────────────
     function buildPayload() {
         const payload = {};
-        const keywords = parseKeywords(keywordsInput.value);
-        if (keywords.length) payload.keywords = keywords;
+        // Relevant skills come from the parsed resume, not from a typed keyword list.
+        const candidateId = localStorage.getItem(LS_CANDIDATE_ID);
+        if (candidateId) payload.candidateProfileId = Number(candidateId);
         if (locationInput.value.trim()) payload.location = locationInput.value.trim();
         if (experienceSelect.value) payload.experience = experienceSelect.value;
         if (typeSelect.value) payload.employmentType = typeSelect.value;
@@ -237,14 +242,14 @@
 
             cardsGrid.innerHTML = '';
             if (jobs.length === 0) {
-                emptyDesc.textContent = 'No jobs matched the current filters. Try broadening your keywords or removing filters.';
+                emptyDesc.textContent = 'No jobs matched the current filters. Try widening the location or removing a filter.';
                 empty.hidden = false;
                 return;
             }
             jobs.forEach(job => cardsGrid.appendChild(createJobCard(job)));
             // Show notice if all results are mock data
             if (allMock) {
-                showToast('Showing development mock jobs. Enable the public job source for live listings.', 'info');
+                showToast('The live job source returned no listings — showing sample jobs instead.', 'info');
             }
         })
         .catch(err => {
@@ -261,7 +266,6 @@
     }
 
     function resetFilters() {
-        keywordsInput.value = '';
         locationInput.value = '';
         experienceSelect.value = '';
         typeSelect.value = '';
@@ -270,11 +274,31 @@
     }
 
     // ─── Init ───────────────────────────────────────────────────────────────
+    function initProfileBadge() {
+        const badge = document.getElementById('profileBadge');
+        const text = document.getElementById('profileStatusText');
+        if (!badge || !text) return;
+        const candidateName = localStorage.getItem(LS_CANDIDATE_NAME);
+        if (localStorage.getItem(LS_CANDIDATE_ID)) {
+            badge.classList.add('status-live');
+            const dot = badge.querySelector('.status-dot');
+            if (dot) dot.classList.add('status-dot-online');
+            text.textContent = candidateName ? `Searching for ${candidateName}` : 'Profile ready';
+        } else {
+            text.textContent = 'No profile';
+        }
+    }
+
     function init() {
         form.addEventListener('submit', (e) => { e.preventDefault(); runSearch(); });
         searchBtn.addEventListener('click', runSearch);
         resetBtn.addEventListener('click', resetFilters);
         empty.querySelector('#jobsEmptyResetBtn').addEventListener('click', resetFilters);
+
+        initProfileBadge();
+        if (!localStorage.getItem(LS_CANDIDATE_ID)) {
+            showToast('Upload a resume first and job results will be filtered to your skills.', 'info');
+        }
 
         runSearch();
     }

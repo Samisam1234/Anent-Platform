@@ -54,31 +54,188 @@
                 </div>
             </div>
         </header>
+
         <main class="resume-main" id="resumeMain">
             <div class="resume-container">
-                <section class="resume-upload-panel" id="resumeUploadPanel">
-                    <h2 class="resume-upload-title">Upload Your Resume</h2>
-                    <p class="resume-upload-desc">Upload a PDF or DOCX resume to build your candidate profile. The AI will extract your skills, experience, and education automatically.</p>
-                    <div class="resume-drop-zone" id="resumeDropZone">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="12" y1="12" x2="16" y2="12"></line></svg>
-                        <p>Drag &amp; drop your resume here, or <strong>click to browse</strong></p>
-                        <p style="font-size:.8rem;color:var(--text-muted);margin-top:8px">Supports PDF and DOCX (max 10 MB)</p>
+
+                <!-- ── Page heading ─────────────────────────────────────────── -->
+                <div class="resume-page-head">
+                    <div class="resume-page-head-text">
+                        <h2 class="resume-page-title">Resume Analysis</h2>
+                        <p class="resume-page-subtitle">
+                            Upload a resume and the platform extracts a structured candidate profile —
+                            the same profile that Job Search, Matches and Applications use automatically.
+                        </p>
                     </div>
-                    <input type="file" id="resumeFileInput" accept=".pdf,.docx" hidden>
-                    <div class="resume-file-info" id="resumeFileInfo"></div>
-                    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-                        <button class="btn-primary" id="uploadBtn" disabled>Upload &amp; Analyze</button>
-                        <button class="btn-secondary" id="clearBtn">Clear</button>
+                </div>
+
+                <!-- ── Step rail: Upload → Review → Analyzing → Profile ─────── -->
+                <ol class="resume-steps" id="resumeSteps">
+                    <li class="resume-step is-active" data-step="upload">
+                        <span class="resume-step-marker">
+                            <span class="resume-step-num">1</span>
+                            <svg class="resume-step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="resume-step-label">Upload</span>
+                    </li>
+                    <li class="resume-step" data-step="review">
+                        <span class="resume-step-marker">
+                            <span class="resume-step-num">2</span>
+                            <svg class="resume-step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="resume-step-label">Review file</span>
+                    </li>
+                    <li class="resume-step" data-step="analyzing">
+                        <span class="resume-step-marker">
+                            <span class="resume-step-num">3</span>
+                            <svg class="resume-step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="resume-step-label">Analyzing</span>
+                    </li>
+                    <li class="resume-step" data-step="profile">
+                        <span class="resume-step-marker">
+                            <span class="resume-step-num">4</span>
+                            <svg class="resume-step-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="resume-step-label">Profile</span>
+                    </li>
+                </ol>
+
+                <!-- ── STATE 1 + 2: upload & file selected ─────────────────── -->
+                <section class="resume-panel" id="resumeUploadPanel">
+                    <div class="resume-panel-head">
+                        <h3 class="resume-panel-title">Upload your resume</h3>
+                        <p class="resume-panel-desc">
+                            Text-selectable PDF or DOCX, up to 10&nbsp;MB. Scanned images cannot be read.
+                        </p>
                     </div>
-                    <div class="resume-parse-status" id="resumeParseStatus" hidden></div>
+
+                    <div class="resume-drop-zone" id="resumeDropZone" role="button" tabindex="0"
+                         aria-label="Choose a resume file, or drag and drop one here">
+                        <span class="resume-drop-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="12" y1="18" x2="12" y2="12"></line>
+                                <polyline points="9 15 12 12 15 15"></polyline>
+                            </svg>
+                        </span>
+                        <p class="resume-drop-title">Drag &amp; drop your resume, or <strong>browse files</strong></p>
+                        <p class="resume-drop-hint">PDF or DOCX · max 10&nbsp;MB</p>
+                    </div>
+                    <input type="file" id="resumeFileInput" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
+
+                    <!-- File selected -->
+                    <div class="resume-file-card" id="resumeFileCard" hidden>
+                        <span class="resume-file-icon" id="resumeFileIcon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        </span>
+                        <div class="resume-file-meta">
+                            <span class="resume-file-name" id="resumeFileName">—</span>
+                            <span class="resume-file-sub" id="resumeFileSub">—</span>
+                        </div>
+                        <button class="btn-ghost resume-file-change" id="changeFileBtn" type="button">Change</button>
+                    </div>
+
+                    <!-- Error state -->
+                    <div class="resume-alert resume-alert-error" id="resumeErrorAlert" role="alert" hidden>
+                        <span class="resume-alert-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        </span>
+                        <div class="resume-alert-body">
+                            <strong class="resume-alert-title" id="resumeErrorTitle">Upload failed</strong>
+                            <p class="resume-alert-text" id="resumeErrorMessage"></p>
+                            <ul class="resume-alert-list" id="resumeErrorHints" hidden></ul>
+                        </div>
+                        <button class="btn-ghost resume-alert-action" id="retryBtn" type="button" hidden>Try again</button>
+                    </div>
+
+                    <div class="resume-panel-actions">
+                        <button class="btn-primary" id="uploadBtn" type="button" disabled>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><polyline points="7 8 12 3 17 8"></polyline><line x1="5" y1="21" x2="19" y2="21"></line></svg>
+                            Analyze resume
+                        </button>
+                        <button class="btn-secondary" id="clearBtn" type="button">Clear</button>
+                    </div>
                 </section>
-                <section class="resume-profile-section" id="resumeProfileSection" hidden>
-                    <div class="applications-toolbar">
-                        <h3 class="applications-toolbar-title">Candidate Profile</h3>
-                        <span class="applications-toolbar-count" id="profileIdBadge">—</span>
+
+                <!-- ── STATE 3: analyzing (bounded, staged, cancellable) ───── -->
+                <section class="resume-panel resume-analyzing-panel" id="resumeAnalyzingPanel" hidden
+                         aria-live="polite" aria-busy="true">
+                    <div class="resume-analyzing-head">
+                        <span class="resume-analyzing-orb" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"></path>
+                                <circle cx="12" cy="12" r="3.2"></circle>
+                            </svg>
+                        </span>
+                        <div class="resume-analyzing-heading">
+                            <h3 class="resume-analyzing-title">Analyzing your resume</h3>
+                            <p class="resume-analyzing-sub" id="analyzingSub">Reading the document…</p>
+                        </div>
+                        <span class="resume-analyzing-elapsed" id="analyzingElapsed">0s</span>
                     </div>
-                    <div class="prep-review-card" id="profileDetails" style="margin-top:16px"></div>
+
+                    <div class="resume-analyzing-track" role="progressbar" aria-label="Resume analysis progress"
+                         aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="analyzingTrack">
+                        <div class="resume-analyzing-fill" id="analyzingFill"></div>
+                    </div>
+
+                    <ul class="resume-analyzing-stages" id="analyzingStages">
+                        <li class="resume-analyzing-stage is-active" data-stage="read">
+                            <span class="resume-stage-dot" aria-hidden="true"></span>
+                            <span>Reading and extracting text from the file</span>
+                        </li>
+                        <li class="resume-analyzing-stage" data-stage="ai">
+                            <span class="resume-stage-dot" aria-hidden="true"></span>
+                            <span>AI is structuring skills, experience and education</span>
+                        </li>
+                        <li class="resume-analyzing-stage" data-stage="profile">
+                            <span class="resume-stage-dot" aria-hidden="true"></span>
+                            <span>Saving your candidate profile</span>
+                        </li>
+                    </ul>
+
+                    <p class="resume-analyzing-hint" id="analyzingHint">
+                        This usually takes a few seconds. On the first run the local model may need up to
+                        <span id="analyzingBudgetLabel">2 minutes</span> to warm up — the page will never wait
+                        longer than that.
+                    </p>
+
+                    <button class="btn-ghost resume-analyzing-cancel" id="cancelAnalyzeBtn" type="button">Cancel</button>
                 </section>
+
+                <!-- ── STATE 4 + 5 + 6: completed, profile, next step ──────── -->
+                <section class="resume-panel" id="resumeProfileSection" hidden>
+                    <div class="resume-result-banner" id="resumeResultBanner"></div>
+
+                    <div class="resume-profile-head">
+                        <div class="resume-profile-head-text">
+                            <h3 class="resume-profile-title">Candidate profile</h3>
+                            <p class="resume-profile-sub" id="resumeProfileSub">Analysis completed.</p>
+                        </div>
+                        <span class="resume-profile-id" id="profileIdBadge">—</span>
+                    </div>
+
+                    <div class="resume-profile-body" id="profileDetails"></div>
+
+                    <!-- Shown together with the parsed profile: the natural next step is
+                         job search, which uses this profile's skills automatically. -->
+                    <div class="resume-next-steps" id="resumeNextSteps">
+                        <div class="resume-next-text" id="resumeNextText">
+                            <strong>Your profile is ready.</strong>
+                            Job Search and Matches now use these skills automatically — no keyword typing needed.
+                        </div>
+                        <div class="resume-next-actions">
+                            <a href="jobs.html" class="btn-primary" id="continueToJobsBtn">
+                                Continue to Job Search
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                            </a>
+                            <a href="matches.html" class="btn-secondary" id="continueToMatchesBtn">See my matches</a>
+                        </div>
+                    </div>
+                </section>
+
             </div>
         </main>
     </div>

@@ -136,6 +136,8 @@ public class ApplicationAdvisorService {
         List<RecommendedActionDetail> recommendedActionDetails = new ArrayList<>();
         buildRecommendedActions(gap, recommendedActions, recommendedActionDetails);
 
+        // Job echo fields: the review UI header shows which role this advice is about.
+        // Both values come straight from the already-resolved Job — nothing is invented.
         return new ApplicationAdvisorResponse(
                 recommendation,
                 compositeScore,
@@ -143,7 +145,9 @@ public class ApplicationAdvisorService {
                 concerns,
                 recommendedActions,
                 recommendedActionDetails,
-                jobMatchScore);
+                jobMatchScore,
+                job.title(),
+                job.company());
     }
 
     /**

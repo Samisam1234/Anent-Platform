@@ -133,8 +133,8 @@
         const runBtn = modal.querySelector('.btn-run-agent');
         if (runBtn) runBtn.disabled = true;
 
-        // Initialize agent progress view with all agents in WAITING state
-        body.innerHTML = buildProgressHtml({});
+        // Single honest in-progress notice — see buildInFlightHtml().
+        body.innerHTML = buildInFlightHtml();
 
         const payload = { candidateId: Number(candidateId), jobId: String(jobId) };
 
@@ -184,49 +184,28 @@
         }
     }
 
-    // ─── Progress rendering (during execution) ──────────────────────────────
-    function buildProgressHtml(executions) {
-        // executions is a map of agentType -> {status, message, errorCode, durationMs}
-        const items = AGENT_ORDER.map(type => {
-            const exec = executions[type] || { status: 'WAITING', message: '', errorCode: 'NONE', durationMs: -1 };
-            const status = exec.status || 'WAITING';
-            const statusClass = statusClassForProgress(status);
-            const label = AGENT_LABELS[type] || type;
-            const duration = exec.durationMs > 0 ? ` (${formatDuration(exec.durationMs)})` : '';
-            const errorNote = exec.errorCode && exec.errorCode !== 'NONE'
-                ? `<span class="agent-error-code">${esc(exec.errorCode)}</span>`
-                : '';
-            return `
-                <li class="agent-progress-item agent-progress-${statusClass}">
-                    <span class="agent-progress-dot" aria-hidden="true"></span>
-                    <div class="agent-progress-main">
-                        <span class="agent-progress-name">${esc(label)}</span>
-                        <span class="agent-progress-msg">${esc(exec.message || '')}${duration} ${errorNote}</span>
-                    </div>
-                    <span class="agent-progress-status ${statusClass}">${esc(status)}</span>
-                </li>`;
-        }).join('');
-
+    // ─── In-flight rendering ────────────────────────────────────────────────
+    /**
+     * The orchestration endpoint is a single synchronous request: the server runs
+     * RESUME → JOB_DISCOVERY → MATCHING → CAREER_ADVISOR → APPLICATION_ADVISOR in one
+     * blocking call and reports every stage's final state when it responds. There is no
+     * per-stage stream or polling, so claiming a per-stage "WAITING" status here would be
+     * invented state. We show one honest in-progress notice and render the real per-stage
+     * statuses from the response.
+     */
+    function buildInFlightHtml() {
+        const stages = AGENT_ORDER
+            .map(type => `<span class="summary-chip">${esc(AGENT_LABELS[type] || type)}</span>`)
+            .join('');
         return `
-            <div class="agent-progress-section">
-                <h4 class="agent-section-title">Agent Progress</h4>
-                <ul class="agent-progress-list">${items}</ul>
-            </div>
             <div class="agent-run-loading">
                 <span class="processing-spinner"></span>
-                <span>Running the career agent orchestration…</span>
-            </div>`;
-    }
-
-    function statusClassForProgress(status) {
-        switch (String(status || '').toUpperCase()) {
-            case 'COMPLETED': return 'completed';
-            case 'RUNNING': return 'running';
-            case 'FAILED': return 'failed';
-            case 'TIMEOUT': return 'timeout';
-            case 'SKIPPED': return 'skipped';
-            default: return 'waiting';
-        }
+                <span>Running the career agent…</span>
+            </div>
+            <p class="modal-hint">
+                All stages run in a single request, so per-stage results appear together when the
+                run finishes. Stages: ${stages}
+            </p>`;
     }
 
     function formatDuration(ms) {
@@ -289,7 +268,6 @@
             <div class="agent-usage-row">
                 <div class="agent-usage-cell"><span class="agent-usage-num">${Number(data.aiCallsUsed) || 0}</span><span class="agent-usage-label">AI calls</span></div>
                 <div class="agent-usage-cell"><span class="agent-usage-num">${Number(data.toolCallsUsed) || 0}</span><span class="agent-usage-label">Tool calls</span></div>
-                <div class="agent-usage-cell"><span class="agent-usage-num">${Number(data.jobMatchScore) || 0}</span><span class="agent-usage-label">Job Match</span></div>
                 <div class="agent-usage-cell"><span class="agent-usage-num">${esc(printable(data.stoppingAgentType) || '—')}</span><span class="agent-usage-label">Stopped at</span></div>
             </div>
 
@@ -299,19 +277,6 @@
             ${executions
                 ? `<ul class="agent-executions-list">${executions}</ul>`
                 : `<p class="modal-hint">No agent executions were reported for this run.</p>`}
-
-            ${data.recommendedActionDetails && data.recommendedActionDetails.length ? `
-            <div class="advisor-action-details">
-                <h4 class="agent-section-title">Recommended Action Details</h4>
-                <ul class="advisor-action-details-list">
-                    ${data.recommendedActionDetails.map(d => `
-                        <li>
-                            <strong>${esc(d.focus)}</strong> (${esc(d.type)}): ${esc(d.description)}
-                            ${d.reason ? `<br><small class="agent-action-reason">${esc(d.reason)}</small>` : ''}
-                        </li>`).join('')}
-                </ul>
-            </div>
-            ` : ''}
 
             <p class="agent-note">The application advisor preparing material does not send email or submit applications. Sending in this platform only ever happens through the explicit, approval-gated application review flow.</p>
 

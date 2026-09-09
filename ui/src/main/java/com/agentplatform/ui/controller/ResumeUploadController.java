@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -28,6 +29,12 @@ import java.util.Map;
  * {@link CandidateProfile} via {@link ResumeProfileService}, persists it
  * using {@link CandidateProfilePersistenceService}, and returns the
  * candidate ID and profile data.</p>
+ *
+ * <p>Profile building is bounded by {@code ollama.reasoning-timeout} inside
+ * {@link ResumeProfileService}, so this endpoint always terminates: when the AI
+ * provider is unavailable or too slow the deterministic parser supplies the
+ * profile and the response carries {@code aiModelUsed=false} plus a
+ * user-facing {@code notice} explaining what happened.</p>
  */
 @RestController
 @RequestMapping("/api/v1/resume")
@@ -66,15 +73,22 @@ public class ResumeUploadController {
 
             byte[] bytes = file.getBytes();
             String text = resumeParserService.extractText(bytes);
-            CandidateProfile profile = resumeProfileService.buildProfile(text);
+            ResumeProfileService.ProfileOutcome outcome = resumeProfileService.buildProfileOutcome(text);
+            CandidateProfile profile = outcome.profile();
             CandidateProfileEntity saved = persistenceService.save(profile);
 
-            log.info("Resume uploaded and profile persisted: id={}, name={}", saved.getId(), saved.getName());
+            log.info("Resume uploaded and profile persisted: id={}, name={}, aiUsed={}",
+                    saved.getId(), saved.getName(), outcome.aiUsed());
 
-            return ResponseEntity.ok(Map.of(
-                    "candidateId", saved.getId(),
-                    "profile", profile
-            ));
+            // Map.of rejects nulls, so the optional notice is added conditionally.
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("candidateId", saved.getId());
+            body.put("profile", profile);
+            body.put("aiModelUsed", outcome.aiUsed());
+            if (outcome.notice() != null) {
+                body.put("notice", outcome.notice());
+            }
+            return ResponseEntity.ok(body);
         } catch (IOException e) {
             log.error("Failed to read uploaded file", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

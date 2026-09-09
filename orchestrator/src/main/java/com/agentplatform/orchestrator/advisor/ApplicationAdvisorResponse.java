@@ -20,7 +20,11 @@ public record ApplicationAdvisorResponse(
         List<String> concerns,
         List<String> recommendedActions,
         List<RecommendedActionDetail> recommendedActionDetails,
-        int jobMatchScore
+        int jobMatchScore,
+        /** Title of the job this advice refers to (safe, already public job data). */
+        String jobTitle,
+        /** Company of the job this advice refers to (safe, already public job data). */
+        String company
 ) {
 
     /**
@@ -41,6 +45,23 @@ public record ApplicationAdvisorResponse(
         recommendedActions = recommendedActions != null ? List.copyOf(recommendedActions) : List.of();
         recommendedActionDetails = recommendedActionDetails != null ? List.copyOf(recommendedActionDetails) : List.of();
         jobMatchScore = Math.max(0, Math.min(100, jobMatchScore));
+    }
+
+    /**
+     * Backwards-compatible 7-arg constructor (pre-dates the {@code jobTitle}/{@code company}
+     * echo fields). Keeps every existing caller and test compiling unchanged; the two job
+     * echo fields are left {@code null} and the UI renders its own placeholder.
+     */
+    public ApplicationAdvisorResponse(
+            ApplicationRecommendation recommendation,
+            int score,
+            List<String> strengths,
+            List<String> concerns,
+            List<String> recommendedActions,
+            List<RecommendedActionDetail> recommendedActionDetails,
+            int jobMatchScore) {
+        this(recommendation, score, strengths, concerns, recommendedActions,
+                recommendedActionDetails, jobMatchScore, null, null);
     }
 
     private static int clampScore(int score) {
@@ -65,6 +86,25 @@ public record ApplicationAdvisorResponse(
                 List.of(),
                 List.of(),
                 0);
+    }
+
+    /**
+     * Factory for a fully populated response including the job echo fields
+     * ({@code jobTitle} / {@code company}) the review UI displays in its header.
+     */
+    public static ApplicationAdvisorResponse of(
+            ApplicationRecommendation recommendation,
+            int score,
+            List<String> strengths,
+            List<String> concerns,
+            List<String> recommendedActions,
+            List<RecommendedActionDetail> recommendedActionDetails,
+            int jobMatchScore,
+            String jobTitle,
+            String company) {
+        return new ApplicationAdvisorResponse(
+                recommendation, score, strengths, concerns, recommendedActions,
+                recommendedActionDetails, jobMatchScore, jobTitle, company);
     }
 
     /**

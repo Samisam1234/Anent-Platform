@@ -69,6 +69,19 @@ public class OllamaChatModelFactory {
     }
 
     /**
+     * The configured reasoning timeout ({@code ollama.reasoning-timeout}).
+     *
+     * <p>Callers that must guarantee a response use this as a <em>wall-clock</em>
+     * deadline around {@link ChatModel#chat}. The same value is passed to
+     * {@code OllamaChatModel.timeout(...)}, but that maps to the HTTP client's
+     * socket-idle read timeout, which does not bound the total duration of a
+     * long generation. See {@code AiStatusService} for the established pattern.</p>
+     */
+    public Duration timeout() {
+        return timeout != null ? timeout : DEFAULT_TIMEOUT;
+    }
+
+    /**
      * Returns a safe fallback response when Ollama is unreachable,
      * so the UI completes without hanging.
      */

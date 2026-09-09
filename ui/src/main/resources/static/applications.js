@@ -416,12 +416,6 @@
         });
     }
 
-    .catch(err => {
-            console.error('Error saving application:', err);
-            showToast(err.message || 'Failed to save changes.', 'error');
-        });
-    }
-
     // ─── Send Email ───────────────────────────────────────────────────────────
     function sendEmail() {
         if (!currentApplicationId) {

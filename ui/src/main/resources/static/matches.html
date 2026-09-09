@@ -85,14 +85,9 @@
                 <!-- Match controls -->
                 <section class="matches-controls" id="matchControls" hidden>
                     <form class="matches-search-form" id="matchesSearchForm" onsubmit="return false;">
+                        <!-- Skills come from the parsed candidate profile (sent as candidateProfileId);
+                             there is deliberately no free-text keyword field here. -->
                         <div class="search-inputs-grid">
-                            <div class="input-group keyword-group">
-                                <label for="matchesKeywordsInput" class="input-label">Keywords &amp; Skills</label>
-                                <div class="input-wrapper">
-                                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                                    <input type="text" id="matchesKeywordsInput" class="form-input" placeholder="e.g. Java, Spring Boot, VLSI, RTL Design..." autocomplete="off">
-                                </div>
-                            </div>
                             <div class="input-group location-group">
                                 <label for="matchesLocationInput" class="input-label">Location</label>
                                 <div class="input-wrapper">
@@ -147,8 +142,8 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                     </div>
                     <div class="banner-text">
-                        <strong id="matchesBannerTitle">Development Mock Source Active</strong>
-                        <span id="matchesBannerMessage">Matched against the development mock job catalog.</span>
+                        <strong id="matchesBannerTitle">Job Source</strong>
+                        <span id="matchesBannerMessage">Job source status is shown here after matching.</span>
                     </div>
                 </div>
 
@@ -172,7 +167,7 @@
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
                         </div>
                         <h3 class="empty-title">No Matching Jobs Found</h3>
-                        <p class="empty-desc" id="matchesEmptyDesc">No roles cleared the current filters. Try broadening keywords or lowering the minimum score.</p>
+                        <p class="empty-desc" id="matchesEmptyDesc">No roles cleared the current filters. Try lowering the minimum score or widening the location.</p>
                         <button type="button" class="btn-secondary" id="matchesEmptyResetBtn">Reset Filters &amp; Retry</button>
                     </div>
 
@@ -188,6 +183,8 @@
             <div class="advisor-review-header">
                 <div>
                     <h2 class="advisor-review-title" id="advisorReviewTitle">Application Advisor</h2>
+                    <p class="advisor-review-subtitle" id="advisorReviewJobTitle">—</p>
+                    <p class="advisor-review-subtitle" id="advisorReviewCompany">—</p>
                     <p class="advisor-review-subtitle" id="advisorReviewSubtitle">—</p>
                 </div>
                 <button type="button" class="btn-icon advisor-review-close" id="advisorReviewClose" aria-label="Close review">
@@ -220,7 +217,7 @@
                     <div class="advisor-review-section-head">
                         <h3>Strengths</h3>
                     </div>
-                    <div class="advisor-review-card" id="advisorReviewStrengths">
+                    <div class="advisor-review-card">
                         <ul class="advisor-ul" id="advisorReviewStrengths"></ul>
                     </div>
                 </div>
@@ -229,7 +226,7 @@
                     <div class="advisor-review-section-head">
                         <h3>Concerns</h3>
                     </div>
-                    <div class="advisor-review-card" id="advisorReviewConcerns">
+                    <div class="advisor-review-card">
                         <ul class="advisor-ul" id="advisorReviewConcerns"></ul>
                     </div>
                 </div>
@@ -238,7 +235,7 @@
                     <div class="advisor-review-section-head">
                         <h3>Recommended Actions</h3>
                     </div>
-                    <div class="advisor-review-card" id="advisorReviewActions">
+                    <div class="advisor-review-card">
                         <ul class="advisor-ul" id="advisorReviewActions"></ul>
                     </div>
                 </div>
@@ -247,7 +244,7 @@
                     <div class="advisor-review-section-head">
                         <h3>Action Details</h3>
                     </div>
-                    <div class="advisor-review-card" id="advisorReviewDetails">
+                    <div class="advisor-review-card">
                         <ul class="advisor-ul" id="advisorReviewDetails"></ul>
                     </div>
                 </div>
@@ -260,6 +257,7 @@
     </div>
 
     <!-- Prepared Application Review Modal -->
+    <div class="prep-review-overlay" id="prepReviewOverlay" hidden>
         <div class="prep-review-modal" role="dialog" aria-modal="true" aria-labelledby="prepReviewTitle">
             <div class="prep-review-header">
                 <div>
