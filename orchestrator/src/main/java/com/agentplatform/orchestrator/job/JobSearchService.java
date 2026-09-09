@@ -64,7 +64,10 @@ public class JobSearchService {
         if (jobSources != null && !jobSources.isEmpty()) {
             this.jobSources = List.copyOf(jobSources);
         } else {
-            this.jobSources = List.of(new MockJobSource());
+            // No silent fallback to the development catalog. An empty source list means
+            // "no jobs available", which the UI renders as a professional empty state
+            // rather than as fabricated listings.
+            this.jobSources = List.of();
         }
     }
 
@@ -171,11 +174,23 @@ public class JobSearchService {
         long durationMs = System.currentTimeMillis() - startTime;
         String combinedSourceName = String.join(", ", sourceNames);
         boolean liveConfigured = activeSources.stream().anyMatch(JobSource::isLive);
-        String message = anyLive
-                ? "Live job search completed successfully."
-                : (liveConfigured
-                        ? "The live job source returned no listings, so results fall back to the development mock catalog."
-                        : "Live job source not configured. Returning development mock data.");
+        // Describe what was actually returned rather than what might have been configured:
+        // the development wording appears only when mock rows really are in the result
+        // (job-sources.mock.enabled=true), never in the normal live-only flow.
+        boolean anyMock = limitedResults.stream()
+                .anyMatch(job -> MockJobSource.SOURCE_NAME.equals(job.source()));
+        String message;
+        if (anyLive) {
+            message = "Live job search completed successfully.";
+        } else if (anyMock) {
+            message = liveConfigured
+                    ? "The live job source returned no listings, so results fall back to the development mock catalog."
+                    : "Live job source not configured. Returning development mock data.";
+        } else {
+            message = liveConfigured
+                    ? "No live jobs are currently available for these preferences."
+                    : "No live job source is configured.";
+        }
         log.info("Job search complete in {} ms: sources=[{}], raw={}, afterDedup={}, afterFilter={}, returned={}",
                 durationMs, combinedSourceName, rawCount, afterDedupCount, afterFilterCount, limitedResults.size());
         return new JobSearchResult(limitedResults, afterFilterCount, combinedSourceName, anyLive, message);

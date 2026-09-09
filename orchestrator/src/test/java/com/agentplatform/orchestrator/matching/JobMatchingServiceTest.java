@@ -565,7 +565,9 @@ class JobMatchingServiceTest {
         assertEquals("Alice", result.candidateName());
         assertEquals(1, result.matches().size());
         assertFalse(result.live());
-        assertTrue(result.message().contains("mock job catalog"));
+        // Provenance is asserted via live()/source(); the message is now source-agnostic
+        // so it never claims a mock catalog for a merely non-live result.
+        assertTrue(result.message().contains("Matched job listings"), "message=" + result.message());
     }
 
     @Test

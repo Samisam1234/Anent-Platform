@@ -198,7 +198,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
     function renderMatches(data, payload) {
         const matches = data.matches || [];
         const isLive = data.live === true;
-        const sourceName = data.source || 'MOCK_SOURCE';
+        const sourceName = data.source || 'Unknown source';
 
         // Source banner
         sourceBanner.hidden = false;
@@ -207,7 +207,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             bannerTitle.textContent = `Live Job Source Active (${sourceName})`;
         } else {
             sourceBanner.className = 'source-info-banner';
-            bannerTitle.textContent = `Live Source Unavailable — Sample Jobs (${sourceName})`;
+            bannerTitle.textContent = `Live Source Returned No Listings (${sourceName})`;
         }
         bannerMessage.textContent = data.message || 'Matched against the job catalog.';
 
@@ -397,8 +397,9 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
 
     /**
      * Source-aware card action (shared rules with jobs page).
-     * MOCK_SOURCE listings never navigate to mockjobs.local — they open the
-     * internal Job Details modal instead.
+     * A listing with a valid external URL opens the real posting in a new tab;
+     * anything else — including a development listing — opens the internal Job
+     * Details modal, so a placeholder URL is never navigated to.
      */
     function matchJobFooterHtml(job) {
         const isExternal = window.jobDetails && !window.jobDetails.isMock(job) && window.jobDetails.hasValidUrl(job);

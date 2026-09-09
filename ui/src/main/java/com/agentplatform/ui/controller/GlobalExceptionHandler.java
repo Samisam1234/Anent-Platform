@@ -114,13 +114,16 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneric(Exception ex) {
-        // The stack trace (which may echo request content in nested messages)
-        // is kept at DEBUG so ERROR output stays clean and PII-free.
+        // The response body stays generic and never leaks the exception class, message
+        // or stack trace. The throwable IS logged at ERROR so an unexpected 500 is
+        // actually diagnosable from server logs: previously the stack trace went to
+        // DEBUG, which is below the configured com.agentplatform=INFO level, so a 500
+        // left only a sanitized one-line message and no way to find the cause.
         log.error("Unhandled server error: status={}, type={}, detail={}",
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "https://agentplatform.local/errors/internal-server-error",
-                PiiSanitizer.sanitize(ex.getMessage()));
-        log.debug("Unhandled server error stack trace", ex);
+                PiiSanitizer.sanitize(ex.getMessage()),
+                ex);
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 "An unexpected error occurred. Please try again later."

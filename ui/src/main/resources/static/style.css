@@ -91,8 +91,8 @@ a:hover{text-decoration:underline}
 .application-card-meta{display:flex;gap:16px;margin-bottom:16px}
 .application-card-meta-item{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--text-secondary)}
 .application-card-meta-item svg{width:16px;height:16px;color:var(--text-muted)}
-.job-meta-item{display:flex;align-items:center;gap:6px}
-.job-meta-item svg{width:16px;height:16px;flex-shrink:0;color:var(--text-muted)}
+.job-meta-item{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;color:var(--text-secondary)}
+.job-meta-item svg{width:15px;height:15px;flex-shrink:0;color:var(--text-muted)}
 .application-card-excerpt{padding:12px;background:var(--bg-input);border-radius:var(--radius);margin-bottom:16px;font-size:.85rem;color:var(--text-secondary);line-height:1.6}
 .application-card-footer{display:flex;gap:8px}
 
@@ -661,4 +661,165 @@ a:hover{text-decoration:underline}
 @media (prefers-reduced-motion:reduce){
   .resume-analyzing-orb svg,.resume-analyzing-orb::after,.resume-analyzing-fill::after{animation:none}
   .resume-file-card,.resume-alert,.resume-result-banner{animation:none}
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Job / Match / Modal design system
+   These rules were missing entirely: every class below is emitted by
+   jobs.js, matches.js, jobDetails.js, careerAgent.js, applications.js and
+   the page templates, but had no matching selector. Without them the
+   "modal" rendered as an unstyled block appended to <body> (no overlay,
+   no viewport fit, no internal scroll) and skill chips rendered as
+   adjacent <span>s with no separation, e.g. "JavaSpring BootREST APIs".
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Page shells ─────────────────────────────────────────────────────── */
+.matches-page{background:var(--bg-primary)}
+.matches-layout{background:var(--bg-primary)}
+.matches-results-section{display:flex;flex-direction:column;gap:16px}
+.applications-page,.custom-page{background:var(--bg-primary)}
+.applications-layout,.custom-layout,.resume-layout{display:flex;flex-direction:column;gap:24px}
+.applications-list-section{display:flex;flex-direction:column;gap:16px}
+.onboarding-body{display:flex;flex-direction:column;gap:10px;font-size:.875rem;color:var(--text-secondary);line-height:1.65}
+.application-review-banner{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;background:var(--accent-light);border:1px solid rgba(59,130,246,.3);border-radius:var(--radius);font-size:.85rem}
+.candidate-panel-body{display:flex;flex-direction:column;gap:12px}
+.resume-page-head-text,.resume-profile-head-text{display:flex;flex-direction:column;gap:4px;min-width:0}
+.resume-file-change{font-size:.78rem;color:var(--text-muted);font-family:var(--font-mono)}
+.muted{color:var(--text-muted)}
+.status-text{font-size:.8rem;color:var(--text-secondary);white-space:nowrap}
+.status-dot-online{background:var(--success);box-shadow:0 0 8px var(--success)}
+
+/* ── Search form accents ─────────────────────────────────────────────── */
+.location-group{min-width:0}
+.filter-col-limit{max-width:130px}
+.banner-icon{display:flex;align-items:center;flex-shrink:0}
+.banner-text{display:flex;flex-direction:column;gap:2px;min-width:0;font-size:.82rem;color:var(--text-secondary)}
+.banner-text strong{color:var(--text-primary);font-size:.86rem}
+.loading{display:flex;flex-direction:column;align-items:center;gap:12px;padding:40px;text-align:center;color:var(--text-secondary)}
+.loading-text{font-size:.88rem;color:var(--text-secondary)}
+
+/* ── Source badge + summary chips ────────────────────────────────────── */
+.source-live{background:var(--success-light);border-color:rgba(34,197,94,.35)}
+.source-live svg{color:var(--success)}
+.job-source-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-family:var(--font-mono)}
+.job-source-badge.live{background:var(--success-light);color:var(--success);border:1px solid rgba(34,197,94,.35)}
+.summary-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;background:var(--bg-input);border:1px solid var(--border);font-size:.74rem;color:var(--text-secondary);font-family:var(--font-mono);white-space:nowrap}
+
+/* ── Job / match cards ───────────────────────────────────────────────── */
+.match-card{display:flex;flex-direction:column;gap:14px;padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);transition:border-color .2s,background .2s,transform .2s}
+.match-card:hover{border-color:var(--border-light);background:var(--bg-card-hover)}
+.match-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.match-card-title-group{flex:1;min-width:0}
+.job-title{font-size:1.05rem;font-weight:700;line-height:1.35;color:var(--text-primary);overflow-wrap:anywhere}
+.job-company{margin-top:3px;font-size:.875rem;color:var(--text-secondary);font-weight:500}
+.job-meta-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px}
+.match-explanation{font-size:.85rem;line-height:1.65;color:var(--text-secondary);overflow-wrap:anywhere}
+.job-card-footer{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:auto;padding-top:14px;border-top:1px solid var(--border)}
+
+/* ── Card action buttons ─────────────────────────────────────────────── */
+.btn-view-job,.btn-check-match,.btn-apply,.btn-run-agent,.application-advisor-btn,.application-prepare-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 16px;border:1px solid transparent;border-radius:var(--radius);background:var(--accent);color:#fff;font-family:var(--font-sans);font-size:.85rem;font-weight:600;line-height:1;cursor:pointer;text-decoration:none;transition:background .2s,border-color .2s,transform .1s}
+.btn-view-job svg,.btn-check-match svg,.btn-apply svg,.btn-run-agent svg,.application-advisor-btn svg,.application-prepare-btn svg{width:16px;height:16px;flex-shrink:0}
+.btn-view-job:hover,.btn-check-match:hover,.btn-apply:hover,.btn-run-agent:hover,.application-advisor-btn:hover,.application-prepare-btn:hover{background:var(--accent-hover);text-decoration:none}
+.btn-view-job:active,.btn-check-match:active,.btn-apply:active,.btn-run-agent:active{transform:translateY(1px)}
+.btn-view-details{background:var(--bg-input);border-color:var(--border-light);color:var(--text-primary)}
+.btn-view-details:hover{background:var(--bg-card-hover);border-color:var(--accent);color:var(--text-primary)}
+.btn-icon{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn-icon svg{width:16px;height:16px}
+.disabled,.btn-view-job.disabled,.btn-check-match.disabled{opacity:.5;pointer-events:none;cursor:not-allowed}
+
+/* ── Skill chips (fixes the run-together "JavaSpring BootREST APIs") ─── */
+.job-skills-section{display:flex;flex-direction:column;gap:10px}
+.skills-sub-group{display:flex;flex-direction:column;gap:6px}
+.skills-label{font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
+.skills-label-miss{color:var(--danger)}
+.skills-tags-wrap{display:flex;flex-wrap:wrap;gap:6px}
+.skill-tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;border:1px solid var(--border-light);background:var(--bg-input);color:var(--text-secondary);font-size:.75rem;font-weight:600;line-height:1.5;white-space:nowrap}
+.skill-tag.required-skill{background:var(--accent-light);border-color:rgba(59,130,246,.35);color:#93c5fd}
+.skill-tag.preferred-skill{background:rgba(148,163,184,.1);border-color:var(--border);color:var(--text-secondary)}
+.skill-tag.match-hit{background:var(--success-light);border-color:rgba(34,197,94,.4);color:#86efac}
+.skill-tag.match-miss{background:var(--danger-light);border-color:rgba(239,68,68,.4);color:#fca5a5;text-decoration:line-through;text-decoration-thickness:1px}
+
+/* ── Match score strip ───────────────────────────────────────────────── */
+.match-score-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;padding:14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius)}
+.match-score-block{display:flex;flex-direction:column;gap:6px;min-width:0}
+.match-score-num{font-size:1.45rem;font-weight:700;line-height:1.1;color:var(--text-primary);font-family:var(--font-mono)}
+.match-score-fill{height:4px;border-radius:2px;background:var(--accent);min-width:2px}
+.match-rec-badge{display:inline-flex;align-items:center;padding:4px 12px;border-radius:999px;font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:var(--accent-light);color:#93c5fd;border:1px solid rgba(59,130,246,.35)}
+.match-sc-rows{display:flex;flex-direction:column;gap:10px}
+.match-sc-title{font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-secondary)}
+.match-sc-title-good{color:var(--success)}
+.match-sc-title-bad{color:var(--danger)}
+.match-sc-list{list-style:none;display:flex;flex-direction:column;gap:6px;margin:0;padding:0}
+.match-sc-list li{font-size:.83rem;color:var(--text-secondary);line-height:1.55}
+
+/* ── Strengths / concerns ────────────────────────────────────────────── */
+.match-strengths-col,.match-concerns-col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.match-strength,.match-concern{display:flex;align-items:flex-start;gap:9px;padding:9px 12px;border-radius:var(--radius);font-size:.84rem;line-height:1.55}
+.match-strength{background:var(--success-light);color:#bbf7d0;border:1px solid rgba(34,197,94,.25)}
+.match-concern{background:var(--danger-light);color:#fecaca;border:1px solid rgba(239,68,68,.25)}
+.match-strength-icon,.match-concern-icon{display:inline-flex;flex-shrink:0;margin-top:1px}
+.match-strength-icon svg{width:15px;height:15px;color:var(--success)}
+.match-concern-icon svg{width:15px;height:15px;color:var(--danger)}
+
+/* ── Modal / dialog system (Job Details, Match Details) ──────────────── */
+.modal-overlay{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(2,6,17,.74);backdrop-filter:blur(3px);animation:modalFade .18s ease}
+.modal-card{display:flex;flex-direction:column;width:min(880px,100%);max-height:min(90vh,940px);background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-lg);box-shadow:var(--shadow);overflow:hidden;animation:modalRise .22s ease}
+.modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-shrink:0;padding:18px 24px;border-bottom:1px solid var(--border);background:var(--bg-secondary)}
+.modal-header-text{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+.modal-title{font-size:1.2rem;font-weight:700;line-height:1.3;color:var(--text-primary);overflow-wrap:anywhere}
+.modal-title-good{color:var(--success)}
+.modal-title-bad{color:var(--danger)}
+.modal-company{font-size:.875rem;color:var(--text-secondary)}
+.modal-close{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-input);color:var(--text-secondary);font-size:1.35rem;line-height:1;cursor:pointer;transition:all .2s}
+.modal-close:hover{background:var(--danger-light);border-color:var(--danger);color:#fecaca}
+.modal-close:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.modal-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:18px;overscroll-behavior:contain}
+.modal-footer{display:flex;flex-wrap:wrap;align-items:center;gap:10px;flex-shrink:0;padding:16px 24px;border-top:1px solid var(--border);background:var(--bg-secondary)}
+.modal-hint{font-size:.78rem;color:var(--text-muted)}
+.modal-job-section{display:flex;flex-direction:column;gap:8px}
+.modal-section-title{font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted)}
+.modal-description{font-size:.88rem;line-height:1.7;color:var(--text-secondary);white-space:pre-wrap;overflow-wrap:anywhere}
+.modal-source-row{padding-top:14px;border-top:1px solid var(--border)}
+.modal-match-result{display:flex;flex-direction:column;gap:16px}
+.modal-match-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.modal-match-score{font-size:2rem;font-weight:700;line-height:1;color:var(--accent);font-family:var(--font-mono)}
+.modal-match-explanation{font-size:.86rem;line-height:1.65;color:var(--text-secondary)}
+.modal-match-list{list-style:none;display:flex;flex-direction:column;gap:7px;margin:0;padding:0}
+.modal-match-list li{font-size:.84rem;line-height:1.55;color:var(--text-secondary)}
+.modal-match-loading{display:flex;align-items:center;gap:10px;font-size:.85rem;color:var(--text-secondary)}
+.modal-match-error{padding:12px 14px;border-radius:var(--radius);background:var(--danger-light);border:1px solid rgba(239,68,68,.35);color:#fecaca;font-size:.85rem}
+/* Body scroll lock while any modal is open (toggled by jobDetails.js,
+   careerAgent.js and matches.js). */
+body.modal-open{overflow:hidden}
+@keyframes modalFade{from{opacity:0}to{opacity:1}}
+@keyframes modalRise{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+
+/* ── Advisor / application detail lists ──────────────────────────────── */
+.advisor-action-details-list,.application-detail-actions-list{list-style:none;display:flex;flex-direction:column;gap:8px;margin:0;padding:0}
+.advisor-action-details-list li,.application-detail-actions-list li{font-size:.84rem;line-height:1.55;color:var(--text-secondary);padding-left:14px;position:relative}
+.advisor-action-details-list li::before,.application-detail-actions-list li::before{content:"";position:absolute;left:0;top:.55em;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.application-answer-item{display:flex;flex-direction:column;gap:4px;padding:10px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-size:.84rem}
+
+/* ── Custom agent page ───────────────────────────────────────────────── */
+.custom-select{width:100%;padding:10px 12px;border-radius:var(--radius);background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);font-family:var(--font-sans);font-size:.875rem}
+.custom-btn-secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 16px;border-radius:var(--radius);background:var(--bg-input);border:1px solid var(--border-light);color:var(--text-primary);font-size:.85rem;font-weight:600;cursor:pointer;transition:all .2s}
+.custom-btn-secondary:hover{border-color:var(--accent);background:var(--bg-card-hover)}
+.custom-result-block{display:flex;flex-direction:column;gap:8px;padding:14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius)}
+.custom-result-label{font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
+.custom-result-meta{font-size:.78rem;color:var(--text-muted);font-family:var(--font-mono)}
+.custom-result-text{font-size:.87rem;line-height:1.7;color:var(--text-secondary);white-space:pre-wrap;overflow-wrap:anywhere}
+.custom-keypoints-list{list-style:none;display:flex;flex-direction:column;gap:6px;margin:0;padding:0}
+.custom-keypoints-list li{font-size:.84rem;color:var(--text-secondary);padding-left:14px;position:relative}
+.custom-keypoints-list li::before{content:"";position:absolute;left:0;top:.55em;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+@media (max-width:768px){
+  .modal-overlay{padding:0;align-items:stretch}
+  .modal-card{width:100%;max-height:100vh;border-radius:0;border-left:none;border-right:none}
+  .modal-header{padding:14px 16px}
+  .modal-body{padding:16px}
+  .modal-footer{padding:12px 16px}
+  .match-card{padding:16px}
+  .job-meta-row{gap:6px 14px}
+  .job-card-footer>*{flex:1 1 auto}
 }

@@ -97,7 +97,12 @@ public class JobMatchingService {
             candidateJobs = searchResult.jobs();
             source = searchResult.source();
             live = searchResult.live();
-            String string = resultMsg = live ? "Live job matching completed successfully." : "Matched development mock job catalog against candidate profile.";
+            // Provenance is reported separately via `source`; the message must not claim a
+            // "mock job catalog" for every non-live result, because non-live also covers
+            // user-supplied listings and any offline source.
+            resultMsg = live
+                    ? "Live job matching completed successfully."
+                    : "Matched job listings against candidate profile.";
         }
         if (candidateJobs.isEmpty()) {
             log.info("No jobs discovered for matching candidate ID {}", (Object)candidateId);

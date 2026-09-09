@@ -27,13 +27,24 @@ spring:
 # ── Ollama AI Model Configuration ────────────────────────────────────
 # These values are read by OllamaProperties and OllamaConfig in agent-core.
 ollama:
-  base-url: http://localhost:11434
-  # HARDWARE NOTE: Using gemma3:4b (fits comfortably in 8 GB RAM).
-  # Do NOT change to llama3.1:8b or larger models without sufficient RAM.
-  chat-model: gemma3:4b
-  embedding-model: nomic-embed-text
+  base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+  # The model name MUST match a model that actually exists in the local Ollama
+  # installation. Verify with:  ollama list
+  # A name that has not been pulled fails at call time with
+  # "model '<name>' not found" — the app then falls back to the deterministic
+  # parser, so nothing crashes but no AI profile is produced.
+  #
+  # Override per machine without editing this file:
+  #   OLLAMA_CHAT_MODEL=<exact name from `ollama list`>
+  # e.g. gemma3:4b, llama3.1:8b, qwen2.5:3b — use whatever `ollama list` shows.
+  # HARDWARE NOTE: gemma3:4b fits comfortably in 8 GB RAM; do not select a larger
+  # model without sufficient RAM.
+  chat-model: ${OLLAMA_CHAT_MODEL:gemma3:4b}
+  embedding-model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
   # Request timeout for AI reasoning calls (default 2 minutes).
   # Cold-start model loads on CPU can exceed this; increase if needed.
+  # A value of 0 or less is treated as "not configured" by ResumeProfileService,
+  # which then uses OllamaChatModelFactory.DEFAULT_TIMEOUT.
   reasoning-timeout: 120s
 
 # ── Conversation Store Configuration ──────────────────────────────────
@@ -43,14 +54,19 @@ ollama:
 conversation:
   store: inmemory
 
-# ── Public Job Source (LIVE — the normal user-facing source) ──
-# PublicApiJobSource is the primary job source. It fails safe: if the provider is
-# unreachable it logs a warning and returns no listings, and JobSearchService then serves
-# MockJobSource as an offline/development fallback. The result's `live` flag only reports
-# true when a live source actually contributed listings, so the UI never claims live data
-# while showing mock rows.
+# ── Job Sources ────────────────────────────────────────────────────────
+# PublicApiJobSource (Remotive) is the only source in the normal user-facing flow.
+# It fails safe: if the provider is unreachable it logs a warning and returns no
+# listings, and the UI then shows a professional empty state — never fabricated
+# jobs. The result's `live` flag only reports true when a live source actually
+# contributed listings.
+#
+# The development MockJobSource is NOT registered as a bean unless
+# job-sources.mock.enabled=true, so MOCK_SOURCE rows cannot reach the Jobs portal,
+# Matches, Career Agent, Application Advisor or Prepare Application. Automated
+# tests keep full access by constructing `new MockJobSource()` directly.
 # Override without touching this file:
-#   JOB_SOURCES_PUBLIC_API_ENABLED=false  to force the mock catalog
+#   JOB_SOURCES_PUBLIC_API_ENABLED=false  to disable the live source
 #   JOB_SOURCES_PUBLIC_API_API_KEY=<key>  if a provider ever requires one
 # Never hard-code credentials. Remotive's public feed needs no key.
 job-sources:
@@ -58,6 +74,8 @@ job-sources:
     enabled: true
     base-url: https://remotive.com/api/remote-jobs
     api-key: ""
+  mock:
+    enabled: false
 
 # ── Logging ──────────────────────────────────────────────────────────
 logging:

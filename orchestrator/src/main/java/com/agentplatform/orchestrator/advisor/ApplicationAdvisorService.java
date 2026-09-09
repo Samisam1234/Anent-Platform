@@ -13,6 +13,8 @@ import com.agentplatform.orchestrator.resume.persistence.CandidateProfilePersist
 import com.agentplatform.orchestrator.resume.exception.CandidateProfileNotFoundException;
 import com.agentplatform.orchestrator.tailoring.AtsReadinessAnalysis;
 import com.agentplatform.orchestrator.tailoring.ResumeTailoringAnalysisService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -40,6 +42,8 @@ import java.util.List;
  */
 @Service
 public class ApplicationAdvisorService {
+
+    private static final Logger log = LoggerFactory.getLogger(ApplicationAdvisorService.class);
 
     private final CandidateProfilePersistenceService profilePersistenceService;
     private final JobSearchService jobSearchService;
@@ -70,10 +74,17 @@ public class ApplicationAdvisorService {
      */
     public ApplicationAdvisorResponse advise(ApplicationAdvisorRequest request) {
         ApplicationAdvisorRequest.validate(request);
+        log.info("Application advisor START: candidateId={}, jobId={}",
+                request.candidateId(), request.jobId());
 
         CandidateProfile profile = profilePersistenceService.getByIdOrThrow(request.candidateId()).toDomain();
         Job job = jobSearchService.findById(request.jobId())
                 .orElseThrow(() -> new JobNotFoundException(request.jobId()));
+        // Logging the resolved job source is what makes a live-vs-development data
+        // problem visible without exposing any resume content.
+        log.info("Application advisor resolved inputs: job='{}', source={}, requiredSkills={}",
+                job.title(), job.source(),
+                job.requiredSkills() != null ? job.requiredSkills().size() : 0);
 
         return adviseFromDomain(request.candidateId(), profile, job);
     }
@@ -101,10 +112,13 @@ public class ApplicationAdvisorService {
             throw new IllegalArgumentException("Job must not be null.");
         }
 
-        // Phase 7.2: deterministic skill-gap driven scoring
+        // Phase 7.2: deterministic skill-gap driven scoring. Each stage is logged so an
+        // unexpected failure in one of them is attributable from the server log.
         CareerGapAnalysis gap = careerGapAnalysisService.analyze(profile, job);
+        log.debug("Application advisor stage 1/3 complete: career gap analysis");
         com.agentplatform.orchestrator.tailoring.ResumeTailoringAnalysis tailoring = resumeTailoringAnalysisService.analyze(profile, job, gap);
         AtsReadinessAnalysis readiness = tailoring.atsReadiness();
+        log.debug("Application advisor stage 2/3 complete: ATS readiness");
 
         // Phase 7.5: multi-factor application recommendation
         // Evaluate the job using the existing JobMatchingService to get the JobMatch score
@@ -135,6 +149,9 @@ public class ApplicationAdvisorService {
         List<String> recommendedActions = new ArrayList<>();
         List<RecommendedActionDetail> recommendedActionDetails = new ArrayList<>();
         buildRecommendedActions(gap, recommendedActions, recommendedActionDetails);
+
+        log.info("Application advisor COMPLETE: recommendation={}, composite={}, readiness={}, jobMatch={}",
+                recommendation, compositeScore, atsReadinessScore, jobMatchScore);
 
         // Job echo fields: the review UI header shows which role this advice is about.
         // Both values come straight from the already-resolved Job — nothing is invented.

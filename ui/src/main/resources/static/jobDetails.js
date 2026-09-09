@@ -3,12 +3,12 @@
  *
  * Used by jobs.html (Job Search) and matches.html (Resume → Job Matching).
  *
- * Mock-source listings come from the development MockJobSource and their
- * sourceUrl points at a placeholder domain (mockjobs.local) that is NOT a real
- * website — they must never be opened externally. For those listings the card
- * action becomes an internal "View Details" modal instead. Live sources with a
- * valid http(s) URL keep a safe "View Original Listing" link; live sources
- * without a URL show an internal "Job Details" action.
+ * The normal flow serves live listings only (MockJobSource is not registered as a
+ * bean unless job-sources.mock.enabled=true). A listing with a valid http(s)
+ * sourceUrl gets a safe "View Original Listing" link that opens the real external
+ * posting; a listing without one gets an internal "Job Details" action. The
+ * isMock() guard stays as a defensive check so a development listing can never be
+ * opened externally, but no mock wording is ever shown to the user.
  */
 
 (() => {
@@ -60,7 +60,7 @@
             <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="jobDetailsModalTitle">
                 <div class="modal-header">
                     <div class="modal-header-text">
-                        <span class="job-source-badge mock" id="jobDetailsModalSource" hidden></span>
+                        <span class="job-source-badge live" id="jobDetailsModalSource" hidden></span>
                         <h3 class="modal-title" id="jobDetailsModalTitle">Job Details</h3>
                         <div class="modal-company" id="jobDetailsModalCompany"></div>
                     </div>
@@ -102,7 +102,7 @@
 
         const modal = ensureModal();
         const sourceBadge = modal.querySelector('#jobDetailsModalSource');
-        sourceBadge.className = isMock(job) ? 'job-source-badge mock' : 'job-source-badge live';
+        sourceBadge.className = 'job-source-badge live';
         sourceBadge.textContent = job.source || 'SOURCE';
         sourceBadge.hidden = false;
 
@@ -131,17 +131,7 @@
         const prefSkillTags = (job.preferredSkills || [])
             .map(s => `<span class="skill-tag preferred-skill">${esc(s)}</span>`).join('');
 
-        const mockNotice = isMock(job)
-            ? `
-            <div class="modal-mock-notice">
-                <strong>Development Mock Job</strong>
-                <span>External application link is not available because this listing comes from the development MockJobSource.</span>
-            </div>`
-            : '';
-
         return `
-            ${mockNotice}
-
             <div class="job-meta-row">
                 <div class="job-meta-item" title="Location">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
@@ -181,7 +171,7 @@
             <div class="job-meta-row modal-source-row">
                 <div class="job-meta-item" title="Listing Source">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                    <span>Source: ${esc(job.source || 'UNKNOWN')}${isMock(job) ? ' (development mock data)' : ''}</span>
+                    <span>Source: ${esc(job.source || 'UNKNOWN')}</span>
                 </div>
             </div>
 

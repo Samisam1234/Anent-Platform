@@ -81,12 +81,11 @@
     // ─── Source banner ──────────────────────────────────────────────────────
     function updateSourceBanner(data) {
         if (!data) { sourceBanner.hidden = true; return; }
-        // `live` is only true when a live source actually returned listings, so the mock
-        // wording below is a genuine offline/fallback notice rather than the normal state.
-        sourceBannerTitle.textContent = data.live ? 'Live Job Source Active' : 'Live Source Unavailable — Using Sample Jobs';
+        // `live` is only true when a live source actually contributed listings.
+        sourceBannerTitle.textContent = data.live ? 'Live Job Source Active' : 'Live Source Returned No Listings';
         sourceBannerMessage.textContent = data.message || (data.live
             ? 'Jobs loaded from the live public job source.'
-            : 'The live job source returned nothing, so sample jobs are shown so you can keep working.');
+            : 'No live jobs are currently available for these preferences.');
         // Show combined source names if multiple sources were queried
         if (data.source && data.source.includes(', ')) {
             sourceBannerMessage.textContent += ' (' + data.source + ')';
@@ -237,20 +236,13 @@
             resultsCount.textContent = data.total != null ? data.total : jobs.length;
             resultsCountLabel.textContent = (data.total === 1) ? 'job' : 'jobs';
 
-            // Highlight if all results are from mock source
-            const allMock = jobs.length > 0 && jobs.every(job => job.source === 'MOCK_SOURCE');
-
             cardsGrid.innerHTML = '';
             if (jobs.length === 0) {
-                emptyDesc.textContent = 'No jobs matched the current filters. Try widening the location or removing a filter.';
+                emptyDesc.textContent = 'No live jobs are currently available for these preferences.';
                 empty.hidden = false;
                 return;
             }
             jobs.forEach(job => cardsGrid.appendChild(createJobCard(job)));
-            // Show notice if all results are mock data
-            if (allMock) {
-                showToast('The live job source returned no listings — showing sample jobs instead.', 'info');
-            }
         })
         .catch(err => {
             console.error('Error searching jobs:', err);
