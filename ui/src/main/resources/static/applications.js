@@ -319,7 +319,7 @@
             })
             .catch(err => {
                 console.error('Error reviewing application:', err);
-                showToast(err.message || 'Failed to load application.', 'error');
+                showToast(window.apiError.describe(err, 'Failed to load application.'), 'error');
             });
     }
 
@@ -536,7 +536,7 @@
             })
             .catch(err => {
                 console.error('Error viewing application:', err);
-                showToast(err.message || 'Failed to load application details.', 'error');
+                showToast(window.apiError.describe(err, 'Failed to load application details.'), 'error');
             });
     }
 
@@ -652,7 +652,7 @@
         })
         .catch(err => {
             console.error('Error saving application:', err);
-            showToast(err.message || 'Failed to save changes.', 'error');
+            showToast(window.apiError.describe(err, 'Failed to save changes.'), 'error');
         });
     }
 
@@ -709,7 +709,7 @@
         })
         .catch(err => {
             console.error('Error sending email:', err);
-            showToast(err.message || 'Failed to send email.', 'error');
+            showToast(window.apiError.describe(err, 'Failed to send email.'), 'error');
         })
         .finally(() => {
             if (sendBtn) {
@@ -754,7 +754,7 @@
         })
         .catch(err => {
             console.error('Error approving application:', err);
-            showToast(err.message || 'Failed to approve application.', 'error');
+            showToast(window.apiError.describe(err, 'Failed to approve application.'), 'error');
         });
     }
 
@@ -812,7 +812,7 @@
             })
             .catch(err => {
                 console.error('Error loading applications:', err);
-                showToast(err.message || 'Failed to load applications.', 'error');
+                showToast(window.apiError.describe(err, 'Failed to load applications.'), 'error');
                 applicationsOnboarding.hidden = false;
                 applicationsListSection.hidden = true;
                 applicationDetailSection.hidden = true;

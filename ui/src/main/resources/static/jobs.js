@@ -247,8 +247,8 @@
         .catch(err => {
             console.error('Error searching jobs:', err);
             loading.hidden = true;
-            showToast(err.message || 'Failed to load jobs.', 'error');
-            emptyDesc.textContent = err.message || 'Failed to load jobs. Please try again later.';
+            showToast(window.apiError.describe(err, 'Failed to load jobs.'), 'error');
+            emptyDesc.textContent = window.apiError.describe(err, 'Failed to load jobs. Please try again later.');
             empty.hidden = true;
         })
         .finally(() => {

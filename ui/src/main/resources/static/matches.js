@@ -181,7 +181,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             renderMatches(data, payload);
         } catch (err) {
             console.error('Job matching error:', err);
-            showToast(err.message || 'Failed to match jobs. Please check backend connection.', 'error');
+            showToast(window.apiError.describe(err, 'Failed to match jobs. Please check backend connection.'), 'error');
             loading.hidden = true;
             cardsGrid.innerHTML = '';
             emptyDesc.textContent = 'Matching failed — please try again or check the backend connection.';
@@ -554,7 +554,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         })
         .catch(err => {
             console.error('Error running application advisor:', err);
-            showToast(err.message || 'Failed to run application advisor.', 'error');
+            showToast(window.apiError.describe(err, 'Failed to run application advisor.'), 'error');
         });
     });
 
@@ -610,7 +610,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         })
         .catch(err => {
             console.error('Error preparing application:', err);
-            showToast(err.message || 'Failed to prepare application.', 'error');
+            showToast(window.apiError.describe(err, 'Failed to prepare application.'), 'error');
         });
     });
 
@@ -759,7 +759,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             window.modalShell.setBody(
                 `<div class="agent-run-summary agent-summary-bad">
                     <span class="agent-summary-status">Tailoring unavailable</span>
-                    <span class="agent-summary-message">${esc(err.message || 'Could not tailor your resume for this role.')}</span>
+                    <span class="agent-summary-message">${esc(window.apiError.describe(err, 'Could not tailor your resume for this role.'))}</span>
                 </div>`);
         });
     });

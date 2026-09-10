@@ -247,7 +247,7 @@
             matchArea.innerHTML = buildMatchHtml(match);
         } catch (err) {
             console.error('Check Match error:', err);
-            matchArea.innerHTML = `<div class="modal-match-error">${esc(err.message || 'Failed to check match.')}</div>`;
+            matchArea.innerHTML = `<div class="modal-match-error">${esc(window.apiError.describe(err, 'Failed to check match.'))}</div>`;
         } finally {
             matchInFlight = false;
             btn.disabled = false;

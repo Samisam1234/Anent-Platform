@@ -132,8 +132,11 @@ public class ResumeProfileService {
             if (cause instanceof ResumeException re) {
                 throw re;
             }
-            throw new ResumeException(cause.getMessage() != null
-                    ? cause.getMessage() : "the AI model call failed", cause);
+            // Classify rather than echo: the raw cause message can be an arbitrary
+            // provider body, and this text can reach a log aggregator or a response.
+            AiErrorClassifier.Failure failure = AiErrorClassifier.classify(cause, "Ollama");
+            log.error("Resume LLM call failed: {}", failure.message(), cause);
+            throw new ResumeException(failure.message(), cause);
         }
     }
 

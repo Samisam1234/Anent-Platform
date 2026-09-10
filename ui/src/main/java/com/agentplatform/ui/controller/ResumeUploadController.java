@@ -94,9 +94,12 @@ public class ResumeUploadController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to read uploaded file"));
         } catch (ResumeException e) {
-            log.warn("Resume parsing failed: {}", e.getMessage());
+            // The technical cause (provider, model, HTTP body) belongs in the log only;
+            // the response must stay safe and actionable.
+            log.warn("Resume parsing failed: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", e.getMessage()));
+                    .body(Map.of("error", "We could not analyse this resume. Please check that the "
+                            + "file is a readable PDF or text document and try again."));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {

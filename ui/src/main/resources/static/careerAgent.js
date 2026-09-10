@@ -119,8 +119,11 @@
         } catch (err) {
             console.error('Career analysis error:', err);
             if (window.modalShell.isOpen() && activeJobId === jobId) {
-                window.modalShell.setBody(errorHtml(
-                    'Could not analyse this role. ' + (err && err.message ? err.message : 'Please try again.')));
+                // Named, contextual wording rather than a bare exception message: the
+                // server logs the real cause, the user gets something actionable.
+                window.modalShell.setBody(errorHtml(window.apiError.describe(err,
+                    'Could not load Career Analysis. The job listing data may be incomplete, '
+                    + 'or the analysis service is temporarily unavailable. Please try again.')));
             }
         } finally {
             inFlight = false;
