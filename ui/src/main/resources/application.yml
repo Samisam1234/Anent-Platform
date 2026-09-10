@@ -55,25 +55,51 @@ conversation:
   store: inmemory
 
 # ── Job Sources ────────────────────────────────────────────────────────
-# PublicApiJobSource (Remotive) is the only source in the normal user-facing flow.
-# It fails safe: if the provider is unreachable it logs a warning and returns no
-# listings, and the UI then shows a professional empty state — never fabricated
-# jobs. The result's `live` flag only reports true when a live source actually
-# contributed listings.
+# Job discovery runs through JobAggregatorService, which calls every enabled
+# JobSourceProvider in parallel (CompletableFuture), isolates per-provider
+# failures, merges and deduplicates the listings, and hands them to the existing
+# matching pipeline. No single board is privileged: each Job keeps its own
+# `source`, `sourceUrl` and `applicationUrl`, so "View Source Listing" always
+# opens that specific job's originating page.
+#
+# Every provider fails safe: unreachable, rate-limited or mis-configured, it logs
+# a warning and contributes nothing. The UI then shows a professional empty
+# state — never fabricated jobs. The result's `live` flag only reports true when
+# a live provider actually contributed listings.
 #
 # The development MockJobSource is NOT registered as a bean unless
 # job-sources.mock.enabled=true, so MOCK_SOURCE rows cannot reach the Jobs portal,
 # Matches, Career Agent, Application Advisor or Prepare Application. Automated
 # tests keep full access by constructing `new MockJobSource()` directly.
+#
 # Override without touching this file:
-#   JOB_SOURCES_PUBLIC_API_ENABLED=false  to disable the live source
-#   JOB_SOURCES_PUBLIC_API_API_KEY=<key>  if a provider ever requires one
-# Never hard-code credentials. Remotive's public feed needs no key.
+#   JOB_SOURCES_PUBLIC_API_ENABLED=false   disable Remotive
+#   JOB_SOURCES_ARBEITNOW_ENABLED=false    disable Arbeitnow
+#   ADZUNA_APP_ID / ADZUNA_APP_KEY         Adzuna credentials (free, developer.adzuna.com)
+# Never hard-code credentials. Remotive's and Arbeitnow's public feeds need no key.
 job-sources:
+  # Remotive — free public feed, no credentials required.
   public-api:
     enabled: true
     base-url: https://remotive.com/api/remote-jobs
     api-key: ""
+  # Arbeitnow — free public feed, no credentials. Rate-limited to 3 requests,
+  # so one page (100 listings) is fetched per search.
+  arbeitnow:
+    enabled: true
+    base-url: https://www.arbeitnow.com/api/job-board-api
+    max-pages: 1
+  # Adzuna — requires a free app_id/app_key pair. Without them the provider
+  # reports itself unavailable and is skipped before any network call, with the
+  # missing-credential reason logged. Credentials come from the environment only.
+  adzuna:
+    enabled: true
+    base-url: https://api.adzuna.com/v1/api/jobs
+    country: ${ADZUNA_COUNTRY:gb}
+    app-id: ${ADZUNA_APP_ID:}
+    app-key: ${ADZUNA_APP_KEY:}
+    results-per-page: 50
+    max-pages: 1
   mock:
     enabled: false
 

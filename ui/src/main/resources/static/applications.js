@@ -233,20 +233,47 @@
      * A listing that is no longer indexed is reported as unavailable — the platform
      * never guesses or reconstructs an application URL.
      */
+    /**
+     * Renders the application destination for a stored application.
+     *
+     * The destination is resolved by jobLink.js so this portal agrees with Jobs, Match
+     * Details and the prepared-application footer: the employer's own application page is
+     * offered only when the source actually supplied one. A board listing page is labelled
+     * "View Job Listing" and is never described as the employer's application page.
+     */
+    function externalDestinationHtml(job) {
+        const target = window.jobLink
+            ? window.jobLink.resolve(job)
+            : { kind: 'none', label: 'Application Link Unavailable', reason: 'Link resolution is unavailable.' };
+
+        if (target.kind === 'none') {
+            const reason = target.reason
+                || 'The original listing is no longer available, so the application link cannot be shown.';
+            return `<span class="external-badge is-muted">Application</span>
+                    <span class="external-note">${esc(reason)}</span>`;
+        }
+
+        const title = target.kind === 'employer'
+            ? "Opens the employer's own application page in a new tab"
+            : 'Opens the original job listing in a new tab';
+        const badge = target.kind === 'employer' ? 'Employer application' : 'Job listing';
+        const cls = target.kind === 'employer' ? 'btn-apply-external' : 'btn-source-listing';
+        const note = target.kind === 'employer'
+            ? 'This platform does not submit applications on your behalf.'
+            : (target.reason || 'This source provides the listing page, not a direct employer application link.');
+        return `<span class="external-badge">${esc(badge)}</span>
+                <a class="${cls}" href="${esc(target.url)}" target="_blank" rel="noopener noreferrer"
+                   title="${esc(title)}">${esc(target.label)}</a>
+                <span class="external-note">${esc(note)}</span>`;
+    }
+
     function attachExternalApplicationLink(card, application) {
         const slotEl = card.querySelector('[data-external-slot]');
         if (!slotEl || !application.jobId) return;
 
         resolveJob(application.jobId).then(job => {
-            const url = job && typeof job.sourceUrl === 'string' && /^https?:\/\//i.test(job.sourceUrl.trim())
-                ? job.sourceUrl.trim() : null;
             slotEl.hidden = false;
-            slotEl.innerHTML = url
-                ? `<span class="external-badge">External application</span>
-                   <a class="btn-apply-external" href="${esc(url)}" target="_blank" rel="noopener noreferrer"
-                      title="Opens the employer's own application page in a new tab">Open official application</a>`
-                : `<span class="external-badge is-muted">External application</span>
-                   <span class="external-note">The original listing is no longer available, so the application link cannot be shown.</span>`;
+            slotEl.innerHTML = externalDestinationHtml(job);
         });
     }
 
@@ -265,15 +292,7 @@
         slotEl.hidden = false;
         slotEl.innerHTML = '<span class="external-note">Checking the original listing…</span>';
         resolveJob(app.jobId).then(job => {
-            const url = job && typeof job.sourceUrl === 'string' && /^https?:\/\//i.test(job.sourceUrl.trim())
-                ? job.sourceUrl.trim() : null;
-            slotEl.innerHTML = url
-                ? `<span class="external-badge">External application</span>
-                   <a class="btn-apply-external" href="${esc(url)}" target="_blank" rel="noopener noreferrer"
-                      title="Opens the employer's own application page in a new tab">Open official application</a>
-                   <span class="external-note">This platform does not submit applications on your behalf.</span>`
-                : `<span class="external-badge is-muted">External application</span>
-                   <span class="external-note">The original listing is no longer available, so the application link cannot be shown.</span>`;
+            slotEl.innerHTML = externalDestinationHtml(job);
         });
     }
 
@@ -362,15 +381,7 @@
         const slot = document.getElementById('reviewExternal');
         if (slot) {
             resolveJob(app.jobId).then(job => {
-                const url = job && typeof job.sourceUrl === 'string' && /^https?:\/\//i.test(job.sourceUrl.trim())
-                    ? job.sourceUrl.trim() : null;
-                slot.innerHTML = url
-                    ? `<span class="external-badge">External application</span>
-                       <a class="btn-apply-external" href="${esc(url)}" target="_blank" rel="noopener noreferrer"
-                          title="Opens the original listing in a new tab">View source listing</a>
-                       <span class="external-note">The source does not provide a separate employer application link.</span>`
-                    : `<span class="external-badge is-muted">External application</span>
-                       <span class="external-note">The original listing is no longer available, so no application link can be shown.</span>`;
+                slot.innerHTML = externalDestinationHtml(job);
             });
         }
     }

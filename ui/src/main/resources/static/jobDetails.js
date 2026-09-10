@@ -145,11 +145,11 @@
         const candidateName = localStorage.getItem(LS_CANDIDATE_NAME);
         const parts = [];
 
-        if (!isMock(job) && hasValidUrl(job.applicationUrl)) {
-            parts.push(`<a class="btn-view-job btn-apply-external" href="${esc(job.applicationUrl)}" target="_blank" rel="noopener noreferrer"
-                title="Opens the employer's own application page in a new tab">Open Employer Application</a>`);
-        } else if (!isMock(job) && hasValidUrl(job.sourceUrl)) {
-            parts.push(`<a class="btn-view-job" href="${esc(job.sourceUrl)}" target="_blank" rel="noopener noreferrer">View Source Listing</a>`);
+        // Resolved centrally by jobLink.js. This previously called the local
+        // hasValidUrl(job) helper with a URL string instead of a job, so the employer
+        // branch could never be taken and the button silently degraded to the listing.
+        if (window.jobLink) {
+            parts.push(window.jobLink.actionHtml(job, { withNote: false }));
         }
 
         parts.push(candidateId

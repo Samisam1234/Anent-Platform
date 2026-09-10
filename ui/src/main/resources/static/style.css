@@ -987,3 +987,9 @@ body.modal-open{overflow:hidden}
 .tailoring-item-focus{font-size:.9rem;font-weight:700;color:var(--text-primary)}
 .tailoring-item-reason{font-size:.82rem;color:var(--text-secondary);line-height:1.6}
 .tailoring-item-evidence{font-size:.74rem;color:var(--text-muted)}
+
+/* ── Unavailable application destination ───────────────────────────────────────
+   When a source supplies neither an employer application URL nor a usable listing
+   URL, the control is rendered disabled rather than pretending to go somewhere. */
+.btn-view-job.is-disabled,.btn-view-job[disabled]{opacity:.5;cursor:not-allowed;border-style:dashed;color:var(--text-muted)}
+.btn-view-job.is-disabled:hover{transform:none;box-shadow:none;background:var(--bg-input)}

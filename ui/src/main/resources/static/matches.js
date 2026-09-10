@@ -422,27 +422,14 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
         </button>`;
 
-        const external = window.jobDetails && !window.jobDetails.isMock(job);
         const parts = [details];
 
-        // The employer's own application destination is only offered when the source
-        // actually supplied one. sourceUrl is the aggregator's listing page and is never
-        // presented as "the application".
-        if (external && hasValidUrl(job.applicationUrl)) {
-            parts.push(`<a href="${esc(job.applicationUrl)}" target="_blank" rel="noopener noreferrer"
-                class="btn-view-job btn-apply-external"
-                title="Opens the employer's own application page in a new tab">
-                <span>Open Employer Application</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-            </a>`);
-        } else if (external && hasValidUrl(job.sourceUrl)) {
-            parts.push(`<a href="${esc(job.sourceUrl)}" target="_blank" rel="noopener noreferrer"
-                class="btn-view-job btn-source-listing"
-                title="Opens the original listing on ${esc(job.source || 'the job source')} in a new tab">
-                <span>View Source Listing</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-            </a>`);
-            parts.push(`<span class="external-note">Employer application link unavailable from this source.</span>`);
+        // Destination resolution lives in jobLink.js: the employer's own application page
+        // when the source genuinely supplied one, otherwise the originating listing,
+        // otherwise a disabled control that explains why. sourceUrl is never presented
+        // as "the application".
+        if (window.jobLink) {
+            parts.push(window.jobLink.actionHtml(job, { withIcon: true }));
         }
 
         return parts.join('');
@@ -1200,15 +1187,8 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             }
         }
 
-        const external = window.jobDetails && !window.jobDetails.isMock(job);
-        if (external && hasValidUrl(job.applicationUrl)) {
-            parts.push(`<a href="${esc(job.applicationUrl)}" target="_blank" rel="noopener noreferrer" class="btn-view-job btn-apply-external"
-                title="Opens the employer's own application page in a new tab">
-                <span>Open Employer Application</span></a>`);
-        } else if (external && hasValidUrl(job.sourceUrl)) {
-            parts.push(`<a href="${esc(job.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="btn-view-job btn-source-listing"
-                title="Opens the original listing in a new tab">
-                <span>View Source Listing</span></a>`);
+        if (window.jobLink) {
+            parts.push(window.jobLink.actionHtml(job, { withNote: false }));
         }
 
         const hint = `<span class="modal-hint">${candidateId

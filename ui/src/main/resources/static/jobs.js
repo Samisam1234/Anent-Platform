@@ -116,12 +116,12 @@
 
     // ─── Card rendering ─────────────────────────────────────────────────────
     function jobFooterHtml(job) {
-        const isExternal = window.jobDetails && !window.jobDetails.isMock(job) && window.jobDetails.hasValidUrl(job);
-        if (isExternal) {
-            return `<a href="${esc(job.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="btn-view-job">
-                <span>View Original Listing</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-            </a>`;
+        // Prefer the employer's own application page, then the originating listing.
+        // Both are resolved by jobLink.js so this card cannot disagree with Match
+        // Details or the Applications portal about where a job leads.
+        const target = window.jobLink ? window.jobLink.resolve(job) : { kind: 'none' };
+        if (target.kind !== 'none') {
+            return window.jobLink.actionHtml(job, { withIcon: true, withNote: false });
         }
         const label = window.jobDetails ? window.jobDetails.actionLabel(job) : 'View Details';
         return `<button type="button" class="btn-view-job btn-view-details" data-open-job-details="true" data-job-id="${esc(job.id || '')}">
