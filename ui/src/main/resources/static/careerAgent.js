@@ -31,6 +31,22 @@
      * User-facing fit bands. Labels describe the outcome; the underlying thresholds are
      * the backend's, unchanged here.
      */
+    /**
+     * Labelled progress bar for the headline score, using the same .fit-bar markup and
+     * green/yellow/red tones as the factor rows in Match Details and Application
+     * Readiness, so every dialog visualizes a score identically.
+     */
+    function scoreBarHtml(score, fit) {
+        const pct = Number(score);
+        if (!Number.isFinite(pct)) return '';
+        const clamped = Math.max(0, Math.min(100, pct));
+        const tone = fit && fit.cls === 'fit-high' ? 'is-good'
+            : fit && fit.cls === 'fit-medium' ? 'is-caution'
+            : fit && fit.cls === 'fit-low' ? 'is-gap' : '';
+        return `<span class="fit-bar" role="img" aria-label="Career fit ${clamped} out of 100">
+            <span class="fit-bar-fill ${tone}" style="width:${clamped}%"></span></span>`;
+    }
+
     const FIT_LABELS = {
         STRONGLY_RECOMMENDED: { label: 'Strong fit', cls: 'fit-high' },
         RECOMMENDED: { label: 'Good fit', cls: 'fit-high' },
@@ -189,6 +205,7 @@
                     <div class="career-report-score">
                         <span class="fit-label">Career fit</span>
                         <span class="fit-value">${readiness == null ? '—' : esc(readiness)}<small>/100</small></span>
+                        ${scoreBarHtml(readiness, fit)}
                         ${fit ? `<span class="fit-badge ${fit.cls}">${esc(fit.label)}</span>` : ''}
                     </div>
                 </header>

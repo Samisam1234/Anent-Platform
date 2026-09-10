@@ -999,3 +999,6 @@ body.modal-open{overflow:hidden}
 .confirm-message{font-size:.95rem;color:var(--text-primary);font-weight:600;margin:0}
 .confirm-detail{font-size:.85rem;color:var(--text-secondary);line-height:1.65;margin:0}
 .confirm-warning{font-size:.82rem;color:var(--warning);background:var(--warning-light);border-left:3px solid var(--warning);padding:8px 10px;border-radius:var(--radius-sm);margin:0}
+
+/* Headline score bar in Career Analysis — same component as the factor rows. */
+.career-report-score .fit-bar{width:100%;min-width:110px;margin-top:2px}
