@@ -378,10 +378,10 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
                 </span>
                 <div class="resume-result-text">
-                    <strong>Profile created — AI model was not used</strong>
-                    <p>${esc(data.notice || 'The AI provider was unavailable, so the built-in parser extracted your profile. '
-                        + 'It is accurate for skills and contact details but less detailed than the AI result. '
-                        + 'Start the AI provider and re-upload for a richer profile.')}</p>
+                    <strong>Profile created successfully</strong>
+                    <p>${esc(data.notice || 'Your profile was created successfully using the built-in resume parser. '
+                        + 'AI enhancement was temporarily unavailable, so this profile reflects the deterministic '
+                        + 'extraction. Re-upload once the AI provider is available for a richer profile.')}</p>
                 </div>`;
         } else {
             resultBanner.className = 'resume-result-banner is-success';

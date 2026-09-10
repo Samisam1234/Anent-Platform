@@ -120,6 +120,35 @@ class ResumeProfileServiceFallbackTest {
             assertThrows(IllegalArgumentException.class, () -> service.buildProfile("   "));
             assertThrows(IllegalArgumentException.class, () -> service.buildProfile(null));
         }
+
+        /**
+         * Regression for the reported Resume page defect: when the configured model has
+         * not been pulled, Ollama fails with the raw body
+         * {@code {"error":"model 'gemma3:4b' not found"}}. That text used to be
+         * concatenated into the user-facing {@code notice} and rendered on the page as
+         * "Profile created — AI model was not used" followed by raw JSON.
+         */
+        @Test
+        @DisplayName("an unpulled Ollama model yields a professional notice with no raw JSON")
+        void unpulledModelNoticeIsProfessional() {
+            OllamaChatModelFactory factory = mock(OllamaChatModelFactory.class);
+            when(factory.resolveModelName(any())).thenReturn("gemma3:4b");
+            when(factory.chatModel(any())).thenThrow(new RuntimeException(
+                    "{\"error\":\"model 'gemma3:4b' not found\"}"));
+            ResumeProfileService service = newService(factory);
+
+            ResumeProfileService.ProfileOutcome outcome = service.buildProfileOutcome(RESUME);
+
+            assertFalse(outcome.aiUsed(), "must fall back to the deterministic parser");
+            assertNotNull(outcome.notice());
+            assertTrue(outcome.notice().contains("built-in resume parser"),
+                    "notice should read professionally, was: " + outcome.notice());
+            assertFalse(outcome.notice().contains("{"), "notice must not contain raw JSON: " + outcome.notice());
+            assertFalse(outcome.notice().contains("}"), "notice must not contain raw JSON: " + outcome.notice());
+            assertFalse(outcome.notice().contains("gemma3"), "notice must not leak the model name: " + outcome.notice());
+            assertFalse(outcome.notice().contains("\"error\""), "notice must not leak the provider body: " + outcome.notice());
+            assertEquals("Alice Johnson", outcome.profile().name(), "fallback profile must still be complete");
+        }
     }
 
     @Nested
@@ -159,8 +188,13 @@ class ResumeProfileServiceFallbackTest {
                     "must return close to the 200ms deadline, took " + elapsedMillis + "ms");
             assertFalse(outcome.aiUsed());
             assertNotNull(outcome.notice());
-            assertTrue(outcome.notice().contains("did not respond within"),
-                    "notice should explain the timeout, was: " + outcome.notice());
+            // The notice is user-facing wording, not a technical diagnostic: it must read
+            // professionally and must never carry provider/model internals or the raw
+            // exception text. The technical cause is logged server-side instead.
+            assertTrue(outcome.notice().contains("built-in resume parser"),
+                    "notice should explain the fallback professionally, was: " + outcome.notice());
+            assertFalse(outcome.notice().contains("did not respond within"),
+                    "notice must not carry technical diagnostics, was: " + outcome.notice());
             assertEquals("Alice Johnson", outcome.profile().name());
         }
 

@@ -79,11 +79,26 @@ public class ResumeProfileService {
             String llmResponse = callLlm(resumeText);
             return new ProfileOutcome(parseProfile(llmResponse), true, null);
         } catch (ResumeException e) {
-            log.warn("LLM resume parsing unavailable ({}); falling back to the deterministic parser", e.getMessage());
-            return new ProfileOutcome(deterministicBuilder.build(resumeText), false,
-                    "Built-in parser used — " + e.getMessage());
+            // The technical detail (provider, model name, HTTP body) belongs in the server
+            // log only. The user-facing notice must never carry it: this string is rendered
+            // verbatim on the Resume page, and provider bodies contain raw JSON such as
+            // {"error":"model 'gemma3:4b' not found"}.
+            log.warn("LLM resume parsing unavailable ({}); falling back to the deterministic parser",
+                    e.getMessage(), e);
+            return new ProfileOutcome(deterministicBuilder.build(resumeText), false, AI_FALLBACK_NOTICE);
         }
     }
+
+    /**
+     * Professional, provider-agnostic wording for the deterministic-parser fallback.
+     * Kept constant on purpose: it must not vary with the underlying exception, so no
+     * technical detail can leak into the UI through this field.
+     */
+    static final String AI_FALLBACK_NOTICE =
+            "Your profile was created successfully using the built-in resume parser. "
+                    + "AI enhancement was temporarily unavailable, so this profile reflects the "
+                    + "deterministic extraction. Skills, experience and contact details are captured "
+                    + "accurately; re-upload once the AI provider is available for a richer profile.";
 
     /**
      * Calls the LLM under a hard wall-clock deadline of
