@@ -24,7 +24,17 @@ public record ApplicationAdvisorResponse(
         /** Title of the job this advice refers to (safe, already public job data). */
         String jobTitle,
         /** Company of the job this advice refers to (safe, already public job data). */
-        String company
+        String company,
+        /**
+         * Per-factor deterministic breakdown behind the readiness score, so the UI can
+         * explain the recommendation. {@code null} when the caller did not compute one.
+         */
+        AdvisorScoreBreakdown scoreBreakdown,
+        /**
+         * Plain-language, deterministic explanation of how {@code recommendation} was
+         * reached. Never AI-generated; built from the numbers in {@code scoreBreakdown}.
+         */
+        String recommendationExplanation
 ) {
 
     /**
@@ -45,6 +55,27 @@ public record ApplicationAdvisorResponse(
         recommendedActions = recommendedActions != null ? List.copyOf(recommendedActions) : List.of();
         recommendedActionDetails = recommendedActionDetails != null ? List.copyOf(recommendedActionDetails) : List.of();
         jobMatchScore = Math.max(0, Math.min(100, jobMatchScore));
+        recommendationExplanation = recommendationExplanation == null ? "" : recommendationExplanation.trim();
+    }
+
+    /**
+     * Backwards-compatible 9-arg constructor (pre-dates the {@code scoreBreakdown} /
+     * {@code recommendationExplanation} transparency fields). Keeps every existing
+     * caller and test compiling unchanged; the two fields are left {@code null} /
+     * empty and the UI simply omits the breakdown section.
+     */
+    public ApplicationAdvisorResponse(
+            ApplicationRecommendation recommendation,
+            int score,
+            List<String> strengths,
+            List<String> concerns,
+            List<String> recommendedActions,
+            List<RecommendedActionDetail> recommendedActionDetails,
+            int jobMatchScore,
+            String jobTitle,
+            String company) {
+        this(recommendation, score, strengths, concerns, recommendedActions,
+                recommendedActionDetails, jobMatchScore, jobTitle, company, null, null);
     }
 
     /**
@@ -105,6 +136,29 @@ public record ApplicationAdvisorResponse(
         return new ApplicationAdvisorResponse(
                 recommendation, score, strengths, concerns, recommendedActions,
                 recommendedActionDetails, jobMatchScore, jobTitle, company);
+    }
+
+    /**
+     * Factory for a fully populated response including the transparency fields
+     * ({@code scoreBreakdown} / {@code recommendationExplanation}) the review UI uses
+     * to explain the recommendation.
+     */
+    public static ApplicationAdvisorResponse withBreakdown(
+            ApplicationRecommendation recommendation,
+            int score,
+            List<String> strengths,
+            List<String> concerns,
+            List<String> recommendedActions,
+            List<RecommendedActionDetail> recommendedActionDetails,
+            int jobMatchScore,
+            String jobTitle,
+            String company,
+            AdvisorScoreBreakdown scoreBreakdown,
+            String recommendationExplanation) {
+        return new ApplicationAdvisorResponse(
+                recommendation, score, strengths, concerns, recommendedActions,
+                recommendedActionDetails, jobMatchScore, jobTitle, company,
+                scoreBreakdown, recommendationExplanation);
     }
 
     /**

@@ -220,7 +220,11 @@ public class JobApplicationPreparationService {
 
         sb.append("""
             Use ONLY the candidate information above. Never invent experience, skills, degrees,
-            employers or achievements that are not listed.
+            employers or achievements that are not listed. Reorder, reword and emphasise what is
+            genuinely there; do not add anything that is not.
+
+            Do NOT return matchingSkills, missingSkills or matchScore. Those are computed
+            deterministically from the parsed resume and are never taken from the model.
 
             Generate a structured JSON response with the following fields:
             {
@@ -232,10 +236,7 @@ public class JobApplicationPreparationService {
                 "Answer to: 'Describe your relevant experience for this role'"
               ],
               "candidateStrengths": ["strength1", "strength2", "strength3"],
-              "matchingSkills": ["skill1", "skill2"],
-              "missingSkills": ["skill1", "skill2"],
-              "resumeHighlights": ["highlight1", "highlight2"],
-              "matchScore": 85
+              "resumeHighlights": ["highlight1", "highlight2"]
             }
             """);
 
@@ -343,20 +344,17 @@ public class JobApplicationPreparationService {
         List<String> strengths = extractJsonArray(json, "candidateStrengths");
         result.setCandidateStrengths(strengths != null ? strengths : candidateStrengths(candidate, skills));
 
-        // Extract matchingSkills as List<String>
-        List<String> matching = extractJsonArray(json, "matchingSkills");
-        result.setMatchingSkills(matching != null ? matching : matchingSkills(skills, candidate));
-
-        // Extract missingSkills as List<String>
-        List<String> missing = extractJsonArray(json, "missingSkills");
-        result.setMissingSkills(missing != null ? missing : missingSkills(skills));
+        // Matching / missing skills and the coverage score are NEVER taken from the model:
+        // they are the deterministic SkillMatchingEngine result, so the package can only
+        // claim skills the candidate actually has, and missing requirements stay separate.
+        result.setMatchingSkills(matchingSkills(skills, candidate));
+        result.setMissingSkills(missingSkills(skills));
 
         // Extract resumeHighlights as List<String>
         List<String> highlights = extractJsonArray(json, "resumeHighlights");
         result.setResumeHighlights(highlights != null ? highlights : resumeHighlights(candidate));
 
-        // Extract matchScore as Integer
-        result.setMatchScore(extractJsonInt(json, "matchScore"));
+        result.setMatchScore(skillCoverageScore(candidate, job, skills));
 
         // Extract recommendation
         String recommendation = extractJsonField(json, "recommendation");
@@ -389,22 +387,6 @@ public class JobApplicationPreparationService {
                 .collect(Collectors.toList());
     }
 
-    private Integer extractJsonInt(String json, String field) {
-        String pattern = "\"" + field + "\":";
-        int idx = json.indexOf(pattern);
-        if (idx == -1) return null;
-        int start = idx + pattern.length();
-        int end = json.indexOf(',', start);
-        if (end == -1) end = json.indexOf('}', start);
-        if (end == -1 || start >= end) return null;
-        String raw = json.substring(start, end).trim();
-        try {
-            return Integer.parseInt(raw);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
     // ─── Deterministic content (candidate-driven) ────────────────────────
 
     private ApplicationPreparationResult generateFallbackApplication(
@@ -432,7 +414,7 @@ public class JobApplicationPreparationService {
         result.setMatchingSkills(matchingSkills(skills, candidate));
         result.setMissingSkills(missingSkills(skills));
         result.setResumeHighlights(resumeHighlights(candidate));
-        result.setMatchScore(generateDefaultMatchScore());
+        result.setMatchScore(skillCoverageScore(candidate, job, skills));
         result.setRecommendation(generateDefaultRecommendation());
         result.setCreatedAt(LocalDateTime.now());
         return result;
@@ -571,8 +553,23 @@ public class JobApplicationPreparationService {
         return List.of("No resume highlights could be extracted from the uploaded resume.");
     }
 
-    private int generateDefaultMatchScore() {
-        return 85;
+    /**
+     * Deterministic required-skill coverage for this candidate/job pair, 0–100, or
+     * {@code null} when either side was unavailable and nothing could be assessed.
+     *
+     * <p>Replaces the previous hard-coded 85 and the model-supplied "matchScore": the
+     * platform must not report a score it did not calculate. The weighted match score
+     * shown on the Matches page is produced by {@code JobMatchingService}; this figure
+     * is skill coverage only, and the UI labels it as such.</p>
+     */
+    private Integer skillCoverageScore(CandidateProfile candidate,
+                                       Job job,
+                                       SkillMatchingEngine.SkillEvaluation skills) {
+        if (candidate == null || job == null || skills == null) {
+            return null;
+        }
+        double coverage = Math.max(0.0, Math.min(1.0, skills.skillScore()));
+        return Integer.valueOf((int) Math.round(coverage * 100.0));
     }
 
     private List<String> generateDefaultStrengthsList() {

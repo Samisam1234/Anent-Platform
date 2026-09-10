@@ -153,9 +153,16 @@ public class ApplicationAdvisorService {
         log.info("Application advisor COMPLETE: recommendation={}, composite={}, readiness={}, jobMatch={}",
                 recommendation, compositeScore, atsReadinessScore, jobMatchScore);
 
+        // Per-factor transparency: every value is copied from the deterministic results
+        // already computed above, so the UI can show the arithmetic behind the score.
+        AdvisorScoreBreakdown scoreBreakdown =
+                AdvisorScoreBreakdown.from(readiness, jobMatch, gap);
+        String recommendationExplanation = buildRecommendationExplanation(
+                compositeScore, jobMatchScore, recommendation, scoreBreakdown, gap);
+
         // Job echo fields: the review UI header shows which role this advice is about.
         // Both values come straight from the already-resolved Job — nothing is invented.
-        return new ApplicationAdvisorResponse(
+        return ApplicationAdvisorResponse.withBreakdown(
                 recommendation,
                 compositeScore,
                 strengths,
@@ -164,7 +171,120 @@ public class ApplicationAdvisorService {
                 recommendedActionDetails,
                 jobMatchScore,
                 job.title(),
-                job.company());
+                job.company(),
+                scoreBreakdown,
+                recommendationExplanation);
+    }
+
+    /**
+     * Builds a plain-language explanation of how the recommendation was reached.
+     *
+     * <p>Every clause is emitted only when the underlying datum actually exists, so the
+     * text never asserts a comparison the platform could not make: an unparseable
+     * experience requirement is reported as "not comparable" rather than as a
+     * shortfall, and a listing with no stated required skills is reported as such
+     * rather than as full coverage. Deterministic — same inputs, same text.</p>
+     */
+    private static String buildRecommendationExplanation(
+            int compositeScore,
+            int jobMatchScore,
+            ApplicationRecommendation recommendation,
+            AdvisorScoreBreakdown b,
+            CareerGapAnalysis gap) {
+
+        StringBuilder text = new StringBuilder();
+        text.append("Readiness ").append(compositeScore).append("/100 = 60% ATS readiness (")
+                .append(b.atsReadinessScore()).append("/100) + 40% job match (")
+                .append(jobMatchScore).append("/100). ");
+
+        int totalRequired = b.matchedRequiredCount() + b.missingRequiredCount();
+        if (totalRequired > 0) {
+            text.append("Required skills: ").append(b.matchedRequiredCount())
+                    .append(" of ").append(totalRequired).append(" matched");
+            if (b.missingRequiredCount() > 0) {
+                text.append(", ").append(b.missingRequiredCount()).append(" missing");
+            }
+            text.append(". ");
+        } else {
+            text.append("This listing states no required skills, so skill fit cannot be scored. ");
+        }
+
+        text.append(experienceClause(b, gap));
+
+        text.append("Location fit ").append(b.locationFitScore())
+                .append("/100, education fit ").append(b.educationFitScore())
+                .append("/100, career-track fit ").append(b.trackFitScore()).append("/100. ");
+
+        if (!b.gapSeverity().isEmpty() && !"NO_GAP".equals(b.gapSeverity())) {
+            text.append("Overall gap severity: ").append(humanize(b.gapSeverity())).append(". ");
+        }
+
+        text.append("That places this application in the ").append(humanize(recommendation.name()))
+                .append(" band").append(bandRange(recommendation)).append(".");
+        return text.toString();
+    }
+
+    /**
+     * Experience sentence. Only states a shortfall when both sides carried structured
+     * years; otherwise says plainly that the comparison could not be made.
+     */
+    private static String experienceClause(AdvisorScoreBreakdown b, CareerGapAnalysis gap) {
+        Integer required = b.requiredYears();
+        Integer candidate = b.candidateYears();
+
+        if (b.experienceKnowable() && required != null && required == 0) {
+            return "Experience: the role is entry level, so no minimum years apply. ";
+        }
+        if (b.experienceKnowable() && required != null && candidate != null) {
+            Integer gapYears = gap != null && gap.experienceGap() != null
+                    ? gap.experienceGap().gapYears() : null;
+            StringBuilder text = new StringBuilder("Experience: ")
+                    .append(candidate).append(candidate == 1 ? " year" : " years")
+                    .append(" on the resume against ")
+                    .append(required).append(required == 1 ? " year" : " years")
+                    .append(" required");
+            if (gapYears != null && gapYears > 0) {
+                text.append(" — ").append(gapYears).append(gapYears == 1 ? " year" : " years").append(" short");
+            } else {
+                text.append(" — requirement met");
+            }
+            return text.append(". ").toString();
+        }
+        if (required != null) {
+            return "Experience: the role asks for " + required + " year(s), but no structured years "
+                    + "could be read from the resume, so no shortfall is claimed. ";
+        }
+        return "Experience: not enough structured data on either side to compare years. ";
+    }
+
+    /** The readiness range a recommendation band covers, from the scoring thresholds. */
+    private static String bandRange(ApplicationRecommendation recommendation) {
+        return switch (recommendation) {
+            case STRONGLY_RECOMMENDED -> " (readiness 90-100)";
+            case RECOMMENDED -> " (readiness 75-89)";
+            case APPLY_WITH_IMPROVEMENTS -> " (readiness 60-74)";
+            case LOW_PRIORITY -> " (readiness 40-59)";
+            case NOT_RECOMMENDED -> " (readiness below 40)";
+        };
+    }
+
+    /** Turns an enum constant name into sentence-case words ("APPLY_WITH_IMPROVEMENTS" → "Apply with improvements"). */
+    private static String humanize(String enumName) {
+        if (enumName == null || enumName.isBlank()) {
+            return "";
+        }
+        String[] words = enumName.toLowerCase(java.util.Locale.ROOT).split("_");
+        StringBuilder out = new StringBuilder();
+        for (String word : words) {
+            if (word.isEmpty()) {
+                continue;
+            }
+            if (out.length() > 0) {
+                out.append(' ');
+            }
+            out.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return out.toString();
     }
 
     /**

@@ -43,6 +43,26 @@
 
     const API_ENDPOINT = '/api/v1/applications';
     const EMAIL_ENDPOINT = '/api/v1/applications/email/send';
+    const JOB_ENDPOINT = '/api/v1/jobs/';
+
+    /**
+     * User-facing lifecycle wording for the statuses the backend actually stores
+     * (ApplicationStatus). Nothing here claims a submission happened: this platform
+     * has no submission path, so the furthest honest state is "Approved for
+     * application", meaning the user has signed off on the prepared package.
+     */
+    const STATUS_LABELS = {
+        DRAFT: { label: 'Draft', cls: 'draft', hint: 'Saved but not yet prepared.' },
+        GENERATED: { label: 'Prepared', cls: 'generated', hint: 'Application package is ready for your review.' },
+        UNDER_REVIEW: { label: 'Ready for review', cls: 'under-review', hint: 'Waiting for your review before approval.' },
+        APPROVED_FOR_APPLICATION: { label: 'Approved for application', cls: 'approved', hint: 'You approved this package. Apply on the employer site to send it.' },
+        REJECTED: { label: 'Not pursuing', cls: 'rejected', hint: 'You decided not to pursue this application.' },
+        ARCHIVED: { label: 'Archived', cls: 'archived', hint: 'Archived.' }
+    };
+
+    // Cache of resolved job listings so a list of applications for the same role does
+    // not refetch, and a listing that is no longer indexed is only probed once.
+    const jobLookupCache = new Map();
 
     // Shared with matches.js
     const LS_CANDIDATE_ID = 'agentplatform:candidateId';
@@ -136,30 +156,30 @@
     }
 
     // ─── Render application card ──────────────────────────────────────────────
+    /**
+     * Renders one prepared application. Every line states something the stored record
+     * actually holds — status, match score, whether a tailored summary and cover letter
+     * exist, and the advisor recommendation recorded at preparation time.
+     */
     function renderApplicationCard(application) {
         const card = document.createElement('div');
         card.className = 'application-card';
         card.dataset.id = application.id;
 
-        const statusCls = application.applicationStatus || 'DRAFT';
-        const statusLabels = {
-            DRAFT: 'draft',
-            GENERATED: 'generated',
-            UNDER_REVIEW: 'under-review',
-            APPROVED_FOR_APPLICATION: 'approved',
-            REJECTED: 'rejected'
-        };
-        const statusLabel = statusLabels[statusCls] || statusCls.toLowerCase();
+        const statusKey = application.applicationStatus || 'DRAFT';
+        const status = STATUS_LABELS[statusKey]
+            || { label: humanizeStatus(statusKey), cls: statusKey.toLowerCase().replace(/_/g, '-'), hint: '' };
 
         const job = application.jobTitle || 'Unknown Role';
         const company = application.company || 'Unknown Company';
         const location = application.location || 'Not Specified';
+        const isApproved = statusKey === 'APPROVED_FOR_APPLICATION';
 
         card.innerHTML = `
             <div class="application-card-header">
                 <h3 class="application-card-job-title">${esc(job)}</h3>
                 <div class="application-card-company">${esc(company)}</div>
-                <span class="application-card-status badge-${statusLabel}">${statusLabel.toUpperCase()}</span>
+                <span class="application-card-status badge-${status.cls}" title="${esc(status.hint)}">${esc(status.label)}</span>
             </div>
 
             <div class="application-card-meta">
@@ -167,19 +187,26 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                     <span>${esc(location)}</span>
                 </div>
-                <div class="application-card-meta-item">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
-                    <span>${application.generatedResumeSummary ? 'Summary generated' : 'No summary'}</span>
+                <div class="application-card-meta-item" title="Deterministic required-skill coverage at preparation time">
+                    <span>Skill coverage: ${application.matchScore != null ? esc(application.matchScore) + '/100' : 'not calculated'}</span>
                 </div>
             </div>
 
-            <div class="application-card-excerpt">
-                <p>${esc(application.coverLetter ? application.coverLetter.split('\n')[0] : 'No cover letter')}</p>
+            <div class="application-card-package">
+                <span class="package-chip ${application.generatedResumeSummary ? 'is-present' : 'is-missing'}">
+                    ${application.generatedResumeSummary ? 'Tailored summary' : 'No tailored summary'}</span>
+                <span class="package-chip ${application.coverLetter ? 'is-present' : 'is-missing'}">
+                    ${application.coverLetter ? 'Cover letter' : 'No cover letter'}</span>
+                <span class="package-chip ${application.recommendation ? 'is-present' : 'is-missing'}">
+                    ${application.recommendation ? 'Advisor: ' + esc(humanizeStatus(application.recommendation)) : 'No advisor result'}</span>
             </div>
 
+            <div class="application-card-external" data-external-slot="${esc(application.id)}" hidden></div>
+
             <div class="application-card-footer">
-                <button class="btn-view application-view-btn" data-id="${application.id}">View</button>
-                <button class="btn-apply application-approve-btn" data-id="${application.id}">${statusLabel === 'approved' ? 'Approved' : 'Prepare'}</button>
+                <button class="btn-view application-view-btn" data-id="${esc(application.id)}">View</button>
+                <button class="btn-apply application-approve-btn" data-id="${esc(application.id)}" ${isApproved ? 'disabled' : ''}>
+                    ${isApproved ? 'Approved' : 'Approve for application'}</button>
             </div>
         `;
 
@@ -189,14 +216,86 @@
 
         const approveBtn = card.querySelector('.application-approve-btn');
         approveBtn.addEventListener('click', () => {
-            if (statusLabel === 'approved') {
+            if (isApproved) {
                 showToast('This application has already been approved.', 'info');
                 return;
             }
             approveApplication(application.id);
         });
 
+        attachExternalApplicationLink(card, application);
         return card;
+    }
+
+    /**
+     * Marks the application as EXTERNAL and links the employer's own application page,
+     * but only once the stored job id resolves to a listing with a real http(s) URL.
+     * A listing that is no longer indexed is reported as unavailable — the platform
+     * never guesses or reconstructs an application URL.
+     */
+    function attachExternalApplicationLink(card, application) {
+        const slotEl = card.querySelector('[data-external-slot]');
+        if (!slotEl || !application.jobId) return;
+
+        resolveJob(application.jobId).then(job => {
+            const url = job && typeof job.sourceUrl === 'string' && /^https?:\/\//i.test(job.sourceUrl.trim())
+                ? job.sourceUrl.trim() : null;
+            slotEl.hidden = false;
+            slotEl.innerHTML = url
+                ? `<span class="external-badge">External application</span>
+                   <a class="btn-apply-external" href="${esc(url)}" target="_blank" rel="noopener noreferrer"
+                      title="Opens the employer's own application page in a new tab">Open official application</a>`
+                : `<span class="external-badge is-muted">External application</span>
+                   <span class="external-note">The original listing is no longer available, so the application link cannot be shown.</span>`;
+        });
+    }
+
+    /**
+     * Shows the external-application link in the detail view, using the same resolver
+     * (and cache) as the cards so a listing is looked up once either way.
+     */
+    function renderDetailExternal(app) {
+        const slotEl = document.getElementById('applicationDetailExternal');
+        if (!slotEl) return;
+        if (!app || !app.jobId) {
+            slotEl.hidden = true;
+            slotEl.innerHTML = '';
+            return;
+        }
+        slotEl.hidden = false;
+        slotEl.innerHTML = '<span class="external-note">Checking the original listing…</span>';
+        resolveJob(app.jobId).then(job => {
+            const url = job && typeof job.sourceUrl === 'string' && /^https?:\/\//i.test(job.sourceUrl.trim())
+                ? job.sourceUrl.trim() : null;
+            slotEl.innerHTML = url
+                ? `<span class="external-badge">External application</span>
+                   <a class="btn-apply-external" href="${esc(url)}" target="_blank" rel="noopener noreferrer"
+                      title="Opens the employer's own application page in a new tab">Open official application</a>
+                   <span class="external-note">This platform does not submit applications on your behalf.</span>`
+                : `<span class="external-badge is-muted">External application</span>
+                   <span class="external-note">The original listing is no longer available, so the application link cannot be shown.</span>`;
+        });
+    }
+
+    /** Resolves a stored job id to its listing, caching both hits and misses. */
+    function resolveJob(jobId) {
+        const key = String(jobId);
+        if (jobLookupCache.has(key)) return Promise.resolve(jobLookupCache.get(key));
+        return fetch(JOB_ENDPOINT + encodeURIComponent(key))
+            .then(response => response.ok ? response.json() : null)
+            .catch(() => null)
+            .then(job => {
+                jobLookupCache.set(key, job || null);
+                return job || null;
+            });
+    }
+
+    /** Renders a stored enum value as readable words without inventing meaning. */
+    function humanizeStatus(value) {
+        if (!value) return 'Unknown';
+        const words = String(value).toLowerCase().split('_').filter(Boolean);
+        if (!words.length) return 'Unknown';
+        return words.map((w, i) => i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(' ');
     }
 
     // ─── View application details ─────────────────────────────────────────────
@@ -217,11 +316,17 @@
                 currentApplicationId = app.id;
 
                 applicationDetailTitle.textContent = `Application: ${app.jobTitle} at ${app.company}`;
-                applicationDetailStatus.textContent = app.applicationStatus || 'DRAFT';
+                const detailStatus = STATUS_LABELS[app.applicationStatus]
+                    || { label: humanizeStatus(app.applicationStatus || 'DRAFT'), cls: 'draft', hint: '' };
+                applicationDetailStatus.textContent = detailStatus.label;
+                applicationDetailStatus.setAttribute('title', detailStatus.hint || '');
+                renderDetailExternal(app);
                 applicationDetailJobId.textContent = `Job ID: ${app.jobId}`;
                 applicationDetailCompany.textContent = `Company: ${app.company}`;
                 applicationDetailLocation.textContent = `Location: ${app.location || 'Not Specified'}`;
-                document.getElementById('applicationDetailMatchScore').textContent = `Match Score: ${app.matchScore != null ? app.matchScore + '/100' : '—'}`;
+                const scoreEl = document.getElementById('applicationDetailMatchScore');
+                scoreEl.textContent = `Skill coverage: ${app.matchScore != null ? app.matchScore + '/100' : 'not calculated'}`;
+                scoreEl.setAttribute('title', 'Deterministic required-skill coverage at preparation time. The weighted match score is shown on the Matches page.');
 
                 // Fetch and display Application Advisor results
                 loadApplicationAdvisor(app.jobId);
@@ -282,9 +387,11 @@
                     applicationDetailGaps.appendChild(li);
                 }
 
-                // Recommendation
-                const recommendation = app.recommendation || 'POSSIBLE_MATCH';
-                applicationDetailRecommendation.textContent = esc(recommendation);
+                // Recommendation — recorded by the advisor when this package was prepared.
+                const recommendation = app.recommendation;
+                applicationDetailRecommendation.textContent = recommendation
+                    ? humanizeStatus(recommendation)
+                    : 'No advisor result recorded for this application.';
 
                 // Update action buttons based on status
                 updateActionButtons(app.applicationStatus);

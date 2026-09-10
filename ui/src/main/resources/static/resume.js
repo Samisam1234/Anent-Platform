@@ -2,7 +2,8 @@
  * AI Job Agent — Resume Upload & Analysis page.
  *
  * Flow: upload resume → file selected → analyzing → analysis completed →
- * candidate profile available → continue to Job Search.
+ * candidate profile available → continue to Matches (the primary discovery
+ * experience; the standalone Jobs browser is no longer part of the main flow).
  *
  * The upload request is bounded on the client with an AbortController. The
  * backend bounds itself too (ollama.reasoning-timeout, enforced as a real
@@ -390,24 +391,29 @@
                 </span>
                 <div class="resume-result-text">
                     <strong>Analysis completed</strong>
-                    <p>Your candidate profile is ready and saved. Job Search and Matches will use it automatically.</p>
+                    <p>Your candidate profile is ready and saved. Matches will use it automatically.</p>
                 </div>`;
         }
 
         localStorage.setItem(LS_CANDIDATE_ID, String(data.candidateId));
         localStorage.setItem(LS_CANDIDATE_NAME, name);
+        // Snapshot the career-fit evidence the server already derived, so the
+        // dashboard can show it without re-uploading or re-scoring anything.
+        if (window.careerFit) {
+            window.careerFit.save(profile, data.candidateId, name);
+        }
         profileStatusText.textContent = `Profile: ${name}`;
         profileBadge.classList.add('status-live');
 
         const nextText = document.getElementById('resumeNextText');
         if (nextText) {
             nextText.innerHTML = `<strong>${esc(name)}’s profile is ready.</strong> `
-                + 'Job Search and Matches now use these skills automatically — no keyword typing needed.';
+                + 'Matches now uses your skills, preferred roles, career track and location automatically — no keyword typing needed.';
         }
 
         setStep('profile');
         showPanel(profileSection);
-        showToast('Resume analyzed. Continue to Job Search to find matching roles.', 'success');
+        showToast('Resume analyzed. View your matched roles to continue.', 'success');
     }
 
     function handleFailure(err) {

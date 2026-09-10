@@ -232,7 +232,13 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         }
 
         empty.hidden = true;
-        matches.forEach(match => cardsGrid.appendChild(createMatchCard(match)));
+        matchRegistry.clear();
+        matches.forEach(match => {
+            if (match && match.job && match.job.id != null) {
+                matchRegistry.set(String(match.job.id), match);
+            }
+            cardsGrid.appendChild(createMatchCard(match));
+        });
         highlightSelectedJob(matches);
     }
 
@@ -396,24 +402,30 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
     }
 
     /**
-     * Source-aware card action (shared rules with jobs page).
-     * A listing with a valid external URL opens the real posting in a new tab;
-     * anything else — including a development listing — opens the internal Job
-     * Details modal, so a placeholder URL is never navigated to.
+     * Source-aware card actions (shared rules with the jobs page).
+     *
+     * "Match Details" is always available: it opens the internal modal with the
+     * scored comparison for this listing. The apply action is offered only when the
+     * listing carries a real external URL, and it is labelled as what it actually is
+     * — a link to the employer's own application page, opened in a new tab. This
+     * platform never submits an application on the user's behalf.
      */
     function matchJobFooterHtml(job) {
-        const isExternal = window.jobDetails && !window.jobDetails.isMock(job) && window.jobDetails.hasValidUrl(job);
-        if (isExternal) {
-            return `<a href="${esc(job.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="btn-view-job">
-                <span>View Original Listing</span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-            </a>`;
-        }
-        const label = window.jobDetails ? window.jobDetails.actionLabel(job) : 'View Details';
-        return `<button type="button" class="btn-view-job btn-view-details" data-open-job-details="true" data-job-id="${esc(job.id || '')}">
-            <span>${esc(label)}</span>
+        const details = `<button type="button" class="btn-view-job btn-view-details" data-open-match-details="true" data-job-id="${esc(job.id || '')}">
+            <span>Match Details</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
         </button>`;
+
+        const isExternal = window.jobDetails && !window.jobDetails.isMock(job) && window.jobDetails.hasValidUrl(job);
+        if (!isExternal) {
+            return details;
+        }
+        return details + `<a href="${esc(job.sourceUrl)}" target="_blank" rel="noopener noreferrer"
+                class="btn-view-job btn-apply-external"
+                title="Opens the employer's own application page in a new tab">
+            <span>Open Official Application</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+        </a>`;
     }
 
     const REC_MAP = {
@@ -583,7 +595,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         setText('prepReviewSubtitle', app.jobTitle || 'Job');
         setText('prepReviewJobTitle', app.jobTitle || '—');
         setText('prepReviewCompany', app.company || '—');
-        setText('prepReviewMatchScore', app.matchScore != null ? `${app.matchScore}/100` : '—');
+        setText('prepReviewMatchScore', app.matchScore != null ? `${app.matchScore}/100` : 'not calculated');
         setText('prepReviewSummary', app.tailoredProfessionalSummary || '—');
         setText('prepReviewCoverLetter', app.coverLetter || '—');
 
@@ -675,15 +687,18 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         if (!advisorReviewOverlay) return;
         const adv = data || {};
 
-        setText('advisorReviewSubtitle', `Score: ${adv.applicationReadinessScore || '—'}/100`);
+        setText('advisorReviewSubtitle', `Score: ${numOrDash(adv.applicationReadinessScore)}/100`);
         // The API echoes jobTitle/company; the card the user clicked carries the same
         // values, so a partial response still renders the right role.
         setText('advisorReviewJobTitle', adv.jobTitle || fallbackJobTitle || '—');
         setText('advisorReviewCompany', adv.company || fallbackCompany || '—');
 
-        setText('advisorReviewRecommendation', adv.recommendation || '—');
-        setText('advisorReviewReadiness', `${adv.applicationReadinessScore || '—'}/100`);
-        setText('advisorReviewJobMatch', `${adv.jobMatchScore || '—'}/100`);
+        setText('advisorReviewRecommendation', recommendationLabel(adv.recommendation));
+        setText('advisorReviewReadiness', `${numOrDash(adv.applicationReadinessScore)}/100`);
+        setText('advisorReviewJobMatch', `${numOrDash(adv.jobMatchScore)}/100`);
+
+        renderAdvisorWhy(adv);
+        renderAdvisorBreakdown(adv.scoreBreakdown);
 
         setList('advisorReviewStrengths', adv.strengths,
             s => `<li>${esc(s)}</li>`, '<li>No strengths listed.</li>');
@@ -699,12 +714,268 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         document.body.classList.add('modal-open');
     }
 
+    /**
+     * "Why this recommendation": the backend supplies a deterministic sentence built
+     * from the same numbers shown above. When an older response has none, the section
+     * is hidden rather than filled with a guess.
+     */
+    function renderAdvisorWhy(adv) {
+        const section = document.getElementById('advisorReviewWhySection');
+        if (!section) return;
+        const why = adv && adv.recommendationExplanation ? String(adv.recommendationExplanation).trim() : '';
+        section.hidden = !why;
+        setText('advisorReviewWhy', why);
+    }
+
+    /**
+     * Per-factor score breakdown. Each row is a deterministic factor score the backend
+     * already computes; the section is hidden entirely when the response predates it,
+     * so no factor is ever shown as a fabricated number.
+     */
+    function renderAdvisorBreakdown(b) {
+        const section = document.getElementById('advisorReviewBreakdownSection');
+        const rowsEl = document.getElementById('advisorReviewBreakdown');
+        const noteEl = document.getElementById('advisorReviewBreakdownNote');
+        if (!section || !rowsEl) return;
+
+        if (!b) {
+            section.hidden = true;
+            return;
+        }
+
+        const rows = [
+            ['Skill fit', b.skillFitScore],
+            ['Role fit', b.roleFitScore],
+            ['Experience fit', b.experienceFitScore],
+            ['Education fit', b.educationFitScore],
+            ['Location fit', b.locationFitScore],
+            ['Career-track fit', b.trackFitScore],
+            ['ATS readiness', b.atsReadinessScore]
+        ];
+
+        rowsEl.innerHTML = rows.map(([label, value]) => {
+            const pct = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
+            const tone = pct >= 70 ? 'is-good' : (pct >= 40 ? 'is-mid' : 'is-low');
+            return `
+                <div class="advisor-breakdown-row">
+                    <span class="advisor-breakdown-label">${esc(label)}</span>
+                    <span class="advisor-breakdown-bar"><span class="advisor-breakdown-fill ${tone}" style="width:${pct}%"></span></span>
+                    <span class="advisor-breakdown-value">${esc(pct)}/100</span>
+                </div>`;
+        }).join('');
+
+        const notes = [];
+        notes.push(`Required skills: ${numOrDash(b.matchedRequiredCount)} matched, ${numOrDash(b.missingRequiredCount)} missing.`);
+        notes.push(`Preferred skills: ${numOrDash(b.matchedPreferredCount)} matched, ${numOrDash(b.missingPreferredCount)} missing.`);
+        if (b.experienceKnowable === false) {
+            notes.push('Experience: years could not be compared from structured data, so no shortfall is claimed.');
+        } else if (b.requiredYears != null && b.candidateYears != null) {
+            notes.push(`Experience: ${esc(b.candidateYears)} year(s) on the resume vs ${esc(b.requiredYears)} year(s) required.`);
+        }
+        if (noteEl) noteEl.innerHTML = notes.map(n => `<span class="advisor-breakdown-note-item">${n}</span>`).join('');
+
+        section.hidden = false;
+    }
+
+    /** Renders a score as-is, including a legitimate 0 (only null/undefined becomes a dash). */
+    function numOrDash(value) {
+        return Number.isFinite(value) ? value : '—';
+    }
+
+    /** Sentence-case label for a recommendation band, so the UI never shows a bare enum name. */
+    function recommendationLabel(value) {
+        const RECOMMENDATION_LABELS = {
+            STRONGLY_RECOMMENDED: 'Strongly recommended',
+            RECOMMENDED: 'Recommended',
+            APPLY_WITH_IMPROVEMENTS: 'Apply after improvements',
+            LOW_PRIORITY: 'Low priority',
+            NOT_RECOMMENDED: 'Not recommended'
+        };
+        return RECOMMENDATION_LABELS[value] || '—';
+    }
+
     function closeAdvisorReview() {
         if (advisorReviewOverlay) {
             advisorReviewOverlay.hidden = true;
             document.body.classList.remove('modal-open');
         }
     }
+
+    // ─── Match Details modal ────────────────────────────────────────────────
+    // Matches are kept keyed by job id so the card button only needs a data-job-id
+    // attribute; the modal then renders the exact scored match the user clicked.
+    const matchRegistry = new Map();
+    let matchDetailsOverlay = null;
+
+    function ensureMatchDetailsModal() {
+        if (matchDetailsOverlay) return matchDetailsOverlay;
+
+        matchDetailsOverlay = document.createElement('div');
+        matchDetailsOverlay.className = 'modal-overlay';
+        matchDetailsOverlay.hidden = true;
+        matchDetailsOverlay.innerHTML = `
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="matchDetailsTitle">
+                <div class="modal-header">
+                    <div class="modal-header-text">
+                        <h3 class="modal-title" id="matchDetailsTitle">Match Details</h3>
+                        <div class="modal-company" id="matchDetailsCompany"></div>
+                    </div>
+                    <button type="button" class="modal-close" id="matchDetailsClose" aria-label="Close match details">&times;</button>
+                </div>
+                <div class="modal-body" id="matchDetailsBody"></div>
+                <div class="modal-footer" id="matchDetailsFooter"></div>
+            </div>`;
+
+        matchDetailsOverlay.addEventListener('click', (e) => {
+            if (e.target === matchDetailsOverlay) closeMatchDetails();
+        });
+        matchDetailsOverlay.querySelector('#matchDetailsClose').addEventListener('click', closeMatchDetails);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && matchDetailsOverlay && !matchDetailsOverlay.hidden) closeMatchDetails();
+        });
+
+        document.body.appendChild(matchDetailsOverlay);
+        return matchDetailsOverlay;
+    }
+
+    function openMatchDetails(jobId) {
+        const m = matchRegistry.get(String(jobId));
+        if (!m) {
+            showToast('Match details are no longer available for this listing. Run matching again.', 'error');
+            return;
+        }
+        const job = m.job || {};
+        const modal = ensureMatchDetailsModal();
+        modal.querySelector('#matchDetailsTitle').textContent = job.title || 'Untitled Role';
+        modal.querySelector('#matchDetailsCompany').textContent = job.company || 'Unknown Company';
+        modal.querySelector('#matchDetailsBody').innerHTML = buildMatchDetailsHtml(m);
+        modal.querySelector('#matchDetailsFooter').innerHTML = buildMatchDetailsFooter(m);
+        modal.hidden = false;
+        document.body.classList.add('modal-open');
+        modal.querySelector('#matchDetailsClose').focus();
+    }
+
+    function closeMatchDetails() {
+        if (!matchDetailsOverlay || matchDetailsOverlay.hidden) return;
+        matchDetailsOverlay.hidden = true;
+        document.body.classList.remove('modal-open');
+    }
+
+    function buildMatchDetailsHtml(m) {
+        const job = m.job || {};
+        const rec = REC_MAP[m.recommendation] || { cls: 'rec-possible', label: humanizeEnum(m.recommendation) };
+        const score = Number(m.matchScore) || 0;
+
+        const chips = (list, cls, hit) => (list || [])
+            .map(s => `<span class="skill-tag ${cls} ${hit ? 'match-hit' : 'match-miss'}">${esc(s)}</span>`)
+            .join('');
+        const rows = (title, html, emptyText) => html
+            ? `<div class="modal-job-section"><h4 class="modal-section-title">${esc(title)}</h4>${html}</div>`
+            : `<div class="modal-job-section"><h4 class="modal-section-title">${esc(title)}</h4><p class="modal-empty-line">${esc(emptyText)}</p></div>`;
+
+        const strengths = (m.strengths || [])
+            .map(s => `<li class="match-strength"><span class="match-strength-icon">✓</span>${esc(s)}</li>`).join('');
+        const concerns = (m.concerns || [])
+            .map(c => `<li class="match-concern"><span class="match-concern-icon">!</span>${esc(c)}</li>`).join('');
+
+        const required = chips(m.matchedSkills, 'required-skill', true) + chips(m.missingSkills, 'required-skill', false);
+        const preferred = chips(m.matchedPreferredSkills, 'preferred-skill', true) + chips(m.missingPreferredSkills, 'preferred-skill', false);
+
+        return `
+            <div class="match-details-score">
+                <span class="match-details-score-num">${esc(score)}</span>
+                <span class="match-details-score-max">/100 match score</span>
+                <span class="match-rec-badge ${rec.cls}">${esc(rec.label)}</span>
+            </div>
+
+            <div class="job-meta-row">
+                <div class="job-meta-item" title="Location"><span>${esc(job.location || 'Location not listed')}</span></div>
+                <div class="job-meta-item" title="Employment Type"><span>${esc(formatEmploymentType(job.employmentType))}</span></div>
+                <div class="job-meta-item" title="Experience Requirement"><span>${esc(job.experienceRequirement || 'Not specified')}</span></div>
+                <div class="job-meta-item" title="Career Track"><span>${esc(humanizeEnum(m.careerTrack))}</span></div>
+            </div>
+
+            ${rows('Why this job matched', m.explanation ? `<p class="modal-description">${esc(m.explanation)}</p>` : '',
+                'No explanation was produced for this match.')}
+
+            ${rows('Required skills', required ? `<div class="skills-tags-wrap">${required}</div>` : '',
+                'This listing states no required skills.')}
+
+            ${rows('Preferred skills', preferred ? `<div class="skills-tags-wrap">${preferred}</div>` : '',
+                'This listing states no preferred skills.')}
+
+            ${rows('Your strengths', strengths ? `<ul class="match-sc-list">${strengths}</ul>` : '',
+                'No strengths were reported for this match.')}
+
+            ${rows('Gaps to close', concerns ? `<ul class="match-sc-list">${concerns}</ul>` : '',
+                'No gaps were reported for this match.')}
+
+            <div class="job-meta-row modal-source-row">
+                <div class="job-meta-item" title="Listing Source"><span>Source: ${esc(job.source || 'Unknown')}</span></div>
+            </div>`;
+    }
+
+    /**
+     * Modal actions reuse the same delegated handlers as the cards (career agent,
+     * advisor, prepare), so there is exactly one implementation of each action.
+     * The apply action is only offered when the listing carries a real external URL,
+     * and it is labelled as a link to the employer's own site.
+     */
+    function buildMatchDetailsFooter(m) {
+        const job = m.job || {};
+        const jobId = esc(job.id || '');
+        const score = Number(m.matchScore) || 0;
+        const parts = [];
+
+        if (candidateId) {
+            parts.push(`<button type="button" class="btn-career-agent" data-career-agent="true" data-job-id="${jobId}" data-job-title="${esc(job.title || '')}" data-company="${esc(job.company || '')}">
+                <span>Career Analysis</span></button>`);
+            parts.push(`<button type="button" class="btn-advisor application-advisor-btn" data-candidate-id="${esc(candidateId)}" data-job-id="${jobId}" data-job-title="${esc(job.title || '')}" data-company="${esc(job.company || '')}" data-location="${esc(job.location || '')}">
+                <span>Application Advisor</span></button>`);
+            if (score >= 60) {
+                parts.push(`<button type="button" class="btn-apply application-prepare-btn" data-candidate-id="${esc(candidateId)}" data-job-id="${jobId}" data-job-title="${esc(job.title || '')}" data-company="${esc(job.company || '')}" data-location="${esc(job.location || '')}">
+                    <span>Prepare Application</span></button>`);
+            }
+        }
+
+        const isExternal = window.jobDetails && !window.jobDetails.isMock(job) && window.jobDetails.hasValidUrl(job);
+        if (isExternal) {
+            parts.push(`<a href="${esc(job.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="btn-view-job btn-apply-external"
+                title="Opens the employer's own application page in a new tab">
+                <span>Open Official Application</span></a>`);
+        }
+
+        const hint = `<span class="modal-hint">${candidateId
+            ? 'This platform never submits an application for you — the official application opens on the employer\'s own site.'
+            : `Upload a <a href="resume.html">resume</a> to run career analysis and prepare an application.`}</span>`;
+
+        return parts.join('') + hint;
+    }
+
+    function formatEmploymentType(type) {
+        if (!type) return 'Not specified';
+        switch (String(type).toUpperCase()) {
+            case 'FULL_TIME': return 'Full-time';
+            case 'PART_TIME': return 'Part-time';
+            case 'INTERNSHIP': return 'Internship';
+            case 'CONTRACT': return 'Contract';
+            default: return String(type);
+        }
+    }
+
+    /** Turns an enum-ish value into readable words ("POSSIBLE_MATCH" → "Possible match"). */
+    function humanizeEnum(value) {
+        if (!value) return 'Unknown';
+        const words = String(value).toLowerCase().split('_').filter(Boolean);
+        if (!words.length) return 'Unknown';
+        return words.map((w, i) => i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(' ');
+    }
+
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-open-match-details]');
+        if (!btn) return;
+        openMatchDetails(btn.getAttribute('data-job-id'));
+    });
 
     // ─── Boot ─────────────────────────────────────────────────────────────────
     init();

@@ -70,8 +70,13 @@ class JobApplicationPreparationServiceTest {
         assertNotNull(result.getCoverLetter());
         assertNotNull(result.getSuggestedAnswers());
         assertEquals(2, result.getCandidateStrengths().size());
-        assertEquals(2, result.getMatchingSkills().size());
+        // The 1-arg test constructor resolves no profile and no job, so the deterministic
+        // engine has nothing to compare. The package must then say so, and must NOT echo
+        // the model's own "matchingSkills"/"missingSkills" arrays — only the
+        // SkillMatchingEngine result may claim which skills the candidate has.
+        assertEquals(1, result.getMatchingSkills().size());
         assertEquals(1, result.getMissingSkills().size());
+        assertNull(result.getMatchScore());
         assertNotNull(result.getRecommendation());
     }
 
@@ -101,8 +106,9 @@ class JobApplicationPreparationServiceTest {
         assertTrue(result.getMatchingSkills().size() > 0);
         assertTrue(result.getMissingSkills().size() > 0);
         assertTrue(result.getResumeHighlights().size() > 0);
-        assertNotNull(result.getMatchScore());
-        assertTrue(result.getMatchScore() >= 0 && result.getMatchScore() <= 100);
+        // No profile/job is resolvable here, so no coverage could be calculated. The
+        // service must report that as absent rather than emit a placeholder score.
+        assertNull(result.getMatchScore());
         assertNotNull(result.getRecommendation());
     }
 
@@ -181,7 +187,8 @@ class JobApplicationPreparationServiceTest {
         assertTrue(result.getTailoredProfessionalSummary().contains("TechNova Solutions"));
         assertTrue(result.getCoverLetter().contains("Java Developer"));
         assertTrue(result.getResumeHighlights().size() > 0);
-        assertNotNull(result.getMatchScore());
+        // Unwired service: nothing to assess, so no score is claimed (was a hard-coded 85).
+        assertNull(result.getMatchScore());
         assertEquals("GENERATED", result.getStatus());
 
         // Verify chatModel was NEVER called
@@ -241,6 +248,12 @@ class JobApplicationPreparationServiceTest {
             assertTrue(result.getResumeHighlights().contains("Payments reconciliation service"));
             assertFalse(result.getResumeHighlights().contains("Java 8/21 and Spring Boot expertise"),
                     "hard-coded candidate-independent content must not survive");
+            // The score is the deterministic required-skill coverage for this profile vs
+            // this job: Java and Spring Boot match, Kubernetes does not — so it must be a
+            // genuine partial value, not a hard-coded or model-supplied number.
+            assertNotNull(result.getMatchScore(), "coverage must be computed when both sides resolve");
+            assertTrue(result.getMatchScore() > 0 && result.getMatchScore() < 100,
+                    "coverage should reflect the partial overlap, score=" + result.getMatchScore());
             // Summary names the candidate from the profile
             assertTrue(result.getTailoredProfessionalSummary().contains("Asha Rao"),
                     result.getTailoredProfessionalSummary());

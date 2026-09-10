@@ -1,28 +1,30 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 [hidden]{display:none!important}
 :root{
-  --bg-primary:#0b0f1a;
-  --bg-secondary:#111827;
-  --bg-card:#1e293b;
-  --bg-card-hover:#253349;
-  --bg-input:#0f172a;
-  --text-primary:#f1f5f9;
-  --text-secondary:#94a3b8;
-  --text-muted:#64748b;
-  --accent:#3b82f6;
-  --accent-hover:#2563eb;
-  --accent-light:rgba(59,130,246,.15);
-  --success:#22c55e;
-  --success-light:rgba(34,197,94,.15);
-  --warning:#f59e0b;
-  --warning-light:rgba(245,158,11,.15);
-  --danger:#ef4444;
-  --danger-light:rgba(239,68,68,.15);
-  --border:#1e3a5f;
-  --border-light:#2d4a6f;
-  --radius:8px;
-  --radius-lg:12px;
-  --shadow:0 4px 24px rgba(0,0,0,.4);
+  /* Professional SaaS palette: neutral slate surfaces (no blue cast), a single
+     primary accent, and layered low-opacity shadows instead of coloured glows. */
+  --bg-primary:#0f1115;
+  --bg-secondary:#161a20;
+  --bg-card:#1b2027;
+  --bg-card-hover:#212731;
+  --bg-input:#12161c;
+  --text-primary:#f4f6f8;
+  --text-secondary:#a3adb9;
+  --text-muted:#737f8d;
+  --accent:#4f7cff;
+  --accent-hover:#3f68e0;
+  --accent-light:rgba(79,124,255,.12);
+  --success:#2fbf71;
+  --success-light:rgba(47,191,113,.12);
+  --warning:#e0a020;
+  --warning-light:rgba(224,160,32,.12);
+  --danger:#e05252;
+  --danger-light:rgba(224,82,82,.12);
+  --border:#262c35;
+  --border-light:#333b46;
+  --radius:6px;
+  --radius-lg:10px;
+  --shadow:0 1px 2px rgba(0,0,0,.24),0 8px 24px rgba(0,0,0,.20);
   --font-sans:'Plus Jakarta Sans',system-ui,sans-serif;
   --font-mono:'JetBrains Mono',monospace;
 }
@@ -49,7 +51,7 @@ a:hover{text-decoration:underline}
 .header-actions{display:flex;align-items:center;gap:12px}
 .status-badge{display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:20px;background:var(--bg-card);border:1px solid var(--border);font-size:.8rem}
 .status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-muted)}
-.status-live .status-dot{background:var(--success);box-shadow:0 0 8px var(--success)}
+.status-live .status-dot{background:var(--success);box-shadow:0 0 0 3px var(--success-light)}
 .model-selector{padding:6px 12px;border-radius:var(--radius);background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);font-family:var(--font-mono);font-size:.8rem}
 .model-badge{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:var(--radius);background:var(--bg-card);border:1px solid var(--border);font-family:var(--font-mono);font-size:.75rem;color:var(--text-secondary)}
 .badge-icon{width:14px;height:14px;color:var(--accent)}
@@ -594,7 +596,8 @@ a:hover{text-decoration:underline}
 .resume-analyzing-elapsed{flex-shrink:0;font-family:var(--font-mono);font-size:.8125rem;color:var(--text-secondary);padding:4px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:20px}
 .resume-analyzing-track{position:relative;height:6px;margin-top:22px;border-radius:99px;background:var(--bg-input);overflow:hidden}
 .resume-analyzing-fill{height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--accent),#60a5fa);transition:width .4s ease;position:relative;overflow:hidden}
-.resume-analyzing-fill::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);transform:translateX(-100%);animation:resumeShimmer 1.5s ease-in-out infinite}
+/* Shimmer sweep removed: a static fill reads as a professional progress bar
+   rather than an animated "AI" effect. */
 .resume-analyzing-stages{list-style:none;margin:22px 0 0;padding:0;display:flex;flex-direction:column;gap:12px}
 .resume-analyzing-stage{display:flex;align-items:center;gap:12px;font-size:.8125rem;color:var(--text-muted);transition:color .25s}
 .resume-stage-dot{width:9px;height:9px;flex-shrink:0;border-radius:50%;background:var(--border-light);transition:all .25s}
@@ -644,7 +647,6 @@ a:hover{text-decoration:underline}
 /* ── Motion ── */
 @keyframes resumeFadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @keyframes resumeSpin{to{transform:rotate(360deg)}}
-@keyframes resumeShimmer{to{transform:translateX(100%)}}
 @keyframes resumePulse{0%{transform:scale(.85);opacity:.45}70%{transform:scale(1.15);opacity:0}100%{transform:scale(1.15);opacity:0}}
 
 /* ── Responsive ── */
@@ -687,7 +689,7 @@ a:hover{text-decoration:underline}
 .resume-file-change{font-size:.78rem;color:var(--text-muted);font-family:var(--font-mono)}
 .muted{color:var(--text-muted)}
 .status-text{font-size:.8rem;color:var(--text-secondary);white-space:nowrap}
-.status-dot-online{background:var(--success);box-shadow:0 0 8px var(--success)}
+.status-dot-online{background:var(--success);box-shadow:0 0 0 3px var(--success-light)}
 
 /* ── Search form accents ─────────────────────────────────────────────── */
 .location-group{min-width:0}
@@ -734,7 +736,7 @@ a:hover{text-decoration:underline}
 .skills-label-miss{color:var(--danger)}
 .skills-tags-wrap{display:flex;flex-wrap:wrap;gap:6px}
 .skill-tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;border:1px solid var(--border-light);background:var(--bg-input);color:var(--text-secondary);font-size:.75rem;font-weight:600;line-height:1.5;white-space:nowrap}
-.skill-tag.required-skill{background:var(--accent-light);border-color:rgba(59,130,246,.35);color:#93c5fd}
+.skill-tag.required-skill{background:var(--accent-light);border-color:rgba(79,124,255,.35);color:#a9c0ff}
 .skill-tag.preferred-skill{background:rgba(148,163,184,.1);border-color:var(--border);color:var(--text-secondary)}
 .skill-tag.match-hit{background:var(--success-light);border-color:rgba(34,197,94,.4);color:#86efac}
 .skill-tag.match-miss{background:var(--danger-light);border-color:rgba(239,68,68,.4);color:#fca5a5;text-decoration:line-through;text-decoration-thickness:1px}
@@ -744,7 +746,7 @@ a:hover{text-decoration:underline}
 .match-score-block{display:flex;flex-direction:column;gap:6px;min-width:0}
 .match-score-num{font-size:1.45rem;font-weight:700;line-height:1.1;color:var(--text-primary);font-family:var(--font-mono)}
 .match-score-fill{height:4px;border-radius:2px;background:var(--accent);min-width:2px}
-.match-rec-badge{display:inline-flex;align-items:center;padding:4px 12px;border-radius:999px;font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:var(--accent-light);color:#93c5fd;border:1px solid rgba(59,130,246,.35)}
+.match-rec-badge{display:inline-flex;align-items:center;padding:4px 12px;border-radius:999px;font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:var(--accent-light);color:#a9c0ff;border:1px solid rgba(79,124,255,.35)}
 .match-sc-rows{display:flex;flex-direction:column;gap:10px}
 .match-sc-title{font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-secondary)}
 .match-sc-title-good{color:var(--success)}
@@ -823,3 +825,106 @@ body.modal-open{overflow:hidden}
   .job-meta-row{gap:6px 14px}
   .job-card-footer>*{flex:1 1 auto}
 }
+
+/* ── Career Agent: data-backed career fit report ──────────────────────────────
+   Built from the deterministic Application Advisor response. Reuses the modal,
+   skill-tag and chip styles above so the report reads as part of the product. */
+.career-report{display:flex;flex-direction:column;gap:18px}
+.career-report-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.career-report-role{min-width:0;display:flex;flex-direction:column;gap:6px}
+.career-report-title{font-size:1.05rem;font-weight:700;color:var(--text-primary);line-height:1.3}
+.career-report-company{font-size:.85rem;color:var(--text-secondary)}
+.career-report-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.career-report-score{display:flex;flex-direction:column;align-items:flex-end;gap:4px;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius)}
+.career-report-section{display:flex;flex-direction:column;gap:8px}
+.career-report-section-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+.career-report-text{font-size:.85rem;color:var(--text-secondary);line-height:1.65}
+.career-report-note{font-size:.78rem;color:var(--text-muted);line-height:1.6}
+.career-report-na{font-size:.83rem;color:var(--text-muted);font-style:italic}
+.fit-label{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+.fit-value{font-size:1.6rem;font-weight:700;color:var(--text-primary);line-height:1;font-family:var(--font-mono)}
+.fit-value small{font-size:.8rem;color:var(--text-muted);font-weight:600}
+.fit-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:.72rem;font-weight:700;border:1px solid var(--border-light);color:var(--text-secondary);background:var(--bg-card)}
+.fit-badge.fit-high{background:var(--success-light);border-color:rgba(47,191,113,.35);color:var(--success)}
+.fit-badge.fit-medium{background:var(--warning-light);border-color:rgba(224,160,32,.35);color:var(--warning)}
+.fit-badge.fit-low{background:var(--danger-light);border-color:rgba(224,82,82,.35);color:var(--danger)}
+.fit-rows{display:flex;flex-direction:column;gap:7px}
+.fit-row{display:grid;grid-template-columns:130px 1fr 34px;align-items:center;gap:10px}
+.fit-row-label{font-size:.8rem;color:var(--text-secondary)}
+.fit-row-value{font-size:.78rem;color:var(--text-muted);text-align:right;font-family:var(--font-mono)}
+.fit-bar{display:block;height:6px;border-radius:3px;background:var(--bg-card);overflow:hidden}
+.fit-bar-fill{display:block;height:100%;border-radius:3px;background:var(--text-muted)}
+.fit-bar-fill.is-good{background:var(--success)}
+.fit-bar-fill.is-mid{background:var(--warning)}
+.fit-bar-fill.is-low{background:var(--danger)}
+.fit-list{list-style:none;display:flex;flex-direction:column;gap:5px;margin:0;padding:0}
+.fit-list li{font-size:.83rem;color:var(--text-secondary);line-height:1.55;padding-left:16px;position:relative}
+.fit-list li::before{position:absolute;left:0;top:0;font-weight:700}
+.fit-list.is-good li::before{content:"✓";color:var(--success)}
+.fit-list.is-bad li::before{content:"!";color:var(--warning)}
+.career-next-steps{display:flex;flex-direction:column;gap:10px;margin:0;padding-left:20px}
+.career-next-steps li{display:flex;flex-direction:column;gap:2px;font-size:.83rem;color:var(--text-secondary);line-height:1.55}
+.career-step-focus{font-weight:700;color:var(--text-primary);font-size:.84rem}
+.career-step-desc{color:var(--text-secondary)}
+.career-step-reason{font-size:.76rem;color:var(--text-muted)}
+.agent-run-block{display:flex;flex-direction:column;gap:12px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+
+/* ── Application Advisor: why + per-factor breakdown ─────────────────────────── */
+.advisor-why-text{font-size:.85rem;color:var(--text-secondary);line-height:1.7}
+.advisor-breakdown-rows{display:flex;flex-direction:column;gap:7px}
+.advisor-breakdown-row{display:grid;grid-template-columns:130px 1fr 54px;align-items:center;gap:10px}
+.advisor-breakdown-label{font-size:.8rem;color:var(--text-secondary)}
+.advisor-breakdown-value{font-size:.76rem;color:var(--text-muted);text-align:right;font-family:var(--font-mono)}
+.advisor-breakdown-bar{display:block;height:6px;border-radius:3px;background:var(--bg-card);overflow:hidden}
+.advisor-breakdown-fill{display:block;height:100%;border-radius:3px;background:var(--text-muted)}
+.advisor-breakdown-fill.is-good{background:var(--success)}
+.advisor-breakdown-fill.is-mid{background:var(--warning)}
+.advisor-breakdown-fill.is-low{background:var(--danger)}
+.advisor-breakdown-note{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px}
+.advisor-breakdown-note-item{font-size:.76rem;color:var(--text-muted)}
+
+/* ── Match Details modal ─────────────────────────────────────────────────────── */
+.match-details-score{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius)}
+.match-details-score-num{font-size:1.5rem;font-weight:700;color:var(--text-primary);font-family:var(--font-mono);line-height:1}
+.match-details-score-max{font-size:.78rem;color:var(--text-muted)}
+.modal-empty-line{font-size:.83rem;color:var(--text-muted);font-style:italic}
+
+/* ── External (employer-hosted) application ──────────────────────────────────── */
+.btn-apply-external{background:var(--bg-card);border:1px solid var(--border-light);color:var(--text-primary)}
+.btn-apply-external:hover{background:var(--bg-card-hover);border-color:var(--accent);color:var(--accent);text-decoration:none}
+.application-card-external{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px}
+.external-badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:12px;font-size:.7rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:var(--accent-light);color:var(--accent);border:1px solid rgba(79,124,255,.35)}
+.external-badge.is-muted{background:var(--bg-card);color:var(--text-muted);border-color:var(--border)}
+.external-note{font-size:.75rem;color:var(--text-muted);line-height:1.5}
+
+/* ── Applications portal: package contents ───────────────────────────────────── */
+.application-card-package{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.package-chip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:.72rem;font-weight:600;border:1px solid var(--border);background:var(--bg-input);color:var(--text-muted)}
+.package-chip.is-present{background:var(--success-light);border-color:rgba(47,191,113,.32);color:var(--success)}
+.package-chip.is-missing{background:var(--bg-card);border-color:var(--border);color:var(--text-muted)}
+.badge-archived{background:var(--bg-card);color:var(--text-muted)}
+
+/* ── Dashboard: Career Fit ───────────────────────────────────────────────────── */
+.career-fit-panel{display:flex;flex-direction:column;gap:16px;padding:20px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg)}
+.career-fit-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.career-fit-title{font-size:1.1rem;font-weight:700;color:var(--text-primary)}
+.career-fit-desc{font-size:.82rem;color:var(--text-muted);margin-top:2px}
+.career-fit-link{white-space:nowrap}
+.career-fit-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.career-fit-block{display:flex;flex-direction:column;gap:8px;padding:14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius)}
+.career-fit-block-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+.career-fit-note{font-size:.74rem;color:var(--text-muted);line-height:1.5}
+.career-fit-empty{font-size:.84rem;color:var(--text-muted);line-height:1.6;grid-column:1/-1}
+.career-fit-tracks{list-style:none;display:flex;flex-direction:column;gap:10px;margin:0;padding:0}
+.career-fit-track{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:baseline}
+.career-fit-track-label{font-size:.86rem;font-weight:600;color:var(--text-primary)}
+.career-fit-track-evidence{grid-column:1/-1;font-size:.74rem;color:var(--text-muted)}
+.career-fit-track-skills{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.career-fit-level{justify-self:end;display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;font-size:.7rem;font-weight:700;border:1px solid var(--border-light);color:var(--text-secondary);background:var(--bg-card)}
+.career-fit-level.level-strong{background:var(--success-light);border-color:rgba(47,191,113,.32);color:var(--success)}
+.career-fit-level.level-developing{background:var(--warning-light);border-color:rgba(224,160,32,.32);color:var(--warning)}
+.career-fit-level.level-emerging{background:var(--bg-card);border-color:var(--border);color:var(--text-muted)}
+.career-fit-chips{display:flex;flex-wrap:wrap;gap:6px}
+.career-fit-chip{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;border:1px solid var(--border-light);background:var(--bg-card);color:var(--text-secondary);font-size:.75rem;font-weight:600}
+.career-fit-chip.is-strong{background:var(--success-light);border-color:rgba(47,191,113,.32);color:var(--success)}
+.career-fit-chip.is-limited{background:var(--bg-card);border-color:var(--border);color:var(--text-muted)}
