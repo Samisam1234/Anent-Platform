@@ -550,8 +550,11 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             return response.json();
         })
         .then(data => {
-            showToast('Application Advisor completed.', 'success');
-            openAdvisorReview(data, jobTitle, company);
+            showToast('Application readiness calculated.', 'success');
+            openAdvisorReview(data, {
+                candidateId: candidateId, jobId: jobId,
+                jobTitle: jobTitle, company: company, location: location
+            });
         })
         .catch(err => {
             console.error('Error running application advisor:', err);
@@ -807,8 +810,9 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
     }
 
     // ─── Application readiness review ───────────────────────────────────────
-    function openAdvisorReview(data, fallbackJobTitle, fallbackCompany) {
+    function openAdvisorReview(data, ctx) {
         const adv = data || {};
+        const context = ctx || {};
         const b = adv.scoreBreakdown || null;
 
         const rows = b ? [
@@ -906,11 +910,31 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
 
         window.modalShell.open({
             kicker: 'Application Readiness',
-            title: adv.jobTitle || fallbackJobTitle || 'Selected role',
-            subtitle: adv.company || fallbackCompany || '',
+            title: adv.jobTitle || context.jobTitle || 'Selected role',
+            subtitle: adv.company || context.company || '',
             body: body,
-            footer: `<span class="modal-hint">Deterministic scoring from your parsed resume and this listing.</span>`
+            footer: advisorFooterHtml(context)
         });
+    }
+
+    /**
+     * Advisor footer. This is what makes the Applications portal reachable: running a
+     * readiness check saves nothing, so the dialog says so plainly and offers the one
+     * action that actually persists a prepared application. Without it, a user could
+     * run readiness on every match and still find "No prepared applications yet".
+     */
+    function advisorFooterHtml(context) {
+        const parts = [`<span class="modal-hint">This check is advice only — nothing is saved or submitted.</span>`];
+        if (context.candidateId && context.jobId) {
+            parts.push(`<button type="button" class="btn-apply application-prepare-btn"
+                data-candidate-id="${esc(context.candidateId)}"
+                data-job-id="${esc(context.jobId)}"
+                data-job-title="${esc(context.jobTitle || '')}"
+                data-company="${esc(context.company || '')}"
+                data-location="${esc(context.location || '')}">
+                <span>Prepare Application</span></button>`);
+        }
+        return parts.join('');
     }
 
     /**
