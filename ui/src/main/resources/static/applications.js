@@ -204,7 +204,7 @@
             <div class="application-card-external" data-external-slot="${esc(application.id)}" hidden></div>
 
             <div class="application-card-footer">
-                <button class="btn-view application-view-btn" data-id="${esc(application.id)}">View</button>
+                <button class="btn-view application-view-btn" data-id="${esc(application.id)}">Review</button>
                 <button class="btn-apply application-approve-btn" data-id="${esc(application.id)}" ${isApproved ? 'disabled' : ''}>
                     ${isApproved ? 'Approved' : 'Approve for application'}</button>
             </div>
@@ -212,7 +212,7 @@
 
         // Add click handlers
         const viewBtn = card.querySelector('.application-view-btn');
-        viewBtn.addEventListener('click', () => viewApplication(application.id));
+        viewBtn.addEventListener('click', () => openReviewModal(application.id));
 
         const approveBtn = card.querySelector('.application-approve-btn');
         approveBtn.addEventListener('click', () => {
@@ -277,6 +277,113 @@
         });
     }
 
+    /**
+     * Read-only review of a prepared application in the single global modal shell, so it
+     * can never stack behind another dialog. Shows the package contents, the stored
+     * status and the employer application link when the listing still resolves.
+     *
+     * Nothing here implies the platform submitted anything: the furthest state the
+     * backend can reach is an approval the user granted.
+     */
+    function openReviewModal(id) {
+        fetch(`${API_ENDPOINT}/${id}`)
+            .then(response => {
+                if (!response.ok) throw new Error(`Failed to fetch application: ${response.status}`);
+                return response.json();
+            })
+            .then(app => {
+                if (!app || !app.id) {
+                    showToast('Application not found.', 'error');
+                    return;
+                }
+                renderReviewModal(app);
+            })
+            .catch(err => {
+                console.error('Error reviewing application:', err);
+                showToast(err.message || 'Failed to load application.', 'error');
+            });
+    }
+
+    function renderReviewModal(app) {
+        const statusKey = app.applicationStatus || 'DRAFT';
+        const status = STATUS_LABELS[statusKey]
+            || { label: humanizeStatus(statusKey), cls: 'draft', hint: '' };
+
+        const list = (value, emptyText) => {
+            const items = splitList(value);
+            return items.length
+                ? `<ul class="match-sc-list">${items.map(v => `<li>${esc(v)}</li>`).join('')}</ul>`
+                : `<p class="modal-empty-line">${esc(emptyText)}</p>`;
+        };
+        const block = (title, html) => `
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">${esc(title)}</h4>
+                ${html}
+            </div>`;
+
+        const preparedOn = app.createdAt
+            ? new Date(app.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+            : 'not recorded';
+
+        window.modalShell.open({
+            kicker: 'Prepared Application',
+            title: `${app.jobTitle || 'Role'} — ${app.company || 'Company'}`,
+            subtitle: `${status.label} · prepared ${preparedOn} · not submitted`,
+            body: `
+                <div class="prep-summary">
+                    <span class="summary-chip">Job ID: ${esc(app.jobId || '—')}</span>
+                    <span class="summary-chip">Location: ${esc(app.location || 'Not specified')}</span>
+                    <span class="summary-chip">Skill coverage: ${app.matchScore != null ? esc(app.matchScore) + '/100' : 'not calculated'}</span>
+                    <span class="package-chip ${app.generatedResumeSummary ? 'is-present' : 'is-missing'}">${app.generatedResumeSummary ? 'Tailored summary' : 'No tailored summary'}</span>
+                    <span class="package-chip ${app.coverLetter ? 'is-present' : 'is-missing'}">${app.coverLetter ? 'Cover letter' : 'No cover letter'}</span>
+                </div>
+
+                <div class="application-card-external" id="reviewExternal"></div>
+
+                ${block('Tailored professional summary',
+                    `<p class="modal-description">${esc(app.generatedResumeSummary || '—')}</p>`)}
+                ${block('Cover letter',
+                    `<p class="modal-description prep-pre">${esc(app.coverLetter || 'No cover letter generated')}</p>`)}
+                ${block('Suggested application answers', list(app.applicationAnswers, 'No suggested answers available.'))}
+                ${block('Your strengths', list(app.candidateStrengths, 'No candidate strengths listed.'))}
+                ${block('Skills to address', list(app.missingSkills, 'No missing skills to address.'))}
+                ${block('Advisor result',
+                    app.recommendation
+                        ? `<p class="modal-description">${esc(humanizeStatus(app.recommendation))}</p>`
+                        : `<p class="modal-empty-line">No advisor result recorded for this application.</p>`)}
+
+                <p class="agent-note">This package is prepared for your review. The platform has not submitted it and cannot submit it — you apply on the employer's own site.</p>`,
+            footer: `
+                <span class="modal-hint">Nothing has been submitted.</span>
+                <button type="button" class="btn-secondary" data-edit-application="${esc(app.id)}">Edit package</button>`
+        });
+
+        // Reuse the same resolver and markup as the list view.
+        const slot = document.getElementById('reviewExternal');
+        if (slot) {
+            resolveJob(app.jobId).then(job => {
+                const url = job && typeof job.sourceUrl === 'string' && /^https?:\/\//i.test(job.sourceUrl.trim())
+                    ? job.sourceUrl.trim() : null;
+                slot.innerHTML = url
+                    ? `<span class="external-badge">External application</span>
+                       <a class="btn-apply-external" href="${esc(url)}" target="_blank" rel="noopener noreferrer"
+                          title="Opens the original listing in a new tab">View source listing</a>
+                       <span class="external-note">The source does not provide a separate employer application link.</span>`
+                    : `<span class="external-badge is-muted">External application</span>
+                       <span class="external-note">The original listing is no longer available, so no application link can be shown.</span>`;
+            });
+        }
+    }
+
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-edit-application]');
+        if (!btn) return;
+        const id = Number(btn.getAttribute('data-edit-application'));
+        if (!id) return;
+        window.modalShell.close();
+        viewApplication(id);
+    });
+
     /** Resolves a stored job id to its listing, caching both hits and misses. */
     function resolveJob(jobId) {
         const key = String(jobId);
@@ -288,6 +395,21 @@
                 jobLookupCache.set(key, job || null);
                 return job || null;
             });
+    }
+
+    /**
+     * Turns an improvement priority into an instruction. The backend's machine-readable
+     * type (REQUIRED_SKILL / PREFERRED_SKILL / EXPERIENCE) is mapped to wording here so
+     * the internal label never reaches the screen.
+     */
+    function stepTitle(detail) {
+        const focus = detail && detail.focus ? String(detail.focus) : 'Improvement';
+        switch (detail && detail.type) {
+            case 'REQUIRED_SKILL': return 'Learn ' + focus;
+            case 'PREFERRED_SKILL': return 'Review ' + focus;
+            case 'EXPERIENCE': return 'Build relevant experience';
+            default: return focus;
+        }
     }
 
     /** Renders a stored enum value as readable words without inventing meaning. */
@@ -786,7 +908,7 @@
             ${adv.recommendedActionDetails && adv.recommendedActionDetails.length ? `
                 <h4>Action Details</h4>
                 <ul class="advisor-action-details-list">
-                    ${adv.recommendedActionDetails.map(d => `<li><strong>${esc(d.focus)}</strong> (${esc(d.type)}): ${esc(d.description)} ${d.reason ? `<br><small>${esc(d.reason)}</small>` : ''}</li>`).join('')}
+                    ${adv.recommendedActionDetails.map(d => `<li><strong>${esc(stepTitle(d))}</strong>${d.description ? `: ${esc(d.description)}` : ''}</li>`).join('')}
                 </ul>
             ` : ''}
         `;

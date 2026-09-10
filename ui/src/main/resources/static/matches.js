@@ -378,8 +378,14 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
                 <button type="button" class="btn-career-agent" data-career-agent="true" data-job-id="${esc(job.id || '')}" data-job-title="${esc(job.title || '')}" data-company="${esc(job.company || '')}"
                     ${candidateId ? '' : 'disabled'}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
-                    <span>Run Career Agent</span>
+                    <span>Career Analysis</span>
                 </button>
+
+                ${candidateId ? `
+                <button type="button" class="btn-tailor resume-tailor-btn" data-candidate-id="${esc(candidateId)}" data-job-id="${esc(job.id || '')}" data-job-title="${esc(job.title || '')}" data-company="${esc(job.company || '')}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                    <span>Tailor Resume</span>
+                </button>` : ''}
 
                 ${m.matchScore >= 60 ? `
                 <button class="btn-apply application-prepare-btn" data-candidate-id="${candidateId}" data-job-id="${job.id || ''}" data-job-title="${esc(job.title || '')}" data-company="${esc(job.company || '')}" data-location="${esc(job.location || '')}">
@@ -389,9 +395,9 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
                 ` : ''}
 
                 ${candidateId ? `
-                <button type="button" class="btn-advisor application-advisor-btn" data-candidate-id="${candidateId}" data-job-id="${job.id || ''}" data-job-title="${esc(job.title || '')}" data-company="${esc(job.company || '')}" data-location="${esc(job.location || '')}">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
-                    <span>Run Application Advisor</span>
+                <button type="button" class="btn-advisor application-advisor-btn" data-candidate-id="${esc(candidateId)}" data-job-id="${esc(job.id || '')}" data-job-title="${esc(job.title || '')}" data-company="${esc(job.company || '')}" data-location="${esc(job.location || '')}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                    <span>Application Readiness</span>
                 </button>
                 ` : ''}
         `;
@@ -416,16 +422,34 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
         </button>`;
 
-        const isExternal = window.jobDetails && !window.jobDetails.isMock(job) && window.jobDetails.hasValidUrl(job);
-        if (!isExternal) {
-            return details;
-        }
-        return details + `<a href="${esc(job.sourceUrl)}" target="_blank" rel="noopener noreferrer"
+        const external = window.jobDetails && !window.jobDetails.isMock(job);
+        const parts = [details];
+
+        // The employer's own application destination is only offered when the source
+        // actually supplied one. sourceUrl is the aggregator's listing page and is never
+        // presented as "the application".
+        if (external && hasValidUrl(job.applicationUrl)) {
+            parts.push(`<a href="${esc(job.applicationUrl)}" target="_blank" rel="noopener noreferrer"
                 class="btn-view-job btn-apply-external"
                 title="Opens the employer's own application page in a new tab">
-            <span>Open Official Application</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-        </a>`;
+                <span>Open Employer Application</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            </a>`);
+        } else if (external && hasValidUrl(job.sourceUrl)) {
+            parts.push(`<a href="${esc(job.sourceUrl)}" target="_blank" rel="noopener noreferrer"
+                class="btn-view-job btn-source-listing"
+                title="Opens the original listing on ${esc(job.source || 'the job source')} in a new tab">
+                <span>View Source Listing</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+            </a>`);
+            parts.push(`<span class="external-note">Employer application link unavailable from this source.</span>`);
+        }
+
+        return parts.join('');
+    }
+
+    function hasValidUrl(url) {
+        return typeof url === 'string' && /^https?:\/\//i.test(url.trim());
     }
 
     const REC_MAP = {
@@ -507,7 +531,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         }
 
         // Show confirmation
-        if (!confirm(`Run Application Advisor for "${jobTitle}" at ${company}?\n\nThis will evaluate your application readiness against the job using your profile and the job requirements.`)) {
+        if (!confirm(`Check application readiness for "${jobTitle}" at ${company}?\n\nThis compares your parsed resume against the job requirements. Nothing is submitted.`)) {
             return;
         }
 
@@ -552,7 +576,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         }
 
         // Show confirmation
-        if (!confirm(`Prepare application for "${jobTitle}" at ${company}?\n\nThis will prepare a review-ready application package. It uses deterministic content for development jobs and falls back safely if AI is unavailable.`)) {
+        if (!confirm(`Prepare application for "${jobTitle}" at ${company}?\n\nThis builds a review-ready package (summary, cover letter, suggested answers) and saves it to your Applications page. Nothing is submitted.`)) {
             return;
         }
 
@@ -582,39 +606,70 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         });
     });
 
-    // ─── Prepared application review modal ─────────────────────────────────
-    const prepReviewOverlay = document.getElementById('prepReviewOverlay');
-
+    // ─── Prepared application review ────────────────────────────────────────
+    /**
+     * Shows the prepared package in the single global dialog. Renders whatever the API
+     * returned; the application id is only used for the Applications page deep link, so
+     * a missing id must not blank the content.
+     */
     function openPreparedReview(data) {
-        if (!prepReviewOverlay) return;
-        // Render whatever the API returned. Gating on applicationId used to blank the
-        // whole modal whenever the id was absent, even though every content field was
-        // present; the id is only used for the Applications page deep link.
         const app = data || {};
+        const body = `
+            <div class="prep-summary">
+                <span class="summary-chip">Company: ${esc(app.company || '—')}</span>
+                <span class="summary-chip">Skill coverage: ${app.matchScore != null ? esc(app.matchScore) + '/100' : 'not calculated'}</span>
+                <span class="summary-chip">Prepared for your review — not submitted</span>
+            </div>
 
-        setText('prepReviewSubtitle', app.jobTitle || 'Job');
-        setText('prepReviewJobTitle', app.jobTitle || '—');
-        setText('prepReviewCompany', app.company || '—');
-        setText('prepReviewMatchScore', app.matchScore != null ? `${app.matchScore}/100` : 'not calculated');
-        setText('prepReviewSummary', app.tailoredProfessionalSummary || '—');
-        setText('prepReviewCoverLetter', app.coverLetter || '—');
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Skills you match</h4>
+                ${listOrEmpty(app.matchingSkills, 'No matching skills listed.')}
+            </div>
 
-        setList('prepReviewMatching', app.matchingSkills,
-            s => `<li>${esc(s)}</li>`, '<li>No matching skills listed.</li>');
-        setList('prepReviewMissing', app.missingSkills,
-            s => `<li>${esc(s)}</li>`, '<li>No missing skills to address.</li>');
-        setList('prepReviewHighlights', app.resumeHighlights,
-            s => `<li>${esc(s)}</li>`, '<li>No resume highlights available.</li>');
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Skills to address</h4>
+                ${listOrEmpty(app.missingSkills, 'No missing skills to address.')}
+            </div>
 
-        prepReviewOverlay.hidden = false;
-        document.body.classList.add('modal-open');
+            <div class="modal-job-section">
+                <div class="prep-section-head">
+                    <h4 class="modal-section-title">Tailored professional summary</h4>
+                    <button type="button" class="copy-btn" data-copy-inline="prepReviewSummary">Copy</button>
+                </div>
+                <p class="modal-description" id="prepReviewSummary">${esc(app.tailoredProfessionalSummary || '—')}</p>
+            </div>
+
+            <div class="modal-job-section">
+                <div class="prep-section-head">
+                    <h4 class="modal-section-title">Cover letter</h4>
+                    <button type="button" class="copy-btn" data-copy-inline="prepReviewCoverLetter">Copy</button>
+                </div>
+                <p class="modal-description prep-pre" id="prepReviewCoverLetter">${esc(app.coverLetter || '—')}</p>
+            </div>
+
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Resume highlights</h4>
+                ${listOrEmpty(app.resumeHighlights, 'No resume highlights available.')}
+            </div>`;
+
+        const footer = `
+            <span class="modal-hint">Nothing has been submitted. Review, then apply on the employer's own site.</span>
+            ${app.applicationId ? `<a class="btn-secondary" href="applications.html">Review in Applications</a>` : ''}`;
+
+        window.modalShell.open({
+            kicker: 'Prepared Application',
+            title: app.jobTitle || 'Job',
+            subtitle: app.company || '',
+            body: body,
+            footer: footer
+        });
     }
 
-    function closePreparedReview() {
-        if (prepReviewOverlay) {
-            prepReviewOverlay.hidden = true;
-            document.body.classList.remove('modal-open');
-        }
+    /** Renders a list as bullets, or a muted line when it is empty. */
+    function listOrEmpty(values, emptyText) {
+        const items = (values || []).filter(v => v !== null && v !== undefined && String(v).trim() !== '');
+        if (!items.length) return `<p class="modal-empty-line">${esc(emptyText)}</p>`;
+        return `<ul class="match-sc-list">${items.map(v => `<li>${esc(v)}</li>`).join('')}</ul>`;
     }
 
     function copyElementText(sourceId, btn) {
@@ -648,133 +703,229 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
     }
 
     document.addEventListener('click', (e) => {
-        // Advisor Review Modal close/done
-        if (e.target.closest('#advisorReviewClose') || e.target.closest('#advisorReviewDone')) {
-            closeAdvisorReview();
-            return;
-        }
-
-        // Prepared Application review modal
-        if (e.target.closest('#prepReviewClose') || e.target.closest('#prepReviewDone')) {
-            closePreparedReview();
-            return;
-        }
-        if (e.target === prepReviewOverlay) {
-            closePreparedReview();
-            return;
-        }
         const copyBtn = e.target.closest('.copy-btn');
         if (copyBtn) {
-            copyElementText(copyBtn.dataset.copyTarget, copyBtn);
+            copyElementText(copyBtn.dataset.copyTarget || copyBtn.dataset.copyInline, copyBtn);
         }
     });
 
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            if (prepReviewOverlay && !prepReviewOverlay.hidden) {
-                closePreparedReview();
-            }
-            if (advisorReviewOverlay && !advisorReviewOverlay.hidden) {
-                closeAdvisorReview();
-            }
-        }
-    });
-
-    // ─── Application Advisor Review Modal ─────────────────────────────────
-    const advisorReviewOverlay = document.getElementById('advisorReviewOverlay');
-
-    function openAdvisorReview(data, fallbackJobTitle, fallbackCompany) {
-        if (!advisorReviewOverlay) return;
-        const adv = data || {};
-
-        setText('advisorReviewSubtitle', `Score: ${numOrDash(adv.applicationReadinessScore)}/100`);
-        // The API echoes jobTitle/company; the card the user clicked carries the same
-        // values, so a partial response still renders the right role.
-        setText('advisorReviewJobTitle', adv.jobTitle || fallbackJobTitle || '—');
-        setText('advisorReviewCompany', adv.company || fallbackCompany || '—');
-
-        setText('advisorReviewRecommendation', recommendationLabel(adv.recommendation));
-        setText('advisorReviewReadiness', `${numOrDash(adv.applicationReadinessScore)}/100`);
-        setText('advisorReviewJobMatch', `${numOrDash(adv.jobMatchScore)}/100`);
-
-        renderAdvisorWhy(adv);
-        renderAdvisorBreakdown(adv.scoreBreakdown);
-
-        setList('advisorReviewStrengths', adv.strengths,
-            s => `<li>${esc(s)}</li>`, '<li>No strengths listed.</li>');
-        setList('advisorReviewConcerns', adv.concerns,
-            c => `<li>${esc(c)}</li>`, '<li>No concerns listed.</li>');
-        setList('advisorReviewActions', adv.recommendedActions,
-            a => `<li>${esc(a)}</li>`, '<li>No recommended actions.</li>');
-        setList('advisorReviewDetails', adv.recommendedActionDetails,
-            d => `<li><strong>${esc(d.focus)}</strong> (${esc(d.type)}): ${esc(d.description)}</li>`,
-            '<li>No action details available.</li>');
-
-        advisorReviewOverlay.hidden = false;
-        document.body.classList.add('modal-open');
-    }
-
+    // ─── ATS resume tailoring (§ workflow: Tailor Resume) ───────────────────
     /**
-     * "Why this recommendation": the backend supplies a deterministic sentence built
-     * from the same numbers shown above. When an older response has none, the section
-     * is hidden rather than filled with a guess.
+     * Calls the existing deterministic tailoring service. It only reorders and
+     * emphasises content the parsed profile already contains; missing requirements come
+     * back in a separate list and are shown as gaps, never as qualifications.
      */
-    function renderAdvisorWhy(adv) {
-        const section = document.getElementById('advisorReviewWhySection');
-        if (!section) return;
-        const why = adv && adv.recommendationExplanation ? String(adv.recommendationExplanation).trim() : '';
-        section.hidden = !why;
-        setText('advisorReviewWhy', why);
-    }
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.resume-tailor-btn');
+        if (!btn) return;
 
-    /**
-     * Per-factor score breakdown. Each row is a deterministic factor score the backend
-     * already computes; the section is hidden entirely when the response predates it,
-     * so no factor is ever shown as a fabricated number.
-     */
-    function renderAdvisorBreakdown(b) {
-        const section = document.getElementById('advisorReviewBreakdownSection');
-        const rowsEl = document.getElementById('advisorReviewBreakdown');
-        const noteEl = document.getElementById('advisorReviewBreakdownNote');
-        if (!section || !rowsEl) return;
-
-        if (!b) {
-            section.hidden = true;
+        const candidateId = Number(btn.dataset.candidateId);
+        const jobId = btn.dataset.jobId;
+        if (!candidateId || !jobId) {
+            showToast('Missing required information to tailor your resume.', 'error');
             return;
         }
 
-        const rows = [
-            ['Skill fit', b.skillFitScore],
+        window.modalShell.open({
+            kicker: 'ATS Resume Tailoring',
+            title: btn.dataset.jobTitle || 'Selected role',
+            subtitle: btn.dataset.company || '',
+            body: `<div class="agent-run-loading"><span class="processing-spinner"></span><span>Analysing your resume against this role…</span></div>`
+        });
+
+        fetch('/api/v1/resume/tailor', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ candidateId: candidateId, jobId: jobId })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw new Error(err.detail || `HTTP ${response.status}`); })
+                    .catch(parseErr => { throw parseErr; });
+            }
+            return response.json();
+        })
+        .then(data => window.modalShell.setBody(buildTailoringHtml(data)))
+        .catch(err => {
+            console.error('Resume tailoring error:', err);
+            window.modalShell.setBody(
+                `<div class="agent-run-summary agent-summary-bad">
+                    <span class="agent-summary-status">Tailoring unavailable</span>
+                    <span class="agent-summary-message">${esc(err.message || 'Could not tailor your resume for this role.')}</span>
+                </div>`);
+        });
+    });
+
+    function buildTailoringHtml(t) {
+        const a = t || {};
+        const ats = a.atsReadiness || {};
+        const chips = (list, cls) => (list || [])
+            .map(s => `<span class="skill-tag ${cls}">${esc(s)}</span>`).join('');
+        const matched = chips(a.matchedRequiredSkills, 'required-skill match-hit')
+            + chips(a.matchedPreferredSkills, 'preferred-skill match-hit');
+        const missing = chips(a.missingRequiredSkills, 'required-skill match-miss')
+            + chips(a.missingPreferredSkills, 'preferred-skill match-miss');
+
+        const recommendations = (a.tailoringRecommendations || [])
+            .map(r => `<li>${esc(r.message || r.description || r.action || JSON.stringify(r))}</li>`).join('');
+        const missingReqs = (a.missingRequirements || [])
+            .map(r => `<li>${esc(r.message || r.description || r.action || JSON.stringify(r))}</li>`).join('');
+        const order = (a.recommendedSectionOrder || []).map(s => `<li>${esc(humanizeEnum(s))}</li>`).join('');
+        const highlighted = (a.highlightedSkills || [])
+            .map(h => `<li>${esc(h.skill || h.canonicalSkill || '')}${
+                h.evidenceSources && h.evidenceSources.length
+                    ? ` <span class="career-step-reason">(from your ${esc((h.evidenceSources || []).map(x => humanizeEnum(x)).join(', '))})</span>` : ''}</li>`).join('');
+
+        return `
+            <div class="prep-summary">
+                <span class="summary-chip">ATS readiness: ${Number.isFinite(ats.score) ? esc(ats.score) + '/100' : 'not calculated'}</span>
+                ${ats.label ? `<span class="summary-chip">${esc(humanizeEnum(ats.label))}</span>` : ''}
+                <span class="summary-chip">Nothing is invented — only your own content is reordered</span>
+            </div>
+
+            ${ats.explanation ? `<div class="modal-job-section"><h4 class="modal-section-title">ATS alignment</h4><p class="modal-description">${esc(ats.explanation)}</p></div>` : ''}
+
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Skills to lead with</h4>
+                ${matched ? `<div class="skills-tags-wrap">${matched}</div>` : `<p class="modal-empty-line">No overlapping skills were found for this role.</p>`}
+            </div>
+
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Missing requirements (not added to your resume)</h4>
+                ${missing ? `<div class="skills-tags-wrap">${missing}</div>` : `<p class="modal-empty-line">Nothing required by this role is missing.</p>`}
+            </div>
+
+            ${highlighted ? `<div class="modal-job-section"><h4 class="modal-section-title">Genuine evidence to emphasise</h4><ul class="match-sc-list">${highlighted}</ul></div>` : ''}
+
+            ${recommendations ? `<div class="modal-job-section"><h4 class="modal-section-title">Suggested changes</h4><ul class="match-sc-list">${recommendations}</ul></div>` : ''}
+
+            ${missingReqs ? `<div class="modal-job-section"><h4 class="modal-section-title">Gaps to address separately</h4><ul class="match-sc-list">${missingReqs}</ul></div>` : ''}
+
+            ${order ? `<div class="modal-job-section"><h4 class="modal-section-title">Recommended section order</h4><ol class="match-sc-list">${order}</ol></div>` : ''}
+
+            <p class="agent-note">Tailoring reorders and rewords the content already in your resume. It never adds skills, employers, projects, certifications or education you do not have.</p>`;
+    }
+
+    // ─── Application readiness review ───────────────────────────────────────
+    function openAdvisorReview(data, fallbackJobTitle, fallbackCompany) {
+        const adv = data || {};
+        const b = adv.scoreBreakdown || null;
+
+        const rows = b ? [
+            ['Resume (ATS) fit', b.atsReadinessScore],
+            ['Job match', adv.jobMatchScore],
+            ['Required-skill coverage', b.skillFitScore],
             ['Role fit', b.roleFitScore],
-            ['Experience fit', b.experienceFitScore],
-            ['Education fit', b.educationFitScore],
-            ['Location fit', b.locationFitScore],
-            ['Career-track fit', b.trackFitScore],
-            ['ATS readiness', b.atsReadinessScore]
-        ];
+            ['Experience', b.experienceFitScore],
+            ['Education', b.educationFitScore],
+            ['Location', b.locationFitScore],
+            ['Career-track fit', b.trackFitScore]
+        ] : [];
 
-        rowsEl.innerHTML = rows.map(([label, value]) => {
-            const pct = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
-            const tone = pct >= 70 ? 'is-good' : (pct >= 40 ? 'is-mid' : 'is-low');
-            return `
-                <div class="advisor-breakdown-row">
-                    <span class="advisor-breakdown-label">${esc(label)}</span>
-                    <span class="advisor-breakdown-bar"><span class="advisor-breakdown-fill ${tone}" style="width:${pct}%"></span></span>
-                    <span class="advisor-breakdown-value">${esc(pct)}/100</span>
-                </div>`;
-        }).join('');
+        const matched = (b && b.matchedRequiredSkills) || [];
+        const missing = (b && b.missingRequiredSkills) || [];
+        const missingPreferred = (b && b.missingPreferredSkills) || [];
+        const chips = (list, cls) => list.map(s => `<span class="skill-tag ${cls}">${esc(s)}</span>`).join('');
 
-        const notes = [];
-        notes.push(`Required skills: ${numOrDash(b.matchedRequiredCount)} matched, ${numOrDash(b.missingRequiredCount)} missing.`);
-        notes.push(`Preferred skills: ${numOrDash(b.matchedPreferredCount)} matched, ${numOrDash(b.missingPreferredCount)} missing.`);
-        if (b.experienceKnowable === false) {
-            notes.push('Experience: years could not be compared from structured data, so no shortfall is claimed.');
-        } else if (b.requiredYears != null && b.candidateYears != null) {
-            notes.push(`Experience: ${esc(b.candidateYears)} year(s) on the resume vs ${esc(b.requiredYears)} year(s) required.`);
+        const gaps = (adv.concerns || [])
+            .map(String)
+            .filter(text => text.indexOf('Missing required skill: ') !== 0
+                && text.indexOf('Missing preferred skill: ') !== 0);
+
+        const actions = (adv.recommendedActionDetails || []).map(d => `
+            <li>
+                <span class="career-step-focus">${esc(stepTitle(d))}</span>
+                ${d.description ? `<span class="career-step-desc">${esc(d.description)}</span>` : ''}
+            </li>`).join('');
+
+        const body = `
+            <div class="advisor-hero">
+                <div class="advisor-hero-score">
+                    <span class="fit-label">Application readiness</span>
+                    <span class="fit-value">${numOrDash(adv.applicationReadinessScore)}<small>/100</small></span>
+                </div>
+                <div class="advisor-hero-rec">
+                    <span class="fit-label">Recommendation</span>
+                    <span class="fit-badge ${recommendationTone(adv.recommendation)}">${esc(recommendationLabel(adv.recommendation))}</span>
+                </div>
+            </div>
+
+            ${adv.recommendationExplanation ? `
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Why</h4>
+                <p class="modal-description">${esc(adv.recommendationExplanation)}</p>
+            </div>` : ''}
+
+            ${rows.length ? `
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Readiness breakdown</h4>
+                <div class="fit-rows">${rows.map(([label, value]) => {
+                    const pct = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
+                    const tone = pct >= 70 ? 'is-good' : (pct >= 40 ? 'is-mid' : 'is-low');
+                    return `
+                        <div class="fit-row">
+                            <span class="fit-row-label">${esc(label)}</span>
+                            <span class="fit-bar"><span class="fit-bar-fill ${tone}" style="width:${pct}%"></span></span>
+                            <span class="fit-row-value">${esc(pct)}</span>
+                        </div>`;
+                }).join('')}</div>
+                <p class="career-report-note">Required skills: ${numOrDash(b.matchedRequiredCount)} matched, ${numOrDash(b.missingRequiredCount)} missing.
+                Preferred skills: ${numOrDash(b.matchedPreferredCount)} matched, ${numOrDash(b.missingPreferredCount)} missing.</p>
+            </div>` : ''}
+
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Skills you match</h4>
+                ${matched.length ? `<div class="skills-tags-wrap">${chips(matched, 'required-skill match-hit')}</div>`
+                    : `<p class="modal-empty-line">No required skills from this listing were found in your profile.</p>`}
+            </div>
+
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Skills to address</h4>
+                ${(missing.length || missingPreferred.length)
+                    ? `<div class="skills-tags-wrap">${chips(missing, 'required-skill match-miss')}${chips(missingPreferred, 'preferred-skill match-miss')}</div>`
+                    : `<p class="modal-empty-line">Nothing required by this listing is missing.</p>`}
+            </div>
+
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Strengths</h4>
+                ${listOrEmpty(adv.strengths, 'No strengths were reported.')}
+            </div>
+
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Important gaps</h4>
+                ${listOrEmpty(gaps, 'No gaps were reported.')}
+            </div>
+
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Recommended actions</h4>
+                ${actions ? `<ol class="career-next-steps">${actions}</ol>`
+                    : `<p class="modal-empty-line">No actions were produced.</p>`}
+            </div>
+
+            <p class="agent-note">Advice only. Nothing is submitted, approved or emailed by running this check.</p>`;
+
+        window.modalShell.open({
+            kicker: 'Application Readiness',
+            title: adv.jobTitle || fallbackJobTitle || 'Selected role',
+            subtitle: adv.company || fallbackCompany || '',
+            body: body,
+            footer: `<span class="modal-hint">Deterministic scoring from your parsed resume and this listing.</span>`
+        });
+    }
+
+    /**
+     * Turns an improvement priority into an instruction. The backend's machine-readable
+     * type is mapped to wording here, so labels such as REQUIRED_SKILL never reach the
+     * screen and the raw "X is required by the target job…" sentence is not repeated.
+     */
+    function stepTitle(detail) {
+        const focus = detail && detail.focus ? String(detail.focus) : 'Improvement';
+        switch (detail && detail.type) {
+            case 'REQUIRED_SKILL': return 'Learn ' + focus;
+            case 'PREFERRED_SKILL': return 'Review ' + focus;
+            case 'EXPERIENCE': return 'Build relevant experience';
+            default: return focus;
         }
-        if (noteEl) noteEl.innerHTML = notes.map(n => `<span class="advisor-breakdown-note-item">${n}</span>`).join('');
-
-        section.hidden = false;
     }
 
     /** Renders a score as-is, including a legitimate 0 (only null/undefined becomes a dash). */
@@ -782,61 +933,32 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         return Number.isFinite(value) ? value : '—';
     }
 
-    /** Sentence-case label for a recommendation band, so the UI never shows a bare enum name. */
+    /** Priority wording for the recommendation band; thresholds belong to the backend. */
     function recommendationLabel(value) {
         const RECOMMENDATION_LABELS = {
-            STRONGLY_RECOMMENDED: 'Strongly recommended',
-            RECOMMENDED: 'Recommended',
-            APPLY_WITH_IMPROVEMENTS: 'Apply after improvements',
+            STRONGLY_RECOMMENDED: 'High priority',
+            RECOMMENDED: 'High priority',
+            APPLY_WITH_IMPROVEMENTS: 'Medium priority',
             LOW_PRIORITY: 'Low priority',
             NOT_RECOMMENDED: 'Not recommended'
         };
         return RECOMMENDATION_LABELS[value] || '—';
     }
 
-    function closeAdvisorReview() {
-        if (advisorReviewOverlay) {
-            advisorReviewOverlay.hidden = true;
-            document.body.classList.remove('modal-open');
+    function recommendationTone(value) {
+        switch (value) {
+            case 'STRONGLY_RECOMMENDED':
+            case 'RECOMMENDED': return 'fit-high';
+            case 'APPLY_WITH_IMPROVEMENTS': return 'fit-medium';
+            default: return 'fit-low';
         }
     }
 
     // ─── Match Details modal ────────────────────────────────────────────────
-    // Matches are kept keyed by job id so the card button only needs a data-job-id
-    // attribute; the modal then renders the exact scored match the user clicked.
+    // Matches are keyed by job id so a card button only needs a data-job-id attribute.
+    // The dialog itself comes from the single global modal shell — this page never
+    // creates its own overlay, so it cannot stack behind another analysis.
     const matchRegistry = new Map();
-    let matchDetailsOverlay = null;
-
-    function ensureMatchDetailsModal() {
-        if (matchDetailsOverlay) return matchDetailsOverlay;
-
-        matchDetailsOverlay = document.createElement('div');
-        matchDetailsOverlay.className = 'modal-overlay';
-        matchDetailsOverlay.hidden = true;
-        matchDetailsOverlay.innerHTML = `
-            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="matchDetailsTitle">
-                <div class="modal-header">
-                    <div class="modal-header-text">
-                        <h3 class="modal-title" id="matchDetailsTitle">Match Details</h3>
-                        <div class="modal-company" id="matchDetailsCompany"></div>
-                    </div>
-                    <button type="button" class="modal-close" id="matchDetailsClose" aria-label="Close match details">&times;</button>
-                </div>
-                <div class="modal-body" id="matchDetailsBody"></div>
-                <div class="modal-footer" id="matchDetailsFooter"></div>
-            </div>`;
-
-        matchDetailsOverlay.addEventListener('click', (e) => {
-            if (e.target === matchDetailsOverlay) closeMatchDetails();
-        });
-        matchDetailsOverlay.querySelector('#matchDetailsClose').addEventListener('click', closeMatchDetails);
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && matchDetailsOverlay && !matchDetailsOverlay.hidden) closeMatchDetails();
-        });
-
-        document.body.appendChild(matchDetailsOverlay);
-        return matchDetailsOverlay;
-    }
 
     function openMatchDetails(jobId) {
         const m = matchRegistry.get(String(jobId));
@@ -845,20 +967,39 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             return;
         }
         const job = m.job || {};
-        const modal = ensureMatchDetailsModal();
-        modal.querySelector('#matchDetailsTitle').textContent = job.title || 'Untitled Role';
-        modal.querySelector('#matchDetailsCompany').textContent = job.company || 'Unknown Company';
-        modal.querySelector('#matchDetailsBody').innerHTML = buildMatchDetailsHtml(m);
-        modal.querySelector('#matchDetailsFooter').innerHTML = buildMatchDetailsFooter(m);
-        modal.hidden = false;
-        document.body.classList.add('modal-open');
-        modal.querySelector('#matchDetailsClose').focus();
+        window.modalShell.open({
+            kicker: 'Match Details',
+            title: job.title || 'Untitled Role',
+            subtitle: job.company || 'Unknown Company',
+            body: buildMatchDetailsHtml(m),
+            footer: buildMatchDetailsFooter(m)
+        });
     }
 
-    function closeMatchDetails() {
-        if (!matchDetailsOverlay || matchDetailsOverlay.hidden) return;
-        matchDetailsOverlay.hidden = true;
-        document.body.classList.remove('modal-open');
+    /** Sub-scores as 0-100 factors. The match model stores them as 0.0-1.0 doubles. */
+    function factorRows(m) {
+        const rows = [
+            ['Skill fit', m.skillScore],
+            ['Role fit', m.roleScore],
+            ['Experience fit', m.experienceScore],
+            ['Education fit', m.educationScore],
+            ['Location fit', m.locationScore],
+            ['Career-track fit', m.trackScore]
+        ];
+        const known = rows.filter(([, v]) => Number.isFinite(v));
+        if (!known.length) {
+            return `<p class="modal-empty-line">Match factors are not available for this listing.</p>`;
+        }
+        return `<div class="fit-rows">${known.map(([label, value]) => {
+            const pct = Math.max(0, Math.min(100, Math.round(value * 100)));
+            const tone = pct >= 70 ? 'is-good' : (pct >= 40 ? 'is-mid' : 'is-low');
+            return `
+                <div class="fit-row">
+                    <span class="fit-row-label">${esc(label)}</span>
+                    <span class="fit-bar"><span class="fit-bar-fill ${tone}" style="width:${pct}%"></span></span>
+                    <span class="fit-row-value">${esc(pct)}</span>
+                </div>`;
+        }).join('')}</div>`;
     }
 
     function buildMatchDetailsHtml(m) {
@@ -878,8 +1019,11 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         const concerns = (m.concerns || [])
             .map(c => `<li class="match-concern"><span class="match-concern-icon">!</span>${esc(c)}</li>`).join('');
 
-        const required = chips(m.matchedSkills, 'required-skill', true) + chips(m.missingSkills, 'required-skill', false);
-        const preferred = chips(m.matchedPreferredSkills, 'preferred-skill', true) + chips(m.missingPreferredSkills, 'preferred-skill', false);
+        const matched = chips(m.matchedSkills, 'required-skill', true);
+        const missing = chips(m.missingSkills, 'required-skill', false);
+        const prefHit = chips(m.matchedPreferredSkills, 'preferred-skill', true);
+        const prefMiss = chips(m.missingPreferredSkills, 'preferred-skill', false);
+        const preferred = prefHit || prefMiss ? prefHit + prefMiss : '';
 
         return `
             <div class="match-details-score">
@@ -898,17 +1042,27 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             ${rows('Why this job matched', m.explanation ? `<p class="modal-description">${esc(m.explanation)}</p>` : '',
                 'No explanation was produced for this match.')}
 
-            ${rows('Required skills', required ? `<div class="skills-tags-wrap">${required}</div>` : '',
-                'This listing states no required skills.')}
+            ${rows('Skills you already match', matched ? `<div class="skills-tags-wrap">${matched}</div>` : '',
+                'No required skills from this listing were found in your profile.')}
+
+            ${rows('Required skills you are missing', missing ? `<div class="skills-tags-wrap">${missing}</div>` : '',
+                'Nothing required by this listing is missing from your profile.')}
 
             ${rows('Preferred skills', preferred ? `<div class="skills-tags-wrap">${preferred}</div>` : '',
                 'This listing states no preferred skills.')}
 
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Match factors</h4>
+                ${factorRows(m)}
+            </div>
+
             ${rows('Your strengths', strengths ? `<ul class="match-sc-list">${strengths}</ul>` : '',
                 'No strengths were reported for this match.')}
 
-            ${rows('Gaps to close', concerns ? `<ul class="match-sc-list">${concerns}</ul>` : '',
+            ${rows('Gaps and concerns', concerns ? `<ul class="match-sc-list">${concerns}</ul>` : '',
                 'No gaps were reported for this match.')}
+
+            ${rows('Recommended next actions', nextActionsHtml(m), '')}
 
             <div class="job-meta-row modal-source-row">
                 <div class="job-meta-item" title="Listing Source"><span>Source: ${esc(job.source || 'Unknown')}</span></div>
@@ -916,10 +1070,23 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
     }
 
     /**
-     * Modal actions reuse the same delegated handlers as the cards (career agent,
-     * advisor, prepare), so there is exactly one implementation of each action.
-     * The apply action is only offered when the listing carries a real external URL,
-     * and it is labelled as a link to the employer's own site.
+     * Next actions derived only from what the listing actually asks for. Each line names
+     * a real missing skill or a real step in this workflow — no generic advice.
+     */
+    function nextActionsHtml(m) {
+        const actions = [];
+        (m.missingSkills || []).slice(0, 5).forEach(s => actions.push('Learn ' + s));
+        (m.missingPreferredSkills || []).slice(0, 3).forEach(s => actions.push('Review ' + s + ' (preferred, not required)'));
+        actions.push('Tailor your resume to emphasise the skills you already match');
+        if ((Number(m.matchScore) || 0) >= 60) {
+            actions.push('Prepare this application for review');
+        }
+        return `<ul class="match-sc-list">${actions.map(a => `<li>${esc(a)}</li>`).join('')}</ul>`;
+    }
+
+    /**
+     * Dialog actions reuse the same delegated handlers as the cards, so there is exactly
+     * one implementation of each action.
      */
     function buildMatchDetailsFooter(m) {
         const job = m.job || {};
@@ -930,24 +1097,30 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         if (candidateId) {
             parts.push(`<button type="button" class="btn-career-agent" data-career-agent="true" data-job-id="${jobId}" data-job-title="${esc(job.title || '')}" data-company="${esc(job.company || '')}">
                 <span>Career Analysis</span></button>`);
+            parts.push(`<button type="button" class="btn-tailor resume-tailor-btn" data-candidate-id="${esc(candidateId)}" data-job-id="${jobId}" data-job-title="${esc(job.title || '')}" data-company="${esc(job.company || '')}">
+                <span>Tailor Resume</span></button>`);
             parts.push(`<button type="button" class="btn-advisor application-advisor-btn" data-candidate-id="${esc(candidateId)}" data-job-id="${jobId}" data-job-title="${esc(job.title || '')}" data-company="${esc(job.company || '')}" data-location="${esc(job.location || '')}">
-                <span>Application Advisor</span></button>`);
+                <span>Application Readiness</span></button>`);
             if (score >= 60) {
                 parts.push(`<button type="button" class="btn-apply application-prepare-btn" data-candidate-id="${esc(candidateId)}" data-job-id="${jobId}" data-job-title="${esc(job.title || '')}" data-company="${esc(job.company || '')}" data-location="${esc(job.location || '')}">
                     <span>Prepare Application</span></button>`);
             }
         }
 
-        const isExternal = window.jobDetails && !window.jobDetails.isMock(job) && window.jobDetails.hasValidUrl(job);
-        if (isExternal) {
-            parts.push(`<a href="${esc(job.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="btn-view-job btn-apply-external"
+        const external = window.jobDetails && !window.jobDetails.isMock(job);
+        if (external && hasValidUrl(job.applicationUrl)) {
+            parts.push(`<a href="${esc(job.applicationUrl)}" target="_blank" rel="noopener noreferrer" class="btn-view-job btn-apply-external"
                 title="Opens the employer's own application page in a new tab">
-                <span>Open Official Application</span></a>`);
+                <span>Open Employer Application</span></a>`);
+        } else if (external && hasValidUrl(job.sourceUrl)) {
+            parts.push(`<a href="${esc(job.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="btn-view-job btn-source-listing"
+                title="Opens the original listing in a new tab">
+                <span>View Source Listing</span></a>`);
         }
 
         const hint = `<span class="modal-hint">${candidateId
-            ? 'This platform never submits an application for you — the official application opens on the employer\'s own site.'
-            : `Upload a <a href="resume.html">resume</a> to run career analysis and prepare an application.`}</span>`;
+            ? 'This platform never submits an application for you.'
+            : `Upload a <a href="resume.html">resume</a> to run analysis and prepare an application.`}</span>`;
 
         return parts.join('') + hint;
     }

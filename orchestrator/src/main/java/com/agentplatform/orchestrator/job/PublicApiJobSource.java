@@ -1,5 +1,7 @@
 package com.agentplatform.orchestrator.job;
 
+import com.agentplatform.orchestrator.resume.SkillTaxonomy;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -191,7 +193,12 @@ public class PublicApiJobSource implements JobSource {
                 raw.company_name(),
                 raw.candidate_required_location(),
                 JobNormalizer.normalizeDescription(raw.description()),
-                raw.tags() != null ? raw.tags() : List.of(),
+                // Skill tags arrive raw from the feed ("react", "redis", and occasionally
+                // malformed English tokens). Normalizing them here — at the source — means
+                // every downstream consumer (matching, gap analysis, advisor, UI) sees the
+                // same clean, human-readable, de-duplicated names instead of each layer
+                // re-cleaning or leaking feed noise.
+                SkillTaxonomy.displayNames(raw.tags()),
                 List.of(),
                 null,
                 raw.job_type(),
@@ -199,7 +206,14 @@ public class PublicApiJobSource implements JobSource {
                 SOURCE_NAME,
                 safeUrl,
                 SOURCE_TYPE,
-                Instant.now());
+                Instant.now(),
+                // Employer application destination. Remotive's declared listing schema
+                // (see PublicApiJobProperties.RemotiveJob) exposes only `url` — the
+                // aggregator's own listing page — and no application/company URL, so none
+                // is mapped. `safeUrl` must NOT be reused here: presenting the aggregator
+                // page as "the application" would be a fabricated destination. When a
+                // source is added that genuinely supplies one, map it in this position.
+                null);
     }
 
     private String idOf(PublicApiJobProperties.RemotiveJob raw) {
