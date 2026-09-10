@@ -759,6 +759,76 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         });
     });
 
+    /**
+     * Human-readable labels for the backend's RecommendationType values.
+     *
+     * The tailoring API returns structured TailoringRecommendation records
+     * ({type, focus, reason, evidenceSources}). These are rendered as labelled cards —
+     * the record is never serialized into the DOM, so no braces, quotes or JSON
+     * property names can reach the user.
+     */
+    const RECOMMENDATION_TYPES = {
+        HIGHLIGHT_SKILL: { label: 'Highlight this skill', tone: 'is-good' },
+        HIGHLIGHT_PROJECT: { label: 'Highlight this project', tone: 'is-good' },
+        HIGHLIGHT_EXPERIENCE: { label: 'Highlight this experience', tone: 'is-good' },
+        HIGHLIGHT_INTERNSHIP: { label: 'Highlight this internship', tone: 'is-good' },
+        SECTION_PRIORITY: { label: 'Section order', tone: 'is-caution' },
+        MISSING_REQUIREMENT: { label: 'Missing requirement', tone: 'is-gap' }
+    };
+
+    /**
+     * Renders one TailoringRecommendation as a styled card: a human label, the subject,
+     * the plain-language reason and, where the backend supplied them, the resume
+     * sections that evidence it.
+     *
+     * An unrecognized payload degrades to a generic label — it is never dumped as JSON.
+     */
+    function recommendationItemHtml(rec) {
+        if (rec === null || rec === undefined) return '';
+
+        // A plain string is already human-readable, so render it as-is.
+        if (typeof rec !== 'object') {
+            const text = String(rec).trim();
+            return text ? `<li class="tailoring-item">${esc(text)}</li>` : '';
+        }
+
+        const meta = RECOMMENDATION_TYPES[rec.type]
+            || { label: rec.type ? humanizeEnum(rec.type) : 'Suggestion', tone: '' };
+        const focus = rec.focus ? String(rec.focus).trim() : '';
+        const reason = rec.reason ? String(rec.reason).trim() : '';
+        const evidence = (rec.evidenceSources || [])
+            .map(sec => humanizeEnum(sec))
+            .filter(Boolean);
+
+        // Nothing recognisable at all: show the label only, never the raw object.
+        if (!focus && !reason && !evidence.length) {
+            return `<li class="tailoring-item ${meta.tone}"><span class="tailoring-item-label">${esc(meta.label)}</span></li>`;
+        }
+
+        return `
+            <li class="tailoring-item ${meta.tone}">
+                <span class="tailoring-item-label">${esc(meta.label)}</span>
+                ${focus ? `<span class="tailoring-item-focus">${esc(focus)}</span>` : ''}
+                ${reason ? `<span class="tailoring-item-reason">${esc(reason)}</span>` : ''}
+                ${evidence.length ? `<span class="tailoring-item-evidence">Evidence in your resume: ${esc(evidence.join(', '))}</span>` : ''}
+            </li>`;
+    }
+
+    /** Renders one HighlightedSkill (canonicalSkill + the sections it was seen in). */
+    function highlightedSkillHtml(skill) {
+        if (!skill || typeof skill !== 'object') return '';
+        const name = skill.canonicalSkill ? String(skill.canonicalSkill).trim() : '';
+        if (!name) return '';
+        const evidence = (skill.evidenceSources || [])
+            .map(sec => humanizeEnum(sec))
+            .filter(Boolean);
+        return `<li class="tailoring-item is-good">
+            <span class="tailoring-item-label">Skill to lead with</span>
+            <span class="tailoring-item-focus">${esc(name)}</span>
+            ${evidence.length ? `<span class="tailoring-item-evidence">Evidence in your resume: ${esc(evidence.join(', '))}</span>` : ''}
+        </li>`;
+    }
+
     function buildTailoringHtml(t) {
         const a = t || {};
         const ats = a.atsReadiness || {};
@@ -770,14 +840,13 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             + chips(a.missingPreferredSkills, 'preferred-skill match-miss');
 
         const recommendations = (a.tailoringRecommendations || [])
-            .map(r => `<li>${esc(r.message || r.description || r.action || JSON.stringify(r))}</li>`).join('');
+            .map(recommendationItemHtml).filter(Boolean).join('');
         const missingReqs = (a.missingRequirements || [])
-            .map(r => `<li>${esc(r.message || r.description || r.action || JSON.stringify(r))}</li>`).join('');
-        const order = (a.recommendedSectionOrder || []).map(s => `<li>${esc(humanizeEnum(s))}</li>`).join('');
+            .map(recommendationItemHtml).filter(Boolean).join('');
+        const order = (a.recommendedSectionOrder || [])
+            .map(sec => sec ? `<li>${esc(humanizeEnum(sec))}</li>` : '').join('');
         const highlighted = (a.highlightedSkills || [])
-            .map(h => `<li>${esc(h.skill || h.canonicalSkill || '')}${
-                h.evidenceSources && h.evidenceSources.length
-                    ? ` <span class="career-step-reason">(from your ${esc((h.evidenceSources || []).map(x => humanizeEnum(x)).join(', '))})</span>` : ''}</li>`).join('');
+            .map(h => highlightedSkillHtml(h)).filter(Boolean).join('');
 
         return `
             <div class="prep-summary">

@@ -971,3 +971,19 @@ body.modal-open{overflow:hidden}
 /* ── Resume profile presentation ─────────────────────────────────────────────── */
 .resume-profile-card{padding:22px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg)}
 .resume-profile-section+.resume-profile-section{margin-top:18px;padding-top:18px;border-top:1px solid var(--border)}
+
+/* ── Tailoring recommendation cards ──────────────────────────────────────────
+   Renders the backend's structured TailoringRecommendation records as labelled
+   cards. Green = strength, red = gap, yellow = caution, per the product palette. */
+.tailoring-item{list-style:none;display:flex;flex-direction:column;gap:3px;padding:10px 12px;border:1px solid var(--border);border-left-width:3px;border-radius:var(--radius);background:var(--bg-input)}
+.tailoring-item+.tailoring-item{margin-top:8px}
+.tailoring-item.is-good{border-left-color:var(--success);background:var(--success-light)}
+.tailoring-item.is-gap{border-left-color:var(--danger);background:var(--danger-light)}
+.tailoring-item.is-caution{border-left-color:var(--warning);background:var(--warning-light)}
+.tailoring-item-label{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+.tailoring-item.is-good .tailoring-item-label{color:var(--success)}
+.tailoring-item.is-gap .tailoring-item-label{color:var(--danger)}
+.tailoring-item.is-caution .tailoring-item-label{color:var(--warning)}
+.tailoring-item-focus{font-size:.9rem;font-weight:700;color:var(--text-primary)}
+.tailoring-item-reason{font-size:.82rem;color:var(--text-secondary);line-height:1.6}
+.tailoring-item-evidence{font-size:.74rem;color:var(--text-muted)}
