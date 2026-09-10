@@ -502,7 +502,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
     // fall-through and dereferenced the advisor button, so every click that was not
     // on the advisor button threw "Cannot read properties of null (reading 'dataset')"
     // and the prepare request never fired at all.
-    document.addEventListener('click', (e) => {
+    document.addEventListener('click', async (e) => {
         const btn = e.target.closest('.application-advisor-btn');
         if (!btn) return;
 
@@ -517,8 +517,17 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             return;
         }
 
-        // Show confirmation
-        if (!confirm(`Check application readiness for "${jobTitle}" at ${company}?\n\nThis compares your parsed resume against the job requirements. Nothing is submitted.`)) {
+        // Styled confirmation via the shared modal shell — never a native browser dialog.
+        const proceed = await window.confirmDialog.ask({
+            title: 'Check application readiness',
+            subtitle: [jobTitle, company].filter(Boolean).join(' · '),
+            message: 'Compare your parsed resume against this role\u2019s requirements?',
+            detail: 'You will get a readiness score, matched and missing requirements, and recommended next steps.',
+            warning: 'Nothing is submitted to the employer.',
+            confirmLabel: 'Run readiness check',
+            cancelLabel: 'Cancel'
+        });
+        if (!proceed) {
             return;
         }
 
@@ -550,7 +559,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
     });
 
     // ─── Prepare Application button ──────────────────────────────────────────
-    document.addEventListener('click', (e) => {
+    document.addEventListener('click', async (e) => {
         const btn = e.target.closest('.application-prepare-btn');
         if (!btn) return;
 
@@ -565,8 +574,17 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             return;
         }
 
-        // Show confirmation
-        if (!confirm(`Prepare application for "${jobTitle}" at ${company}?\n\nThis builds a review-ready package (summary, cover letter, suggested answers) and saves it to your Applications page. Nothing is submitted.`)) {
+        // Styled confirmation via the shared modal shell — never a native browser dialog.
+        const proceed = await window.confirmDialog.ask({
+            title: 'Prepare application',
+            subtitle: [jobTitle, company].filter(Boolean).join(' · '),
+            message: 'Build a review-ready application package for this role?',
+            detail: 'This creates a resume summary, cover letter and suggested answers, and saves the package to your Applications page.',
+            warning: 'Nothing is submitted to the employer.',
+            confirmLabel: 'Prepare application',
+            cancelLabel: 'Cancel'
+        });
+        if (!proceed) {
             return;
         }
 

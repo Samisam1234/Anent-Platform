@@ -657,14 +657,22 @@
     }
 
     // ─── Send Email ───────────────────────────────────────────────────────────
-    function sendEmail() {
+    async function sendEmail() {
         if (!currentApplicationId) {
             showToast('No application selected.', 'error');
             return;
         }
 
-        // Confirm before sending
-        if (!confirm('Send this application email now?\n\nThis will attempt to send the application to the recipient. This action cannot be undone.')) {
+        // Styled confirmation via the shared modal shell — never a native browser dialog.
+        const proceed = await window.confirmDialog.ask({
+            title: 'Send application email',
+            message: 'Send this application email now?',
+            detail: 'The prepared application will be sent to the recipient.',
+            warning: 'This action cannot be undone.',
+            confirmLabel: 'Send email',
+            cancelLabel: 'Cancel'
+        });
+        if (!proceed) {
             return;
         }
 
@@ -712,8 +720,17 @@
     }
 
     // ─── Approve application ──────────────────────────────────────────────────
-    function approveApplication(id) {
-        if (!confirm('Are you sure you want to approve this application for manual submission?\n\nThis will mark the application as APPROVED_FOR_APPLICATION. The application will not be automatically submitted to any job website.')) {
+    async function approveApplication(id) {
+        // Styled confirmation via the shared modal shell — never a native browser dialog.
+        const proceed = await window.confirmDialog.ask({
+            title: 'Approve for manual submission',
+            message: 'Approve this application for manual submission?',
+            detail: 'The application will be marked as approved and ready for you to submit yourself.',
+            warning: 'This platform never submits an application to a job website on your behalf.',
+            confirmLabel: 'Approve',
+            cancelLabel: 'Cancel'
+        });
+        if (!proceed) {
             return;
         }
 

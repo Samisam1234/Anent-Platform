@@ -993,3 +993,9 @@ body.modal-open{overflow:hidden}
    URL, the control is rendered disabled rather than pretending to go somewhere. */
 .btn-view-job.is-disabled,.btn-view-job[disabled]{opacity:.5;cursor:not-allowed;border-style:dashed;color:var(--text-muted)}
 .btn-view-job.is-disabled:hover{transform:none;box-shadow:none;background:var(--bg-input)}
+
+/* ── Confirmation dialog (composes the single modal shell) ──────────────────── */
+.confirm-body{display:flex;flex-direction:column;gap:10px}
+.confirm-message{font-size:.95rem;color:var(--text-primary);font-weight:600;margin:0}
+.confirm-detail{font-size:.85rem;color:var(--text-secondary);line-height:1.65;margin:0}
+.confirm-warning{font-size:.82rem;color:var(--warning);background:var(--warning-light);border-left:3px solid var(--warning);padding:8px 10px;border-radius:var(--radius-sm);margin:0}
