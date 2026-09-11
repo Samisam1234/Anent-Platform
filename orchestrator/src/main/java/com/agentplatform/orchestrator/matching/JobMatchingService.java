@@ -313,8 +313,10 @@ public class JobMatchingService {
      * no required skills at all and coverage is therefore undefined.
      */
     private static Double requiredSkillOverlap(JobMatch match) {
-        int matched = match.matchedRequiredSkills() != null ? match.matchedRequiredSkills().size() : 0;
-        int missing = match.missingRequiredSkills() != null ? match.missingRequiredSkills().size() : 0;
+        // JobMatch stores the required-skill outcome as matchedSkills/missingSkills.
+        // Its compact constructor guarantees both are non-null, so no null handling is needed.
+        int matched = match.matchedSkills().size();
+        int missing = match.missingSkills().size();
         int total = matched + missing;
         return total == 0 ? null : (double)matched / (double)total;
     }

@@ -259,7 +259,7 @@ class JobMatchingServiceTest {
 
         assertTrue(result.matches().isEmpty(),
                 "0% required-skill overlap must be filtered out entirely, got " + result.matches());
-        assertEquals(0, result.totalMatches());
+        assertEquals(0, result.totalJobs());
     }
 
     // ─── 10. MIXED track ──────────────────────────────────────────────────────
