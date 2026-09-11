@@ -39,6 +39,22 @@ public class JobMatchingConfig {
      */
     private double locationMismatchPenalty = 0.80;
 
+    /**
+     * Multiplier applied when a listing is retained but its required-skill coverage is at
+     * or below {@link #minRequiredSkillOverlap} — i.e. the least relevant listing the
+     * filter is still willing to show.
+     *
+     * <p>Without it, a listing that clears the floor by a hair can still reach the 60s on
+     * education, track, role and location alone, which reads as a real match when the
+     * candidate demonstrates almost none of what the role requires. The default of 0.35
+     * is chosen so that even a listing scoring a perfect 100 on every other factor lands
+     * below the 40-point WEAK/POOR boundary (100 &times; 0.35 = 35). It applies only when
+     * the relevance floor is active ({@code minRequiredSkillOverlap > 0}) and only to jobs
+     * that declare required skills, so disabling the floor also removes its scoring
+     * consequence and sources that publish no requirements stay exempt.</p>
+     */
+    private double lowOverlapPenalty = 0.35;
+
     public double getSkillWeight() {
         return this.skillWeight;
     }
@@ -109,6 +125,14 @@ public class JobMatchingConfig {
 
     public void setLocationMismatchPenalty(double locationMismatchPenalty) {
         this.locationMismatchPenalty = locationMismatchPenalty;
+    }
+
+    public double getLowOverlapPenalty() {
+        return this.lowOverlapPenalty;
+    }
+
+    public void setLowOverlapPenalty(double lowOverlapPenalty) {
+        this.lowOverlapPenalty = lowOverlapPenalty;
     }
 }
 

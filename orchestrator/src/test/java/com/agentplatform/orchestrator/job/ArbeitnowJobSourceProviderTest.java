@@ -155,9 +155,49 @@ class ArbeitnowJobSourceProviderTest {
         @Test
         @DisplayName("a blank location on a remote listing still reports Remote")
         void remoteWithoutLocationIsRemote() {
-            stubBody(VALID_JSON);
+            // The shared VALID_JSON has no listing that is both remote and location-less,
+            // so this case gets its own payload (same pattern as the tests below).
+            stubBody("""
+                    {
+                      "data": [
+                        {
+                          "slug": "data-engineer-gamma-178729",
+                          "company_name": "Gamma AG",
+                          "title": "Data Engineer",
+                          "description": "",
+                          "remote": true,
+                          "url": "https://arbeitnow.com/view/data-engineer-gamma-178729",
+                          "tags": ["Data engineering"],
+                          "job_types": ["Full time"],
+                          "location": "",
+                          "created_at": 1767398400
+                        },
+                        {
+                          "slug": "field-engineer-delta-178730",
+                          "company_name": "Delta Ltd",
+                          "title": "Field Engineer",
+                          "description": "",
+                          "remote": false,
+                          "url": "https://arbeitnow.com/view/field-engineer-delta-178730",
+                          "tags": ["Field service"],
+                          "job_types": ["Full time"],
+                          "location": null,
+                          "created_at": 1767484800
+                        }
+                      ],
+                      "links": { "first": null, "last": null, "prev": null, "next": null },
+                      "meta": { "current_page": 1, "from": 1, "per_page": 100, "to": 2 }
+                    }
+                    """);
 
-            assertEquals("Remote", fetch().get(1).location());
+            List<Job> jobs = fetch();
+
+            assertEquals(2, jobs.size());
+            // The feed explicitly says remote, so "Remote" is reported instead of nothing.
+            assertEquals("Remote", jobs.get(0).location());
+            // A listing the feed does NOT mark remote must not be given a location it never
+            // had: absence of a location is not evidence of remote work.
+            assertNull(jobs.get(1).location());
         }
 
         /**

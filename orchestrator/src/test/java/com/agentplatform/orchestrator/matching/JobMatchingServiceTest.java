@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -790,6 +791,112 @@ class JobMatchingServiceTest {
         assertEquals(1.0, match.locationScore(), 0.001);
         assertTrue(match.matchScore() < 40,
                 "20% skill coverage must not score in the 40-50 band, got " + match.matchScore());
+    }
+
+    // ─── 21b. Required-skill relevance floor boundary ─────────────────────────
+
+    @Test
+    @DisplayName("coverage below the floor is filtered out entirely")
+    void overlapBelowThreshold_isFilteredOut() {
+        // 1 of 6 required skills = 16.7%, below the 20% floor.
+        JobMatchResult result = serviceWith(new JobMatchingConfig())
+                .matchProfileAgainstJobs(lowOverlapCandidate(), List.of(jobRequiring(6)), null, null, 10);
+
+        assertTrue(result.matches().isEmpty(),
+                "16.7% coverage is below the floor and must not be shown at all, got " + result.matches());
+    }
+
+    @Test
+    @DisplayName("coverage at exactly the floor is retained but stays in the poor band")
+    void overlapAtThreshold_isRetainedButScoredPoorly() {
+        // 1 of 5 required skills = exactly 20%.
+        JobMatchResult result = serviceWith(new JobMatchingConfig())
+                .matchProfileAgainstJobs(lowOverlapCandidate(), List.of(jobRequiring(5)), null, null, 10);
+
+        assertEquals(1, result.matches().size(),
+                "exactly 20% satisfies the >= floor, so the listing must be retained");
+        assertTrue(result.matches().get(0).matchScore() < 40,
+                "a listing at the relevance floor must stay in the poor band, got "
+                        + result.matches().get(0).matchScore());
+    }
+
+    @Test
+    @DisplayName("the low-overlap penalty is what holds a floor-level listing down")
+    void lowOverlapPenalty_isTheCauseOfTheReduction() {
+        JobMatchingConfig noPenalty = new JobMatchingConfig();
+        noPenalty.setLowOverlapPenalty(1.0);
+
+        JobMatch penalized = serviceWith(new JobMatchingConfig())
+                .matchProfileAgainstJobs(lowOverlapCandidate(), List.of(jobRequiring(5)), null, null, 10)
+                .matches().get(0);
+        JobMatch unpenalized = serviceWith(noPenalty)
+                .matchProfileAgainstJobs(lowOverlapCandidate(), List.of(jobRequiring(5)), null, null, 10)
+                .matches().get(0);
+
+        assertTrue(penalized.matchScore() < unpenalized.matchScore(),
+                "penalized=" + penalized.matchScore() + " unpenalized=" + unpenalized.matchScore());
+        assertTrue(penalized.concerns().stream().anyMatch(c -> c.contains("Required-skill coverage")),
+                "the reduction must be explained, concerns=" + penalized.concerns());
+        assertTrue(penalized.explanation().contains("very low required-skill coverage"),
+                "the explanation must disclose the adjustment: " + penalized.explanation());
+        assertTrue(penalized.explanation().contains(penalized.matchScore() + "%"),
+                "the explanation must end at the displayed score: " + penalized.explanation());
+    }
+
+    @Test
+    @DisplayName("coverage just above the floor is untouched by the relevance floor")
+    void overlapAboveThreshold_isNotPenalizedByFloor() {
+        // 1 of 4 required skills = 25%, above the 20% floor.
+        JobMatchingConfig noPenalty = new JobMatchingConfig();
+        noPenalty.setLowOverlapPenalty(1.0);
+
+        JobMatch withFloor = serviceWith(new JobMatchingConfig())
+                .matchProfileAgainstJobs(lowOverlapCandidate(), List.of(jobRequiring(4)), null, null, 10)
+                .matches().get(0);
+        JobMatch withoutFloor = serviceWith(noPenalty)
+                .matchProfileAgainstJobs(lowOverlapCandidate(), List.of(jobRequiring(4)), null, null, 10)
+                .matches().get(0);
+
+        assertEquals(withoutFloor.matchScore(), withFloor.matchScore(),
+                "25% is above the floor, so the floor must not reduce the score");
+    }
+
+    @Test
+    @DisplayName("a listing with no required skills is exempt from the low-overlap penalty")
+    void noRequiredSkills_isExemptFromLowOverlapPenalty() {
+        Job noRequirements = job("k15", "Graduate Programme", "Acme", "Hyderabad",
+                "General engineering programme", List.of(), List.of(), "Fresher / 0-1 years", "Full-time");
+
+        JobMatchingConfig noPenalty = new JobMatchingConfig();
+        noPenalty.setLowOverlapPenalty(1.0);
+
+        JobMatch withFloor = serviceWith(new JobMatchingConfig())
+                .matchProfileAgainstJobs(hardwareCandidate(), List.of(noRequirements), null, null, 10)
+                .matches().get(0);
+        JobMatch withoutFloor = serviceWith(noPenalty)
+                .matchProfileAgainstJobs(hardwareCandidate(), List.of(noRequirements), null, null, 10)
+                .matches().get(0);
+
+        assertEquals(withoutFloor.matchScore(), withFloor.matchScore(),
+                "undefined coverage must not be penalized");
+    }
+
+    /** Candidate who demonstrates exactly one required skill (Java). */
+    private CandidateProfile lowOverlapCandidate() {
+        return profile("Alice", "Hyderabad", List.of("B.Tech Computer Science"),
+                List.of("Java"), List.of(), List.of("Backend Engineer"), List.of("Hyderabad"));
+    }
+
+    /** Role requiring Java plus {@code extraCount - 1} skills the candidate does not have. */
+    private Job jobRequiring(int requiredCount) {
+        List<String> required = new ArrayList<>();
+        required.add("Java");
+        String[] others = {"Kotlin", "Kafka", "Terraform", "GraphQL", "Elasticsearch", "Scala"};
+        for (int i = 0; required.size() < requiredCount; i++) {
+            required.add(others[i]);
+        }
+        return job("k-req-" + requiredCount, "Backend Engineer", "Acme", "Hyderabad", "Java role",
+                required, List.of(), "1-3 years", "Full-time");
     }
 
     @Test

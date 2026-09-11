@@ -222,6 +222,21 @@ public class JobMatchingService {
                     + ". This reduced the score by " + percent(1.0 - penalty) + ".");
         }
 
+        // A listing that only just clears the relevance floor is the weakest one we are
+        // willing to show, so it must not read as a good match on the strength of
+        // education, track, role or location alone.
+        Double skillOverlap = overlapOf(skillEval.matchedRequiredSkills(), skillEval.missingRequiredSkills());
+        if (isLowOverlap(skillOverlap)) {
+            double penalty = penaltyFactor(this.config.getLowOverlapPenalty(), "low-skill-overlap");
+            running *= penalty;
+            String detail = percent(skillOverlap) + " of the required skills";
+            penaltySteps.add("very low required-skill coverage (" + detail + ") cut it by "
+                    + percent(1.0 - penalty));
+            penaltyConcerns.add("Required-skill coverage is only " + detail
+                    + ", so this listing stays a poor match regardless of other strengths."
+                    + " This reduced the score by " + percent(1.0 - penalty) + ".");
+        }
+
         int matchScore = Math.max(0, Math.min(100, (int)Math.round(running)));
         RecommendationLevel recommendation = RecommendationLevel.fromScore(matchScore);
         String explanation = this.explanationGenerator.generate(candidate, job, matchScore, recommendation, skillEval.matchedRequiredSkills(), skillEval.missingRequiredSkills(), locEval.locationMatch(), expEval.experienceMatch(), trackEval.jobTrack());
@@ -315,10 +330,34 @@ public class JobMatchingService {
     private static Double requiredSkillOverlap(JobMatch match) {
         // JobMatch stores the required-skill outcome as matchedSkills/missingSkills.
         // Its compact constructor guarantees both are non-null, so no null handling is needed.
-        int matched = match.matchedSkills().size();
-        int missing = match.missingSkills().size();
+        return overlapOf(match.matchedSkills(), match.missingSkills());
+    }
+
+    /**
+     * Required-skill coverage as a fraction of 1, or {@code null} when no required skill is
+     * declared at all and coverage is therefore undefined. Shared by the relevance filter
+     * and the low-overlap penalty so both reason about exactly the same number.
+     */
+    private static Double overlapOf(List<String> matchedRequired, List<String> missingRequired) {
+        int matched = matchedRequired != null ? matchedRequired.size() : 0;
+        int missing = missingRequired != null ? missingRequired.size() : 0;
         int total = matched + missing;
         return total == 0 ? null : (double)matched / (double)total;
+    }
+
+    /**
+     * Whether a retained listing sits at or below the relevance floor.
+     *
+     * <p>Returns false when the floor is disabled ({@code minRequiredSkillOverlap <= 0}), so
+     * turning the filter off also removes its scoring consequence, and when coverage is
+     * undefined because the listing declares no required skills.</p>
+     */
+    private boolean isLowOverlap(Double overlap) {
+        double threshold = this.config.getMinRequiredSkillOverlap();
+        if (threshold <= 0.0) {
+            return false;
+        }
+        return overlap != null && overlap <= threshold;
     }
 
     /**
