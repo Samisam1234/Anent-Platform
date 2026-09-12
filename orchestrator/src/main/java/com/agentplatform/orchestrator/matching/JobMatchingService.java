@@ -131,7 +131,7 @@ public class JobMatchingService {
             return true;
         }).filter(m -> {
             if (request.trackFilter() != null && request.trackFilter() != CareerTrack.UNKNOWN) {
-                return m.careerTrack() == request.trackFilter() || m.careerTrack() == CareerTrack.MIXED;
+                return matchesTrackFilter(m.careerTrack(), request.trackFilter());
             }
             return true;
         }).toList();
@@ -167,7 +167,7 @@ public class JobMatchingService {
             return true;
         }).filter(m -> {
             if (trackFilter != null && trackFilter != CareerTrack.UNKNOWN) {
-                return m.careerTrack() == trackFilter || m.careerTrack() == CareerTrack.MIXED;
+                return matchesTrackFilter(m.careerTrack(), trackFilter);
             }
             return true;
         }).toList();
@@ -261,6 +261,18 @@ public class JobMatchingService {
      * candidate, or the reverse), a neutral/unknown track at 0.5-0.8, and an aligned one
      * at 0.85-1.0. Anything at or below 0.3 is therefore "wrong track".</p>
      */
+    /**
+     * Whether a match's track satisfies a requested track filter.
+     *
+     * <p>Delegates to {@link CareerTrack#satisfies(CareerTrack)} so that a coarse
+     * {@code HARDWARE} filter still accepts the finer {@code VLSI_FPGA} and
+     * {@code EMBEDDED} tracks. A null track — which callers may supply — never satisfies a
+     * specific filter.</p>
+     */
+    private static boolean matchesTrackFilter(CareerTrack actual, CareerTrack filter) {
+        return actual != null && actual.satisfies(filter);
+    }
+
     private boolean isTrackMismatch(CareerTrackEngine.CareerTrackEvaluation trackEval) {
         return trackEval != null && trackEval.trackScore() <= 0.3;
     }

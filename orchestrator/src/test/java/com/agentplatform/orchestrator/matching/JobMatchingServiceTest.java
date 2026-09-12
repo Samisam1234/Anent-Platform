@@ -237,7 +237,8 @@ class JobMatchingServiceTest {
         JobMatch match = singleMatch(hardwareCandidate(), vlsiFresherJob());
 
         assertEquals(100, match.matchScore());
-        assertEquals(CareerTrack.HARDWARE, match.careerTrack());
+        // VLSI/FPGA is now its own track rather than collapsing into generic HARDWARE.
+        assertEquals(CareerTrack.VLSI_FPGA, match.careerTrack());
         assertEquals(List.of("Verilog", "VLSI", "UVM", "RTL Design"), match.matchedSkills());
         assertTrue(match.roleMatch());
         assertEquals(1.0, match.educationScore(), 0.001);
@@ -397,7 +398,9 @@ class JobMatchingServiceTest {
                 null, CareerTrack.HARDWARE, 10);
 
         assertEquals(1, result.matches().size());
-        assertEquals(CareerTrack.HARDWARE, result.matches().get(0).careerTrack());
+        // A coarse HARDWARE filter still accepts the finer VLSI_FPGA track via
+        // CareerTrack.satisfies(), and the retained job reports its specific track.
+        assertEquals(CareerTrack.VLSI_FPGA, result.matches().get(0).careerTrack());
     }
 
     // ─── 17. Ranking + limit ──────────────────────────────────────────────────

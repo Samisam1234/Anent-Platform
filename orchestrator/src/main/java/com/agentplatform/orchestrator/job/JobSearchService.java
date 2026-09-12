@@ -1,6 +1,9 @@
 package com.agentplatform.orchestrator.job;
 
+import com.agentplatform.orchestrator.matching.CareerTrack;
+import com.agentplatform.orchestrator.matching.CareerTrackEngine;
 import com.agentplatform.orchestrator.resume.CandidateProfile;
+import com.agentplatform.orchestrator.resume.entity.CandidateProfileEntity;
 import com.agentplatform.orchestrator.resume.persistence.CandidateProfilePersistenceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,7 +16,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.HashSet;
@@ -39,6 +41,9 @@ public class JobSearchService {
     private final List<JobSource> jobSources;
     private final JobDeduplicationService deduplicationService;
     private final CandidateProfilePersistenceService candidateProfiles;
+    private final JobRelevanceScorer relevanceScorer;
+    private final NegativeJobFilter negativeJobFilter;
+    private final CareerTrackEngine careerTrackEngine;
 
     /**
      * Test/standalone constructor: no candidate persistence, so profile-driven keyword
@@ -49,17 +54,35 @@ public class JobSearchService {
     }
 
     /**
+     * Convenience constructor that keeps the pre-existing three-argument call sites working.
+     * The relevance components are stateless, so default instances are equivalent to the
+     * Spring-managed ones.
+     */
+    public JobSearchService(List<JobSource> jobSources,
+                            JobDeduplicationService deduplicationService,
+                            CandidateProfilePersistenceService candidateProfiles) {
+        this(jobSources, deduplicationService, candidateProfiles,
+                new JobRelevanceScorer(), new NegativeJobFilter(), new CareerTrackEngine());
+    }
+
+    /**
      * Production constructor. {@code @Autowired} is explicit because the class declares
      * more than one constructor.
      */
     @Autowired
     public JobSearchService(List<JobSource> jobSources,
                             JobDeduplicationService deduplicationService,
-                            CandidateProfilePersistenceService candidateProfiles) {
+                            CandidateProfilePersistenceService candidateProfiles,
+                            JobRelevanceScorer relevanceScorer,
+                            NegativeJobFilter negativeJobFilter,
+                            CareerTrackEngine careerTrackEngine) {
         this.deduplicationService = deduplicationService != null
                 ? deduplicationService
                 : new JobDeduplicationService();
         this.candidateProfiles = candidateProfiles;
+        this.relevanceScorer = relevanceScorer != null ? relevanceScorer : new JobRelevanceScorer();
+        this.negativeJobFilter = negativeJobFilter != null ? negativeJobFilter : new NegativeJobFilter();
+        this.careerTrackEngine = careerTrackEngine != null ? careerTrackEngine : new CareerTrackEngine();
 
         if (jobSources != null && !jobSources.isEmpty()) {
             this.jobSources = List.copyOf(jobSources);
@@ -111,11 +134,22 @@ public class JobSearchService {
         }
         long startTime = System.currentTimeMillis();
 
-        // Explicit keywords always win; otherwise fall back to the stored profile's skills.
-        List<String> relevanceKeywords = resolveRelevanceKeywords(request);
+        // The stored profile drives both relevance keywords and career-track filtering, so
+        // it is resolved once. Explicit keywords always win over profile-derived ones — and
+        // when the caller supplies their own keywords, that is an expression of intent that
+        // supersedes the resume, so the profile's discipline must not then be used to veto
+        // what the caller explicitly asked for.
+        CandidateProfile profile = resolveProfile(request);
+        boolean explicitKeywords = request.keywords() != null && !request.keywords().isEmpty();
+        List<String> relevanceKeywords = explicitKeywords
+                ? request.keywords()
+                : deriveProfileKeywords(profile);
+        Set<CareerTrack> candidateTracks = explicitKeywords
+                ? Set.of()
+                : careerTrackEngine.classifyCandidate(profile);
 
-        log.info("Starting job search: keywords={}, location='{}', experience='{}', type='{}', date='{}', limit={}",
-                relevanceKeywords, request.location(), request.experience(),
+        log.info("Starting job search: keywords={}, tracks={}, location='{}', experience='{}', type='{}', date='{}', limit={}",
+                relevanceKeywords, candidateTracks, request.location(), request.experience(),
                 request.employmentType(), request.datePosted(), request.limit());
 
         List<JobSource> activeSources = jobSources.stream().filter(JobSource::isAvailable).toList();
@@ -157,9 +191,30 @@ public class JobSearchService {
         List<Job> deduplicated = deduplicationService.deduplicate(rawListings);
         int afterDedupCount = deduplicated.size();
 
-        List<Job> filtered = deduplicated.stream()
+        // Pipeline order: retrieval → normalization → dedup → career-track relevance →
+        // negative exclusions → keyword relevance → location → experience → employment
+        // type → date. Track and exclusion run before keyword relevance so that an
+        // off-discipline listing is discarded on what it IS rather than on whether one of
+        // its words happens to appear in the candidate's skill list.
+        List<Job> trackRelevant = deduplicated.stream()
                 .filter(JobSearchService::hasMinimalQuality)
-                .filter(job -> matchesKeywords(job, relevanceKeywords))
+                .filter(job -> isTrackRelevant(job, candidateTracks))
+                .toList();
+
+        List<Job> notExcluded = trackRelevant.stream()
+                .filter(job -> {
+                    String reason = negativeJobFilter.exclusionReason(job, candidateTracks);
+                    if (reason != null) {
+                        log.debug("Excluded job id={} title='{}' on negative rule '{}'",
+                                job.id(), job.title(), reason);
+                        return false;
+                    }
+                    return true;
+                })
+                .toList();
+
+        List<Job> filtered = notExcluded.stream()
+                .filter(job -> relevanceScorer.isRelevant(job, relevanceKeywords))
                 .filter(job -> matchesLocation(job, request.location()))
                 .filter(job -> matchesSource(job, request.source()))
                 .filter(job -> matchesExperience(job, request.experience()))
@@ -167,6 +222,15 @@ public class JobSearchService {
                 .filter(job -> matchesDatePosted(job, request.datePosted()))
                 .toList();
         int afterFilterCount = filtered.size();
+
+        if (afterFilterCount < notExcluded.size()) {
+            log.info("Relevance filtering removed {} listing(s) that did not meet the keyword threshold",
+                    notExcluded.size() - afterFilterCount);
+        }
+        if (notExcluded.size() < trackRelevant.size()) {
+            log.info("Negative rules removed {} non-engineering listing(s)",
+                    trackRelevant.size() - notExcluded.size());
+        }
 
         int limit = request.limit() != null && request.limit() > 0 ? request.limit() : 20;
         List<Job> limitedResults = filtered.stream().limit(limit).toList();
@@ -231,27 +295,59 @@ public class JobSearchService {
      * replaces the removed free-text "Keywords &amp; Skills" field. When neither is
      * available, an empty list is returned and nothing is filtered out.</p>
      */
-    private List<String> resolveRelevanceKeywords(JobSearchRequest request) {
-        List<String> explicit = request.keywords();
-        if (explicit != null && !explicit.isEmpty()) {
-            return explicit;
-        }
+    /**
+     * Loads the stored candidate profile the request refers to, or {@code null} when the
+     * request is anonymous, the id is absent, the profile cannot be found, or persistence
+     * is unavailable. Every downstream relevance decision treats {@code null} as "no
+     * profile signal" rather than as an error, so an anonymous search still works.
+     */
+    private CandidateProfile resolveProfile(JobSearchRequest request) {
         Long profileId = request.candidateProfileId();
         if (candidateProfiles == null || profileId == null) {
-            return List.of();
+            return null;
         }
         try {
             return candidateProfiles.findById(profileId)
-                    .map(entity -> deriveProfileKeywords(entity.toDomain()))
+                    .map(CandidateProfileEntity::toDomain)
                     .orElseGet(() -> {
-                        log.debug("Candidate profile {} not found — searching without profile keywords", profileId);
-                        return List.of();
+                        log.debug("Candidate profile {} not found — searching without profile relevance", profileId);
+                        return null;
                     });
         } catch (Exception ex) {
-            log.warn("Could not derive job-search keywords from candidate profile {}: {}",
+            log.warn("Could not load candidate profile {} for relevance filtering: {}",
                     profileId, ex.getMessage());
-            return List.of();
+            return null;
         }
+    }
+
+    /**
+     * Whether a listing is in a discipline the candidate actually targets.
+     *
+     * <p>Conservative by design. It only rejects when <em>both</em> sides are specific and
+     * they belong to different families — a VLSI candidate against a clearly software role,
+     * or the reverse. Listings whose discipline cannot be determined are left for the
+     * negative rules and keyword relevance to judge, because unclassifiable wording is not
+     * evidence that a role is wrong; and a search with no known candidate discipline has no
+     * basis to exclude anything on track.</p>
+     */
+    private boolean isTrackRelevant(Job job, Set<CareerTrack> candidateTracks) {
+        if (candidateTracks == null || candidateTracks.isEmpty()) {
+            return true;
+        }
+        CareerTrack jobTrack = careerTrackEngine.classifyJob(job);
+        if (jobTrack == CareerTrack.UNKNOWN || jobTrack == CareerTrack.MIXED) {
+            return true;
+        }
+        for (CareerTrack candidateTrack : candidateTracks) {
+            if (candidateTrack == null || !candidateTrack.isSpecific()) {
+                continue;
+            }
+            if (candidateTrack.family() == jobTrack.family()) {
+                return true;
+            }
+        }
+        boolean candidateIsSpecific = candidateTracks.stream().anyMatch(CareerTrack::isSpecific);
+        return !candidateIsSpecific;
     }
 
     /**
@@ -280,40 +376,6 @@ public class JobSearchService {
                 target.add(value.trim());
             }
         }
-    }
-
-    private boolean matchesKeywords(Job job, List<String> keywords) {
-        if (keywords == null || keywords.isEmpty()) {
-            return true;
-        }
-        List<String> cleanKeywords = keywords.stream()
-                .filter(Objects::nonNull)
-                .map(String::trim)
-                .filter(k -> !k.isEmpty())
-                .map(String::toLowerCase)
-                .toList();
-        if (cleanKeywords.isEmpty()) {
-            return true;
-        }
-        String title = job.title() != null ? job.title().toLowerCase() : "";
-        String desc = job.description() != null ? job.description().toLowerCase() : "";
-        String company = job.company() != null ? job.company().toLowerCase() : "";
-        List<String> skills = new ArrayList<>();
-        if (job.requiredSkills() != null) {
-            job.requiredSkills().forEach(s -> skills.add(s.toLowerCase()));
-        }
-        if (job.preferredSkills() != null) {
-            job.preferredSkills().forEach(s -> skills.add(s.toLowerCase()));
-        }
-        for (String keyword : cleanKeywords) {
-            if (title.contains(keyword) || desc.contains(keyword) || company.contains(keyword)) {
-                return true;
-            }
-            if (skills.stream().anyMatch(skill -> skill.contains(keyword) || skill.equalsIgnoreCase(keyword))) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private boolean matchesLocation(Job job, String requestedLocation) {

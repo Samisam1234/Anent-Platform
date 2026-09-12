@@ -19,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.mockito.ArgumentCaptor;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
@@ -308,6 +310,51 @@ class ArbeitnowJobSourceProviderTest {
                     eq(HttpMethod.GET), any(), eq(String.class));
             verify(restTemplate).exchange(contains("page=1"),
                     eq(HttpMethod.GET), any(), eq(String.class));
+        }
+
+        /**
+         * L: the Arbeitnow job-board API documents only pagination — there is no keyword,
+         * query or category parameter in its published interface. The provider therefore
+         * fetches the board and lets the backend relevance pipeline do the filtering,
+         * rather than inventing an unsupported parameter that the API would ignore or
+         * reject. This test pins that behaviour so a future "optimisation" cannot quietly
+         * add a parameter that does not exist.
+         */
+        @Test
+        @DisplayName("keywords are deliberately not sent: the API documents only pagination")
+        void keywordsAreNotSentToTheApi() {
+            stubBody(VALID_JSON);
+
+            provider.fetchJobs(JobSearchRequest.of(
+                    List.of("verilog", "vlsi"), null, null, null, null, 50));
+
+            ArgumentCaptor<String> url = ArgumentCaptor.forClass(String.class);
+            verify(restTemplate).exchange(url.capture(), eq(HttpMethod.GET), any(), eq(String.class));
+            String requested = url.getValue();
+
+            assertTrue(requested.contains("page=1"), "pagination must still be sent: " + requested);
+            assertFalse(requested.contains("verilog"), "no keyword may be sent: " + requested);
+            assertFalse(requested.contains("vlsi"), "no keyword may be sent: " + requested);
+            assertFalse(requested.contains("search="), "no undocumented search parameter: " + requested);
+            assertFalse(requested.contains("what="), "no undocumented query parameter: " + requested);
+        }
+
+        /**
+         * Because nothing is filtered at the source, the board comes back whole and the
+         * backend relevance pipeline is what makes the results usable. This asserts the
+         * provider hands back every listing it was given so that filtering happens in one
+         * place, downstream, where it can be tested.
+         */
+        @Test
+        @DisplayName("the whole board is returned for downstream relevance filtering")
+        void wholeBoardIsReturnedForDownstreamFiltering() {
+            stubBody(VALID_JSON);
+
+            List<Job> jobs = provider.fetchJobs(
+                    JobSearchRequest.of(List.of("verilog"), null, null, null, null, 50));
+
+            assertEquals(2, jobs.size(),
+                    "the provider must not pre-filter; the relevance pipeline owns that");
         }
 
         @Test
