@@ -38,14 +38,19 @@ public class NegativeJobFilter {
     /**
      * Rules that apply to every search, whether or not the candidate's discipline is known.
      *
-     * <p>These are the phrases that appear in the exclusion list of <em>every</em>
-     * discipline — service desk, helpdesk, help desk and sales — together with the unpaid
-     * rules. They describe roles that are not engineering roles for anyone, so there is no
-     * reason to wait for a candidate track before applying them; making them global is also
-     * what stops an anonymous or skill-less search from passing every listing through.</p>
+     * <p>Service desk, helpdesk, help desk and sales appear in the exclusion list of
+     * <em>every</em> discipline, together with the unpaid rules. They describe roles that are
+     * not engineering roles for anyone, so there is no reason to wait for a candidate track
+     * before applying them; making them global is also what stops an anonymous or skill-less
+     * search from passing every listing through.</p>
+     *
+     * <p>Marketing is global for the same reason — a marketing role is not an engineering
+     * role for any discipline — even though the per-discipline lists below only name it for
+     * the hardware tracks. Listing it per track left VLSI/FPGA, AI/ML and software candidates
+     * with no negative-filter protection against it at all.</p>
      */
     private static final List<String> GLOBAL_EXCLUSIONS = List.of(
-            "service desk", "helpdesk", "help desk", "sales",
+            "service desk", "helpdesk", "help desk", "sales", "marketing",
             "unpaid", "unpaid internship", "internship without stipend", "no stipend", "volunteer");
 
     /**

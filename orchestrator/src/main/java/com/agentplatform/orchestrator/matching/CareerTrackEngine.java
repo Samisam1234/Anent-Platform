@@ -3,8 +3,12 @@ package com.agentplatform.orchestrator.matching;
 import com.agentplatform.orchestrator.job.Job;
 import com.agentplatform.orchestrator.resume.CandidateProfile;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
 /**
@@ -40,6 +44,50 @@ public class CareerTrackEngine {
     private static final Set<String> EMBEDDED_KEYWORDS = Set.of("embedded", "firmware", "microcontroller", "rtos", "bare metal", "bare-metal", "freertos", "stm32", "arm cortex", "iot firmware", "embedded c", "embedded software");
     private static final Set<String> VLSI_KEYWORDS = Set.of("vlsi", "rtl", "verilog", "systemverilog", "uvm", "fpga", "asic", "physical design", "sta", "static timing", "logic synthesis", "design verification", "soc design", "vhdl", "timing closure", "place and route", "dft");
     private static final Set<String> AI_ML_KEYWORDS = Set.of("machine learning", "deep learning", "neural network", "computer vision", "nlp", "natural language processing", "mlops", "tensorflow", "pytorch", "keras", "scikit-learn", "llm", "data science", "model training", "ai engineer", "reinforcement learning", "generative ai");
+
+    /**
+     * Precompiled matchers for every keyword in every vocabulary above, built once.
+     *
+     * <p>Keyword matching used to be {@code text.contains(kw)} — plain substring matching.
+     * That made short acronyms in this taxonomy match inside ordinary English: {@code "sta"}
+     * is a VLSI keyword and also a substring of <em>standard</em>, <em>status</em>,
+     * <em>start</em>, <em>state</em> and <em>establish</em>, so almost every job description
+     * produced a VLSI hit. The effect was two-sided: service-desk, product-support,
+     * marketing and sales listings were classified VLSI/FPGA and so survived the
+     * career-track filter for a hardware candidate, while a genuine software role that
+     * happened to say "standard" could be classified VLSI/FPGA and wrongly rejected for a
+     * software candidate.</p>
+     *
+     * <p>These use the same boundary rule already proven in
+     * {@code JobRelevanceScorer.containsWord} and {@code NegativeJobFilter.buildPatterns}:
+     * a word boundary is asserted only where the phrase edge is a word character. That keeps
+     * symbol-terminated keywords working ({@code C++}, {@code .NET}) while stopping
+     * {@code "api"} from matching inside <em>rapid</em> or <em>capital</em>. They are
+     * compiled once rather than per call because {@code countHits} runs five vocabularies
+     * over the whole listing text for every job in every search.</p>
+     */
+    private static final Map<String, Pattern> KEYWORD_PATTERNS = buildKeywordPatterns();
+
+    private static Map<String, Pattern> buildKeywordPatterns() {
+        Set<String> all = new HashSet<>();
+        all.addAll(SW_KEYWORDS);
+        all.addAll(HW_KEYWORDS);
+        all.addAll(EMBEDDED_KEYWORDS);
+        all.addAll(VLSI_KEYWORDS);
+        all.addAll(AI_ML_KEYWORDS);
+        Map<String, Pattern> patterns = new HashMap<>();
+        for (String keyword : all) {
+            patterns.put(keyword, compileKeyword(keyword));
+        }
+        return Map.copyOf(patterns);
+    }
+
+    private static Pattern compileKeyword(String keyword) {
+        String lower = keyword.toLowerCase(Locale.ROOT);
+        String prefix = Character.isLetterOrDigit(lower.charAt(0)) ? "\\b" : "";
+        String suffix = Character.isLetterOrDigit(lower.charAt(lower.length() - 1)) ? "\\b" : "";
+        return Pattern.compile(prefix + Pattern.quote(lower) + suffix, Pattern.CASE_INSENSITIVE);
+    }
 
     public CareerTrackEvaluation evaluate(CandidateProfile candidate, Job job) {
         CareerTrack jobTrack = this.classifyJob(job);
@@ -209,10 +257,19 @@ public class CareerTrackEngine {
         }
     }
 
+    /**
+     * Counts how many of {@code keywords} occur in {@code text} as whole words or phrases.
+     *
+     * <p>Substring matching is deliberately not used — see {@link #KEYWORD_PATTERNS}.</p>
+     */
     private static int countHits(Set<String> keywords, String text) {
+        if (text == null || text.isEmpty()) {
+            return 0;
+        }
         int hits = 0;
-        for (String kw : keywords) {
-            if (text.contains(kw)) {
+        for (String keyword : keywords) {
+            Pattern pattern = KEYWORD_PATTERNS.get(keyword);
+            if (pattern != null && pattern.matcher(text).find()) {
                 hits++;
             }
         }
