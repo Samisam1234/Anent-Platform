@@ -51,6 +51,31 @@ public enum CareerTrack {
         return family() == HARDWARE;
     }
 
+    /**
+     * The human-readable name used in explanations and other prose.
+     *
+     * <p>This is the single authoritative mapping from track to display text. It is an
+     * exhaustive switch with deliberately <em>no</em> {@code default}, so adding a track to
+     * this enum is a compile error here rather than a runtime surprise somewhere downstream.
+     * That is the exact failure this replaces: an explanation generator whose
+     * {@code default -> throw} handled only the original four values and blew up on the
+     * first VLSI/FPGA listing it was ever shown.</p>
+     *
+     * <p>The strings for SOFTWARE, HARDWARE, MIXED and UNKNOWN are unchanged from the
+     * original wording, so existing explanations read exactly as before.</p>
+     */
+    public String displayName() {
+        return switch (this) {
+            case SOFTWARE -> "Software Engineering";
+            case EMBEDDED -> "Embedded Systems";
+            case VLSI_FPGA -> "VLSI / FPGA";
+            case AI_ML -> "AI / ML";
+            case HARDWARE -> "Hardware / ECE / VLSI";
+            case MIXED -> "Cross-disciplinary Software & Hardware";
+            case UNKNOWN -> "Engineering";
+        };
+    }
+
     public boolean isSoftwareFamily() {
         return family() == SOFTWARE;
     }

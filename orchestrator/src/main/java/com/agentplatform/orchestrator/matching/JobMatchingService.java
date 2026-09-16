@@ -22,7 +22,6 @@ import com.agentplatform.orchestrator.resume.CandidateProfile;
 import com.agentplatform.orchestrator.resume.entity.CandidateProfileEntity;
 import com.agentplatform.orchestrator.resume.persistence.CandidateProfilePersistenceService;
 import java.util.ArrayList;
-import java.util.Locale;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -314,8 +313,8 @@ public class JobMatchingService {
 
     private String trackMismatchDetail(CandidateProfile candidate, CareerTrackEngine.CareerTrackEvaluation trackEval) {
         String jobTrack = trackEval != null && trackEval.jobTrack() != null
-                ? trackEval.jobTrack().name().toLowerCase(Locale.ROOT)
-                : "unknown";
+                ? trackEval.jobTrack().displayName()
+                : "an unclear discipline";
         boolean hasSoftware = candidate != null && candidate.softwareSkills() != null
                 && !candidate.softwareSkills().isEmpty();
         boolean hasHardware = candidate != null && candidate.hardwareSkills() != null
