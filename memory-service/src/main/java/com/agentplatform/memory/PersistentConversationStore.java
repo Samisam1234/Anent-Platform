@@ -52,7 +52,12 @@ public class PersistentConversationStore implements ConversationStore {
         List<ConversationMessageEntity> messages = conversation.getMessages();
         messages.add(new ConversationMessageEntity(conversation, messages.size(), message.role(), message.content()));
         conversation.setUpdatedAt(Instant.now());
-        conversation = repository.save(conversation);
+
+        // Deliberately no repository.save() here. The conversation is already managed, so
+        // dirty checking flushes updatedAt and CascadeType.PERSIST inserts the new message.
+        // repository.save() would be em.merge() (the id is non-null by now), and merging a
+        // parent whose orphanRemoval collection has removals queued from a previous trim
+        // discards those deletions. See trimMessages for the full explanation.
 
         // Update cache
         conversationCache.put(conversationId, conversation);
@@ -185,22 +190,35 @@ public class PersistentConversationStore implements ConversationStore {
      * the {@code sequence} of the survivors from zero. Does nothing when the conversation
      * is already within the limit.
      *
-     * <p>The managed {@code messages} collection is never reordered. {@link List#sort}
-     * repositions every element through {@code ListIterator.set}, and a Hibernate
-     * {@code PersistentBag} has no notion of index, so it records each repositioning as a
-     * removal plus a re-addition. With {@code orphanRemoval = true} that queues orphan
-     * deletes for objects that remain managed in the session and still point at their
-     * parent, leaving persistent messages unreachable from the parent's collection. Such a
-     * message survives the cascade from a {@code deleteAll} of its parent while still
-     * referencing it, and the flush then fails with
-     * {@code TransientObjectException: persistent instance references an unsaved transient
-     * instance of ConversationEntity} — which is what surfaced in the test's
-     * {@code tearDown}, after the assertions had already passed.</p>
+     * <p><strong>This method must not call {@code repository.save(conversation)}.</strong>
+     * The conversation arrives managed, so {@code save} resolves to {@code em.merge} rather
+     * than {@code em.persist} — Spring Data picks between them on {@code id == null}, and
+     * the id is populated by now. Hibernate does not carry pending orphan deletions across a
+     * merge: merging a parent whose {@code orphanRemoval} collection has had elements
+     * removed drops those deletions, so the removed messages stay managed in the session,
+     * still referencing their parent, but are no longer reachable from the parent's
+     * collection.</p>
      *
-     * <p>The in-place sort bought nothing anyway: the collection is mapped with
-     * {@code @OrderBy("sequence ASC")}, so Hibernate hands it back in sequence order, and
-     * every read path sorts by {@code sequence} as well. Sorting a copy is purely to pick
-     * which entries are oldest.</p>
+     * <p>That state is invisible until something deletes the parent. A {@code deleteAll}
+     * cascades {@code remove} only down the collection it can reach, so the stranded
+     * messages are left behind as persistent instances pointing at a parent that is now in
+     * DELETED state — which Hibernate reports as an unsaved transient instance:</p>
+     *
+     * <pre>
+     * org.hibernate.TransientObjectException: persistent instance references an unsaved
+     * transient instance of ConversationEntity
+     * </pre>
+     *
+     * <p>Dropping the merge lets dirty checking and {@code orphanRemoval} do the work they
+     * were mapped for, which is the documented Hibernate behaviour: not merging after
+     * removing elements from an {@code orphanRemoval} collection, or using {@code persist}
+     * instead, both delete the orphans normally. Nothing else here needed to change; the
+     * parent is managed, so {@code updatedAt}, the renumbered {@code sequence} values and
+     * the orphan deletes are all flushed by dirty checking at the end of the transaction.</p>
+     *
+     * <p>The collection is also never reordered in place. {@code @OrderBy("sequence ASC")}
+     * already returns it in sequence order and every read path sorts by {@code sequence},
+     * so the copy is sorted purely to identify the oldest entries.</p>
      */
     private void trimMessages(ConversationEntity conversation, int maxMessages) {
         List<ConversationMessageEntity> messages = conversation.getMessages();
@@ -223,7 +241,9 @@ public class PersistentConversationStore implements ConversationStore {
         }
 
         conversation.setUpdatedAt(Instant.now());
-        repository.save(conversation);
+        // Deliberately no repository.save(): see the method Javadoc. Merging here is what
+        // discarded the orphan deletions and left managed messages pointing at a parent
+        // that a later delete had already removed.
         log.debug("Trimmed conversation {} to {} messages",
                 conversation.getConversationId(), maxMessages);
     }
