@@ -206,13 +206,22 @@ class PersistentConversationStoreDiagnosticsTest {
     @Test
     @DisplayName("DIAGNOSTIC_4 — the same removals done incrementally, one flush at a time")
     void diagnostic4_incrementalTrim() {
-        buildFiftyThenTrimToFive();
+        // Deliberately does NOT call buildFiftyThenTrimToFive(): the point of this case is to
+        // reach the same end state (5 messages, 45 removals) by removing five at a time with a
+        // read — and therefore an auto-flush — between each batch. Trimming to 5 up front would
+        // leave nothing to remove and the size assertions below could never hold.
+        for (int i = 0; i < 50; i++) {
+            store.append("conv-1", ConversationMessage.user("m" + i));
+        }
+        assertThat(store.messages("conv-1")).hasSize(50);
+
         for (int target = 45; target >= 5; target -= 5) {
             store.trim("conv-1", target);
             // The read forces the auto-flush between removals, which is the timing
             // trimIfNeeded already relies on inside append().
             assertThat(store.messages("conv-1")).hasSize(target);
         }
+        assertThat(store.messages("conv-1")).hasSize(5);
         dump("AFTER_INCREMENTAL_TRIM");
 
         repository.deleteAll();
