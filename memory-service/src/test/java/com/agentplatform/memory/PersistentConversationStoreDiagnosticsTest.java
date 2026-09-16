@@ -92,6 +92,20 @@ class PersistentConversationStoreDiagnosticsTest {
      * Dumps every ConversationEntity and ConversationMessageEntity Hibernate currently knows
      * about, plus the contents of every conversation's collection.
      */
+    /**
+     * {@link #dump(String)} guarded so that a failure inside the dump itself can never abort
+     * the harness and hide the evidence it was meant to produce. A session that has just
+     * failed a flush is not guaranteed to still answer inspection calls.
+     */
+    private void safeDump(String when) {
+        try {
+            dump(when);
+        } catch (RuntimeException ex) {
+            System.out.println("[DIAG " + when + "] DUMP FAILED: "
+                    + ex.getClass().getName() + ": " + ex.getMessage());
+        }
+    }
+
     private void dump(String when) {
         PersistenceContext pc = persistenceContext();
         List<ConversationEntity> conversations = new ArrayList<>();
@@ -157,24 +171,34 @@ class PersistentConversationStoreDiagnosticsTest {
     @Test
     @DisplayName("DIAGNOSTIC_1 — the failing lifecycle, dumped end to end")
     void diagnostic1_failingLifecycle() {
+        // The expected TransientObjectException is deliberately caught rather than allowed to
+        // error the method, so that this case completes and its entity-state evidence is
+        // printed. The outcome is reported on its own [DIAG_1] line either way.
         buildFiftyThenTrimToFive();
         assertThat(store.messages("conv-1")).hasSize(5);
 
-        dump("AFTER_TRIM");
+        safeDump("AFTER_TRIM");
 
         System.out.println("[DIAG] -> repository.deleteAll()");
         repository.deleteAll();
-        dump("AFTER_DELETE_ALL");
+        safeDump("AFTER_DELETE_ALL");
 
+        safeDump("PRE_FLUSH");
         System.out.println("[DIAG] -> entityManager.flush()");
+
+        String outcome;
         try {
             em().flush();
+            outcome = "DID NOT REPRODUCE - flush() succeeded";
         } catch (RuntimeException ex) {
-            System.out.println("[DIAG] FLUSH THREW: " + ex.getClass().getName() + ": " + ex.getMessage());
-            dump("AFTER_FAILED_FLUSH");
-            throw ex;
+            outcome = "REPRODUCED " + ex.getClass().getName() + ": " + ex.getMessage();
+            System.out.println("[DIAG] FLUSH THREW: " + ex.getClass().getName()
+                    + ": " + ex.getMessage());
+            safeDump("AFTER_FAILED_FLUSH");
         }
-        dump("AFTER_FLUSH");
+
+        safeDump("FINAL");
+        System.out.println("[DIAG_1] " + outcome);
     }
 
     @Test
@@ -222,7 +246,7 @@ class PersistentConversationStoreDiagnosticsTest {
             assertThat(store.messages("conv-1")).hasSize(target);
         }
         assertThat(store.messages("conv-1")).hasSize(5);
-        dump("AFTER_INCREMENTAL_TRIM");
+        safeDump("AFTER_INCREMENTAL_TRIM");
 
         repository.deleteAll();
         em().flush();
@@ -234,10 +258,10 @@ class PersistentConversationStoreDiagnosticsTest {
     void diagnostic5_flushAfterTrim() {
         buildFiftyThenTrimToFive();
         assertThat(store.messages("conv-1")).hasSize(5);
-        dump("BEFORE_EXPLICIT_FLUSH");
+        safeDump("BEFORE_EXPLICIT_FLUSH");
 
         repository.flush();
-        dump("AFTER_EXPLICIT_FLUSH");
+        safeDump("AFTER_EXPLICIT_FLUSH");
 
         repository.deleteAll();
         em().flush();
