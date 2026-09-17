@@ -9,9 +9,9 @@ import java.util.List;
 /**
  * Safe, API-facing representation of an {@link OrchestrationRun}.
  *
- * <p>Exposes only execution status and safe per-agent summaries — never resume
- * text, phone/email, raw tool arguments, credentials, exception objects, or
- * stack traces.</p>
+ * <p>Exposes only execution status, safe per-agent summaries, and the
+ * execution timeline — never resume text, phone/email, raw tool arguments,
+ * credentials, exception objects, or stack traces.</p>
  *
  * @param runStatus         overall run status (PENDING/RUNNING/COMPLETED/PARTIAL/FAILED)
  * @param success           whether the run completed without failures
@@ -20,6 +20,8 @@ import java.util.List;
  * @param aiCallsUsed       AI calls consumed this run
  * @param toolCallsUsed     tool calls consumed this run
  * @param stoppingAgentType the blocking agent that halted the run (null if none)
+ * @param totalDurationMs   wall-clock duration of the entire run in milliseconds
+ * @param executionTimeline ordered timeline entries (agent, status, timing) — PII-free
  */
 public record OrchestrationRunResponseDto(
         String runStatus,
@@ -28,16 +30,22 @@ public record OrchestrationRunResponseDto(
         List<AgentExecutionDto> agentExecutions,
         int aiCallsUsed,
         int toolCallsUsed,
-        String stoppingAgentType
+        String stoppingAgentType,
+        long totalDurationMs,
+        List<ExecutionTimelineEntryDto> executionTimeline
 ) {
 
     public OrchestrationRunResponseDto {
         agentExecutions = agentExecutions != null ? List.copyOf(agentExecutions) : List.of();
+        executionTimeline = executionTimeline != null ? List.copyOf(executionTimeline) : List.of();
     }
 
     public static OrchestrationRunResponseDto from(OrchestrationRun run) {
         List<AgentExecutionDto> executions = run.agentExecutions().stream()
                 .map(AgentExecutionDto::from)
+                .toList();
+        List<ExecutionTimelineEntryDto> timeline = run.executionTimeline().stream()
+                .map(ExecutionTimelineEntryDto::from)
                 .toList();
         return new OrchestrationRunResponseDto(
                 run.runStatus() == null ? null : run.runStatus().name(),
@@ -46,7 +54,9 @@ public record OrchestrationRunResponseDto(
                 executions,
                 run.aiCallsUsed(),
                 run.toolCallsUsed(),
-                run.stoppingAgentType() == null ? null : run.stoppingAgentType().name()
+                run.stoppingAgentType() == null ? null : run.stoppingAgentType().name(),
+                run.totalDurationMs(),
+                timeline
         );
     }
 
@@ -77,6 +87,31 @@ public record OrchestrationRunResponseDto(
                     started == null ? null : started.toString(),
                     completed == null ? null : completed.toString(),
                     r.durationMs()
+            );
+        }
+    }
+
+    /**
+     * PII-free timeline entry for a single agent — carries only type, status,
+     * timing, and error code. No message, no output, no prompts.
+     */
+    public record ExecutionTimelineEntryDto(
+            String agentType,
+            String status,
+            long durationMs,
+            String startedAt,
+            String completedAt,
+            String errorCode
+    ) {
+
+        public static ExecutionTimelineEntryDto from(OrchestrationRun.AgentExecutionEvent e) {
+            return new ExecutionTimelineEntryDto(
+                    e.agentType() == null ? null : e.agentType().name(),
+                    e.status() == null ? null : e.status().name(),
+                    e.durationMs(),
+                    e.startedAt() == null ? null : e.startedAt().toString(),
+                    e.completedAt() == null ? null : e.completedAt().toString(),
+                    e.errorCode()
             );
         }
     }

@@ -496,4 +496,64 @@ class OrchestrationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.agentExecutions[1].errorCode").value("AI_BUDGET_EXHAUSTED"));
     }
+
+    // ─── 23. Phase 9 timeline fields exposed ─────────────────────────────────
+
+    @Test
+    @DisplayName("response exposes totalDurationMs and a PII-free execution timeline")
+    void response_exposesTimeline() throws Exception {
+        OrchestrationRun run = new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
+                0, 0, true, "ok", null);
+        when(orchestrationService.orchestrate(1L, "job-1")).thenReturn(run);
+
+        mockMvc.perform(post("/api/v1/agent/orchestrate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(1L, "job-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalDurationMs").isNumber())
+                .andExpect(jsonPath("$.totalDurationMs").value(
+                        org.hamcrest.Matchers.greaterThanOrEqualTo(0)))
+                .andExpect(jsonPath("$.executionTimeline").isArray())
+                .andExpect(jsonPath("$.executionTimeline.length()").value(5))
+                .andExpect(jsonPath("$.executionTimeline[0].agentType").value("RESUME"))
+                .andExpect(jsonPath("$.executionTimeline[0].status").value("COMPLETED"))
+                .andExpect(jsonPath("$.executionTimeline[0].durationMs").isNumber())
+                .andExpect(jsonPath("$.executionTimeline[0].startedAt").isString())
+                .andExpect(jsonPath("$.executionTimeline[0].completedAt").isString())
+                .andExpect(jsonPath("$.executionTimeline[0].errorCode").value("NONE"));
+    }
+
+    @Test
+    @DisplayName("execution timeline entries never carry message or output payloads")
+    void response_timelineNoInternals() throws Exception {
+        OrchestrationRun run = new OrchestrationRun(RunStatus.PARTIAL, List.of(
+                AgentResult.completed(AgentType.RESUME, "Resume summary with my private details."),
+                AgentResult.failed(AgentType.MATCHING, "Matching failed.", "AGENT_OPTIONAL_FAILURE"),
+                AgentResult.skipped(AgentType.APPLICATION_ADVISOR, "Skipped.")
+        ), 1, 0, false, "Some stages failed.", null);
+        when(orchestrationService.orchestrate(1L, "job-1")).thenReturn(run);
+
+        String raw = mockMvc.perform(post("/api/v1/agent/orchestrate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body(1L, "job-1")))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        // Check the executionTimeline array in isolation — entries must carry only
+        // type/status/timing/errorCode, never the message text or output payloads.
+        com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(raw).get("executionTimeline");
+        for (com.fasterxml.jackson.databind.JsonNode entry : node) {
+            for (String forbidden : new String[]{"message", "output", "success"}) {
+                org.junit.jupiter.api.Assertions.assertFalse(entry.has(forbidden),
+                        "timeline entry must not carry field: " + forbidden);
+            }
+            org.junit.jupiter.api.Assertions.assertTrue(entry.has("agentType"));
+            org.junit.jupiter.api.Assertions.assertTrue(entry.has("status"));
+            org.junit.jupiter.api.Assertions.assertTrue(entry.has("durationMs"));
+            org.junit.jupiter.api.Assertions.assertTrue(entry.has("errorCode"));
+        }
+        // Messages live ONLY in the separate agentExecutions array, not the timeline.
+        org.junit.jupiter.api.Assertions.assertTrue(raw.contains("private details"),
+                "message text belongs in agentExecutions, not the timeline");
+    }
 }

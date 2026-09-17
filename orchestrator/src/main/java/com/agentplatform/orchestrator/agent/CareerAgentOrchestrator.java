@@ -123,9 +123,11 @@ public class CareerAgentOrchestrator {
         RunStatus status = resolveRunStatus(trace);
         String message = runMessage(status, trace.stoppingAgentType());
 
-        return new OrchestrationRun(status, trace.allStates(),
+        OrchestrationRun run = new OrchestrationRun(status, trace.allStates(),
                 aiUsed, toolUsed, status == RunStatus.COMPLETED, message,
                 trace.stoppingAgentType());
+        log.info("{}", run.toExecutionLog());
+        return run;
     }
 
     // ─── Execution tracking helpers ──────────────────────────────────────────
