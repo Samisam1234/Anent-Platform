@@ -209,12 +209,36 @@ public class PersistentConversationStore implements ConversationStore {
      * transient instance of ConversationEntity
      * </pre>
      *
-     * <p>Dropping the merge lets dirty checking and {@code orphanRemoval} do the work they
-     * were mapped for, which is the documented Hibernate behaviour: not merging after
-     * removing elements from an {@code orphanRemoval} collection, or using {@code persist}
-     * instead, both delete the orphans normally. Nothing else here needed to change; the
-     * parent is managed, so {@code updatedAt}, the renumbered {@code sequence} values and
-     * the orphan deletes are all flushed by dirty checking at the end of the transaction.</p>
+     * <p>Dropping the merge is necessary but not sufficient. {@code orphanRemoval} does not
+     * delete anything by itself: the deletes are produced during flush-time cascading, in
+     * {@code AbstractFlushingEventListener.prepareEntityFlushes}, whose <em>first</em> loop
+     * cascades {@code PERSIST_ON_FLUSH} (the only action whose {@code deleteOrphans()} is
+     * {@code true}) and which walks only entries that are still {@code flushable()} —
+     * {@code MANAGED}, {@code SAVING} or {@code READ_ONLY}. So the orphan deletes exist only
+     * while {@code conversation} itself is managed.</p>
+     *
+     * <p>Every caller of this method is free to delete that conversation next
+     * ({@link #clear}, {@link #evictIfNeeded}, the wholesale replacement in {@link #save},
+     * or a caller's own {@code deleteAll}). Once {@code em.remove} has run, the parent's
+     * {@code EntityEntry} is {@code Status.DELETED}, it is no longer {@code flushable()}, and
+     * the first loop can never produce the orphan deletes again. The trimmed messages are
+     * still {@code MANAGED} — orphan removal never touched them — and they are unreachable
+     * from the parent, so nothing else deletes them either. The <em>second</em> loop of the
+     * same method then runs {@code CHECK_ON_FLUSH} over every flushable entity, follows the
+     * owning {@code @ManyToOne ConversationMessageEntity.conversation}, and
+     * {@code CascadingActions.isChildTransient} returns true because the child's status
+     * {@code isDeletedOrGone()}. The flush aborts with:</p>
+     *
+     * <pre>
+     * org.hibernate.TransientObjectException: persistent instance references an unsaved
+     * transient instance of ConversationEntity
+     * </pre>
+     *
+     * <p>Hence the explicit {@code repository.flush()} below. It runs the first loop while
+     * the parent is still managed, so the trimmed rows are gone before this method returns
+     * and the persistence context never holds a managed message whose parent is deleted.
+     * It is skipped entirely when nothing was trimmed (the early return above), which is the
+     * common case.</p>
      *
      * <p>The collection is also never reordered in place. {@code @OrderBy("sequence ASC")}
      * already returns it in sequence order and every read path sorts by {@code sequence},
@@ -244,6 +268,11 @@ public class PersistentConversationStore implements ConversationStore {
         // Deliberately no repository.save(): see the method Javadoc. Merging here is what
         // discarded the orphan deletions and left managed messages pointing at a parent
         // that a later delete had already removed.
+        //
+        // Flush instead, so the orphan deletes are produced while this conversation is still
+        // MANAGED. Without it the trimmed messages stay managed and unreachable, and the next
+        // delete of the conversation turns them into a TransientObjectException at flush.
+        repository.flush();
         log.debug("Trimmed conversation {} to {} messages",
                 conversation.getConversationId(), maxMessages);
     }
