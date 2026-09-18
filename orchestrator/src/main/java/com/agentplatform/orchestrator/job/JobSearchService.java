@@ -163,9 +163,16 @@ public class JobSearchService {
         List<String> sourceNames = new ArrayList<>();
         boolean anyLive = false;
         int failedSources = 0;
+
+        // Propagate derived keywords to downstream sources when no explicit keywords were provided.
+        JobSearchRequest effectiveRequest = explicitKeywords ? request
+                : new JobSearchRequest(relevanceKeywords, request.location(), request.experience(),
+                        request.employmentType(), request.datePosted(), request.limit(), request.source(),
+                        request.candidateProfileId());
+
         for (JobSource source : activeSources) {
             try {
-                List<Job> jobs = source.search(request);
+                List<Job> jobs = source.search(effectiveRequest);
                 if (jobs != null) {
                     rawListings.addAll(jobs);
                     // A live source only counts as live if it actually contributed listings.

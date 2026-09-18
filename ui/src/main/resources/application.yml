@@ -102,6 +102,15 @@ job-sources:
     max-pages: 1
   mock:
     enabled: false
+  openings-mcp:
+    enabled: false
+    base-url: http://localhost:9000/
+    timeout-seconds: 15
+    country-code: IND
+    include-google: true
+    include-amazon: true
+    include-apple: true
+    include-meta: true
 
 # ── Logging ──────────────────────────────────────────────────────────
 logging:
