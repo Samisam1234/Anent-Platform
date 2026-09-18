@@ -12,3 +12,9 @@ target/
 
 # Environment / secrets
 .env
+.project
+.classpath
+.settings/
+**/.project
+**/.classpath
+**/.settings/
