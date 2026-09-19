@@ -7,7 +7,7 @@ public class OpeningsMcpJobProperties {
 
     private boolean enabled = false;
     private String baseUrl = "http://localhost:9000/";
-    private int timeoutSeconds = 15;
+    private int timeoutSeconds = 20;
     private String countryCode = "IND";
     private boolean includeGoogle = true;
     private boolean includeAmazon = true;

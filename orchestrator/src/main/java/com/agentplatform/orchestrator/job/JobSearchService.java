@@ -165,8 +165,11 @@ public class JobSearchService {
         int failedSources = 0;
 
         // Propagate derived keywords to downstream sources when no explicit keywords were provided.
+        // For profile-driven searches, build a concise job-oriented query from the profile's
+        // track and top skills, instead of passing all 12 skills as individual keywords.
         JobSearchRequest effectiveRequest = explicitKeywords ? request
-                : new JobSearchRequest(relevanceKeywords, request.location(), request.experience(),
+                : new JobSearchRequest(List.of(buildJobOrientedQuery(profile, candidateTracks, relevanceKeywords)),
+                        request.location(), request.experience(),
                         request.employmentType(), request.datePosted(), request.limit(), request.source(),
                         request.candidateProfileId());
 
@@ -372,6 +375,57 @@ public class JobSearchService {
         addAll(keywords, profile.hardwareSkills());
         addAll(keywords, profile.preferredRoles());
         return keywords.stream().limit(MAX_DERIVED_KEYWORDS).toList();
+    }
+
+    /**
+     * Builds a concise job-oriented search query from the candidate's profile and career tracks.
+     * <p>
+     * Instead of passing all 12 raw skills as individual keywords (which makes poor search queries),
+     * this constructs a concise job-oriented query like "Java Embedded Systems Engineer" or
+     * "VLSI FPGA Engineer" based on the candidate's detected career tracks and top skills.
+     * </p>
+     */
+    static String buildJobOrientedQuery(CandidateProfile profile, Set<CareerTrack> candidateTracks,
+                                        List<String> relevanceKeywords) {
+        if (profile == null) {
+            return relevanceKeywords.isEmpty() ? "" : relevanceKeywords.get(0);
+        }
+
+        // Build a role-oriented query based on the strongest career track signal
+        String rolePrefix = "";
+        if (candidateTracks != null && !candidateTracks.isEmpty()) {
+            for (CareerTrack track : candidateTracks) {
+                switch (track) {
+                    case EMBEDDED -> { return "Embedded Systems Engineer"; }
+                    case VLSI_FPGA -> { return "VLSI FPGA Engineer"; }
+                    case AI_ML -> { return "Machine Learning Engineer"; }
+                    case SOFTWARE -> { rolePrefix = "Software Engineer"; }
+                    case HARDWARE -> { rolePrefix = "Hardware Engineer"; }
+                    default -> {}
+                }
+            }
+        }
+
+        // If no specific track prefix, infer from skills
+        if (rolePrefix.isEmpty()) {
+            List<String> topSkills = relevanceKeywords.stream().limit(3).toList();
+            if (!topSkills.isEmpty()) {
+                rolePrefix = String.join(" ", topSkills.subList(0, Math.min(2, topSkills.size()))) + " Engineer";
+            } else {
+                rolePrefix = "Engineer";
+            }
+        }
+
+        // Append top distinguishing skill if not already in role prefix
+        String topSkill = null;
+        for (String k : relevanceKeywords) {
+            if (!rolePrefix.toLowerCase().contains(k.toLowerCase())) {
+                topSkill = k;
+                break;
+            }
+        }
+
+        return topSkill != null ? rolePrefix + " " + topSkill : rolePrefix;
     }
 
     private static void addAll(Set<String> target, List<String> values) {

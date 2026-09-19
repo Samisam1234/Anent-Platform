@@ -14,8 +14,9 @@ public class PublicApiJobConfig {
     @Bean
     public RestTemplate publicApiRestTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+
         factory.setConnectTimeout(Duration.ofSeconds(5));
-        factory.setReadTimeout(Duration.ofSeconds(10));
+        factory.setReadTimeout(Duration.ofSeconds(25));
         return new RestTemplate(factory);
     }
 

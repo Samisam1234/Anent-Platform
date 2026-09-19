@@ -69,16 +69,16 @@ public class OpeningsMcpJobSourceProvider implements JobSourceProvider {
         }
     }
 
-    @Override
+@Override
     public List<Job> fetchJobs(JobSearchRequest criteria) {
         if (!isAvailable()) {
             return List.of();
         }
 
-        String keyword = criteria != null && criteria.keywords() != null && !criteria.keywords().isEmpty()
-        		 ? criteria.keywords().get(0)
-                : "";
-        if (keyword.isBlank()) {
+        List<String> keywords = criteria != null && criteria.keywords() != null
+                ? criteria.keywords()
+                : List.of();
+        if (keywords.isEmpty()) {
             return List.of();
         }
 
@@ -86,26 +86,29 @@ public class OpeningsMcpJobSourceProvider implements JobSourceProvider {
                 ? criteria.location()
                 : "India";
 
+        // Build a single cohesive query string from all keywords for better search results
+        String query = String.join(" ", keywords);
+
         List<CompletableFuture<List<Job>>> futures = new ArrayList<>();
 
         if (properties.isIncludeGoogle()) {
             futures.add(CompletableFuture.supplyAsync(() -> fetchTool("google_search_jobs", Map.of(
-                    "keyword", keyword, "location", location
+                    "keyword", query, "location", location
             ))));
         }
         if (properties.isIncludeAmazon()) {
             futures.add(CompletableFuture.supplyAsync(() -> fetchTool("amazon_search_jobs", Map.of(
-                    "keyword", keyword, "country", properties.getCountryCode()
+                    "keyword", query, "country", properties.getCountryCode()
             ))));
         }
         if (properties.isIncludeApple()) {
             futures.add(CompletableFuture.supplyAsync(() -> fetchTool("apple_search_jobs", Map.of(
-                    "keyword", keyword, "country_code", properties.getCountryCode()
+                    "keyword", query, "country_code", properties.getCountryCode()
             ))));
         }
         if (properties.isIncludeMeta()) {
             futures.add(CompletableFuture.supplyAsync(() -> fetchTool("meta_search_jobs", Map.of(
-                    "keyword", keyword
+                    "keyword", query
             ))));
         }
 
@@ -127,7 +130,6 @@ public class OpeningsMcpJobSourceProvider implements JobSourceProvider {
     }
 
     private List<Job> fetchTool(String toolName, Map<String, Object> arguments) {
-        log.info("Openings-MCP ENTER fetchTool: tool={}, url={}", toolName, properties.getBaseUrl());
         try {
             Map<String, Object> payload = Map.of(
                     "jsonrpc", "2.0",
