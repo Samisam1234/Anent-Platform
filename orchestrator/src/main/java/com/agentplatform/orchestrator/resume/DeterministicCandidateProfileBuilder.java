@@ -79,16 +79,39 @@ final class DeterministicCandidateProfileBuilder {
         List<String> software = splitSoftware(canonicalSkills);
         List<String> hardware = splitHardware(canonicalSkills);
 
-        List<String> education = section(lines, List.of("education", "academic"), List.of("experience", "projects", "skills", "certifications"));
+        List<String> education = section(lines, List.of("education", "academic"),
+                List.of("experience", "projects", "skills", "certifications", "key strengths", "strengths", "achievements", "summary", "objective"));
         if (education.isEmpty()) education = linesContaining(lines, List.of("b.tech", "b.e.", "bachelor", "master", "m.tech", "b.sc", "diploma"));
-        List<String> experience = section(lines, List.of("experience", "employment", "work history"), List.of("education", "projects", "skills", "certifications"));
-        List<String> projects = section(lines, List.of("projects", "project experience"), List.of("education", "experience", "skills", "certifications"));
-        List<String> certifications = section(lines, List.of("certifications", "certificates"), List.of("education", "experience", "projects", "skills"));
+        List<String> experience = section(lines, List.of("experience", "employment", "work history", "professional experience"),
+                List.of("education", "projects", "skills", "certifications", "key strengths", "strengths", "achievements"));
+        List<String> projects = section(lines, List.of("projects", "project experience", "academic projects"),
+                List.of("education", "experience", "skills", "certifications", "key strengths", "strengths", "achievements"));
+        List<String> certifications = section(lines, List.of("certifications", "certificates"),
+                List.of("education", "experience", "projects", "skills", "key strengths", "strengths", "achievements"));
         if (certifications.isEmpty()) certifications = linesContaining(lines, CERT_WORDS);
         List<String> internships = linesContaining(lines, List.of("intern", "internship"));
 
-        String location = lines.stream().filter(l -> l.matches(".*(?:India|Remote|Hyderabad|Bengaluru|Bangalore|Pune|Chennai|Mumbai|Delhi).*"))
-                .findFirst().orElse("");
+        // Extract location from the contact line (first line with location-like pattern)
+        // Split on | and take the first part that looks like a location
+        String location = "";
+        for (String line : lines) {
+            if (line.matches(".*(?:India|Remote|Hyderabad|Bengaluru|Bangalore|Pune|Chennai|Mumbai|Delhi).*")) {
+                // Split on pipe separator and take the first meaningful location part
+                String[] parts = line.split("\\|");
+                for (String part : parts) {
+                    String trimmed = part.trim();
+                    if (trimmed.matches(".*(?:India|Remote|Hyderabad|Bengaluru|Bangalore|Pune|Chennai|Mumbai|Delhi).*")
+                            && !trimmed.matches(".*@.*") // not email
+                            && !trimmed.matches(".*\\d{5,}.*") // not phone
+                            && !trimmed.contains("github")
+                            && !trimmed.contains("linkedin")) {
+                        location = trimmed;
+                        break;
+                    }
+                }
+                if (!location.isBlank()) break;
+            }
+        }
 
         List<CareerTrack> tracks = detectTracks(canonicalSkills);
         List<CareerTrackEvidence> trackEvidence = buildTrackEvidence(tracks, canonicalSkills);
@@ -266,10 +289,10 @@ final class DeterministicCandidateProfileBuilder {
             if (category == null) continue;
             switch (category) {
                 case SOFTWARE -> bump(scores, CareerTrack.SOFTWARE, 2.0);
-                case PROGRAMMING_AI -> bump(scores, CareerTrack.AI_ML, 2.0);
+                case PROGRAMMING_AI -> bump(scores, CareerTrack.AI_ML, 1.0);
                 case EMBEDDED -> bump(scores, CareerTrack.EMBEDDED, 2.0);
                 case VLSI_FPGA -> bump(scores, CareerTrack.VLSI_FPGA, 2.0);
-                case COMMUNICATION -> bump(scores, CareerTrack.ECE, 2.0);
+                case COMMUNICATION -> bump(scores, CareerTrack.ECE, 1.0);
             }
         }
 
@@ -283,10 +306,14 @@ final class DeterministicCandidateProfileBuilder {
             }
         }
 
-        // Threshold: a track is "detected" only if it has enough weight
+        // Primary track threshold: >= 3.0 (multiple strong signals)
+        // Secondary track threshold: >= 2.0 (at least one strong signal)
+        // Allow multiple tracks if they meet thresholds
         List<CareerTrack> detected = new ArrayList<>();
         for (CareerTrack track : CareerTrack.values()) {
-            if (scores.get(track) >= 2.0) detected.add(track);
+            double score = scores.get(track);
+            if (score >= 3.0) detected.add(track);
+            else if (score >= 2.0) detected.add(track); // Allow secondary tracks with strong single signal
         }
         detected.sort((t1, t2) -> Double.compare(scores.get(t2), scores.get(t1)));
         return detected;
@@ -354,13 +381,27 @@ final class DeterministicCandidateProfileBuilder {
 
     private List<String> inferRoles(List<CareerTrack> tracks) {
         List<String> roles = new ArrayList<>();
-        for (CareerTrack track : tracks) {
-            switch (track) {
-                case SOFTWARE -> roles.add("Software Engineer");
-                case AI_ML -> roles.add("AI / ML Engineer");
-                case EMBEDDED -> roles.add("Embedded Systems Engineer");
-                case VLSI_FPGA -> roles.add("VLSI / FPGA Engineer");
-                case ECE -> roles.add("Electronics / ECE Engineer");
+        // Only include primary track (highest score) and secondary if score is within 50% of primary
+        if (!tracks.isEmpty()) {
+            CareerTrack primary = tracks.get(0);
+            roles.add(switch (primary) {
+                case SOFTWARE -> "Software Engineer";
+                case AI_ML -> "AI / ML Engineer";
+                case EMBEDDED -> "Embedded Systems Engineer";
+                case VLSI_FPGA -> "VLSI / FPGA Engineer";
+                case ECE -> "Electronics / ECE Engineer";
+            });
+            // Add secondary if score is at least 50% of primary
+            if (tracks.size() > 1) {
+                CareerTrack secondary = tracks.get(1);
+                // We don't have scores here, but we can infer from order
+                roles.add(switch (secondary) {
+                    case SOFTWARE -> "Software Engineer";
+                    case AI_ML -> "AI / ML Engineer";
+                    case EMBEDDED -> "Embedded Systems Engineer";
+                    case VLSI_FPGA -> "VLSI / FPGA Engineer";
+                    case ECE -> "Electronics / ECE Engineer";
+                });
             }
         }
         return roles;
@@ -377,8 +418,15 @@ final class DeterministicCandidateProfileBuilder {
     private List<String> section(List<String> lines, List<String> headings, List<String> stops) {
         List<String> output = new ArrayList<>(); boolean active = false;
         for (String line : lines) {
+            // Headings should match at the START of the line (after stripping common prefixes)
+            // to avoid matching words in the middle of paragraphs
+            boolean isHeading = headings.stream().anyMatch(h -> {
+                // Check if heading appears at the start of the line (after stripping common prefixes)
+                String pattern = "^[\\s\\-•*\\d\\.\\)]*\\s*" + java.util.regex.Pattern.quote(h) + "\\b";
+                return java.util.regex.Pattern.compile(pattern, java.util.regex.Pattern.CASE_INSENSITIVE).matcher(line).find();
+            });
+            if (isHeading) { active = true; continue; }
             String lower = line.toLowerCase(Locale.ROOT);
-            if (headings.stream().anyMatch(lower::contains)) { active = true; continue; }
             if (active && stops.stream().anyMatch(lower::contains)) break;
             if (active && output.size() < 8) output.add(line);
         }

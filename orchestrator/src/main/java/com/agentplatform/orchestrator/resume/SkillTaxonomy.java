@@ -86,7 +86,7 @@ public final class SkillTaxonomy {
         reg(Category.VLSI_FPGA, "Questa", "questa sim");
         reg(Category.VLSI_FPGA, "Intel FPGA");
         reg(Category.VLSI_FPGA, "Synthesis", "logic synthesis", "synopsys design compiler", "design compiler");
-        reg(Category.VLSI_FPGA, "Simulation", "simulation tools");
+        // reg(Category.VLSI_FPGA, "Simulation", "simulation tools"); // Removed - too generic, appears in many contexts
         reg(Category.VLSI_FPGA, "Digital Design");
         reg(Category.VLSI_FPGA, "ASIC", "asic design", "asic physical design");
         reg(Category.VLSI_FPGA, "SoC", "system on chip");

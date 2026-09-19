@@ -82,7 +82,7 @@ public class ResumeProfileService {
             // The technical detail (provider, model name, HTTP body) belongs in the server
             // log only. The user-facing notice must never carry it: this string is rendered
             // verbatim on the Resume page, and provider bodies contain raw JSON such as
-            // {"error":"model 'gemma3:4b' not found"}.
+            // {"error":"model 'X' not found"}.
             log.warn("LLM resume parsing unavailable ({}); falling back to the deterministic parser",
                     e.getMessage(), e);
             return new ProfileOutcome(deterministicBuilder.build(resumeText), false, AI_FALLBACK_NOTICE);

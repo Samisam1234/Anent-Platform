@@ -36,10 +36,8 @@ ollama:
   #
   # Override per machine without editing this file:
   #   OLLAMA_CHAT_MODEL=<exact name from `ollama list`>
-  # e.g. gemma3:4b, llama3.1:8b, qwen2.5:3b — use whatever `ollama list` shows.
-  # HARDWARE NOTE: gemma3:4b fits comfortably in 8 GB RAM; do not select a larger
-  # model without sufficient RAM.
-  chat-model: ${OLLAMA_CHAT_MODEL:gemma3:4b}
+  # e.g. llama3.2:3b, qwen2.5:1.5b — use whatever `ollama list` shows.
+  chat-model: ${OLLAMA_CHAT_MODEL:llama3.2:3b}
   embedding-model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
   # Request timeout for AI reasoning calls (default 2 minutes).
   # Cold-start model loads on CPU can exceed this; increase if needed.

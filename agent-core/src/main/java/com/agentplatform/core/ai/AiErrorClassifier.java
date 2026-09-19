@@ -21,7 +21,7 @@ public final class AiErrorClassifier {
 
     /**
      * Matches the wording local model servers actually use when a tag has not been
-     * pulled, e.g. Ollama's {@code model 'gemma3:4b' not found}. The literal needles in
+     * pulled, e.g. Ollama's {@code model 'llama3.2:3b' not found}. The literal needles in
      * {@link #classify} do not match this because the model name sits between
      * "model" and "not found".
      */

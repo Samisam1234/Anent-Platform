@@ -9,8 +9,7 @@ import java.time.Duration;
 /**
  * Builds {@link OllamaChatModel} instances on demand so the chat and custom AI
  * endpoints can switch models per request (e.g. {@code llama3.2:3b} for
- * fast chat, {@code qwen2.5:1.5b} for lightweight code,
- * {@code gemma3:4b} for reasoning).
+ * fast chat, {@code qwen2.5:1.5b} for lightweight code).
  *
  * <p>Configuration (both optional, with defaults):
  * <pre>
