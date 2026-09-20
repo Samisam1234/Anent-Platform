@@ -21,8 +21,9 @@
 
     // Server-side AI deadline is ollama.reasoning-timeout = 120s. Give the
     // server 30s of slack so its own fallback wins over a client-side abort.
+    // Increased to 5 minutes to accommodate first-run model cold start (model loading).
     const SERVER_AI_BUDGET_MS = 120000;
-    const CLIENT_TIMEOUT_MS = SERVER_AI_BUDGET_MS + 30000;
+    const CLIENT_TIMEOUT_MS = 300000;
     const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
     const dropZone = document.getElementById('resumeDropZone');
@@ -346,7 +347,7 @@
             `The server did not finish within ${Math.round(CLIENT_TIMEOUT_MS / 1000)} seconds, `
             + 'so the request was stopped. Your file was not lost.',
             [
-                'Start the AI provider (Ollama) and make sure the model is pulled: ollama pull gemma3:4b',
+                'Start the AI provider (Ollama) and make sure the model is pulled: ollama pull llama3.2:3b',
                 'The first run after starting Ollama is slow while the model loads into memory — retry once it is warm.',
                 'A smaller or text-only resume parses faster.'
             ]);
@@ -433,7 +434,7 @@
                 `The server did not finish within ${Math.round(CLIENT_TIMEOUT_MS / 1000)} seconds, `
                 + 'so the request was stopped. Your file was not lost.',
                 [
-                    'Start the AI provider (Ollama) and make sure the model is pulled: ollama pull gemma3:4b',
+                    'Start the AI provider (Ollama) and make sure the model is pulled: ollama pull llama3.2:3b',
                     'The first run after starting Ollama is slow while the model loads into memory — retry once it is warm.',
                     'A smaller or text-only resume parses faster.'
                 ]);
@@ -458,7 +459,7 @@
             hints.push('Remove the password from the file and upload it again.');
         }
         if (lower.includes('ollama') || lower.includes('connection refused') || lower.includes('connect')) {
-            hints.push('Start Ollama and pull the model: ollama pull gemma3:4b');
+            hints.push('Start Ollama and pull the model: ollama pull llama3.2:3b');
         }
         if (status === 413) hints.push('The file is larger than the server upload limit.');
         if (status === 400) hints.push('Check the file is a valid, uncorrupted PDF or DOCX.');

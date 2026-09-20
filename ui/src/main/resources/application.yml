@@ -39,11 +39,11 @@ ollama:
   # e.g. llama3.2:3b, qwen2.5:1.5b — use whatever `ollama list` shows.
   chat-model: ${OLLAMA_CHAT_MODEL:llama3.2:3b}
   embedding-model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
-  # Request timeout for AI reasoning calls (default 2 minutes).
+  # Request timeout for AI reasoning calls (default 5 minutes).
   # Cold-start model loads on CPU can exceed this; increase if needed.
   # A value of 0 or less is treated as "not configured" by ResumeProfileService,
   # which then uses OllamaChatModelFactory.DEFAULT_TIMEOUT.
-  reasoning-timeout: 120s
+  reasoning-timeout: 300s
 
 # ── Conversation Store Configuration ──────────────────────────────────
 # Select the ConversationStore implementation:
