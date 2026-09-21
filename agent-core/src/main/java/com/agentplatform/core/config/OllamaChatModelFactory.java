@@ -38,6 +38,10 @@ public class OllamaChatModelFactory {
         this.timeout = props.getReasoningTimeout();
     }
 
+    public LlmProviderRouter getRouter() {
+        return router;
+    }
+
     /**
      * Resolves the effective model name: the requested model if non-blank,
      * otherwise the configured default ({@code llama3.2:3b}).
