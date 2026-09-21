@@ -10,7 +10,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *   enabled: false
  *   api-key: ${GROQ_API_KEY}
  *   base-url: https://api.groq.com/openai/v1
- *   chat-model: llama-3.1-8b-instant
+ *   chat-model: openai/gpt-oss-20b
  *   reasoning-timeout: 120s
  * </pre>
  */
@@ -29,8 +29,8 @@ public class GroqProperties {
     /** Base URL for the Groq OpenAI-compatible API. */
     private String baseUrl = "https://api.groq.com/openai/v1";
 
-    /** Name of the Groq chat model to use (e.g. llama-3.1-8b-instant). */
-    private String chatModel = "llama-3.1-8b-instant";
+    /** Name of the Groq chat model to use (e.g. openai/gpt-oss-20b). */
+    private String chatModel = "openai/gpt-oss-20b";
 
     /** Request timeout for AI reasoning calls (default 2 minutes). */
     private java.time.Duration reasoningTimeout = java.time.Duration.ofMinutes(2);

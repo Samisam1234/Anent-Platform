@@ -56,8 +56,8 @@ groq:
   # Base URL for Groq's OpenAI-compatible endpoint.
   base-url: https://api.groq.com/openai/v1
   # Model name must match a model available on Groq.
-  # Current recommended models: llama-3.1-8b-instant (fast), llama-3.1-70b-versatile (quality)
-  chat-model: llama-3.1-8b-instant
+  # Current recommended model: openai/gpt-oss-20b
+  chat-model: openai/gpt-oss-20b
   # Request timeout for AI reasoning calls (default 2 minutes).
   reasoning-timeout: 120s
 

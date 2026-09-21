@@ -24,7 +24,7 @@ class GroqProviderTest {
         assertThat(provider.isConfigured()).isFalse();
         assertThat(provider.providerName()).isEqualTo("groq");
         assertThat(provider.providerLabel()).isEqualTo("Groq");
-        assertThat(provider.defaultModel()).isEqualTo("llama-3.1-8b-instant");
+        assertThat(provider.defaultModel()).isEqualTo("openai/gpt-oss-20b");
     }
 
     @Test
@@ -71,12 +71,12 @@ class GroqProviderTest {
         GroqProperties props = new GroqProperties();
         props.setEnabled(true);
         props.setApiKey("test-key");
-        props.setChatModel("llama-3.1-8b-instant");
+        props.setChatModel("openai/gpt-oss-20b");
 
         GroqProvider provider = new GroqProvider(props);
 
-        assertThat(provider.resolveModelName(null)).isEqualTo("llama-3.1-8b-instant");
-        assertThat(provider.resolveModelName("  ")).isEqualTo("llama-3.1-8b-instant");
+        assertThat(provider.resolveModelName(null)).isEqualTo("openai/gpt-oss-20b");
+        assertThat(provider.resolveModelName("  ")).isEqualTo("openai/gpt-oss-20b");
         assertThat(provider.resolveModelName("custom-model")).isEqualTo("custom-model");
     }
 
@@ -100,11 +100,11 @@ class GroqProviderTest {
         GroqProperties props = new GroqProperties();
         props.setEnabled(true);
         props.setApiKey("test-groq-key");
-        props.setChatModel("llama-3.1-8b-instant");
+        props.setChatModel("openai/gpt-oss-20b");
 
         GroqProvider provider = new GroqProvider(props);
 
-        ChatModel model = provider.chatModel("llama-3.1-8b-instant");
+        ChatModel model = provider.chatModel("openai/gpt-oss-20b");
         assertThat(model).isNotNull();
     }
 

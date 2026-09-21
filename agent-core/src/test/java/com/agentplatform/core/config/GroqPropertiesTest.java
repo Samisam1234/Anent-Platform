@@ -18,7 +18,7 @@ class GroqPropertiesTest {
         assertThat(properties.isEnabled()).isFalse();
         assertThat(properties.getApiKey()).isNull();
         assertThat(properties.getBaseUrl()).isEqualTo("https://api.groq.com/openai/v1");
-        assertThat(properties.getChatModel()).isEqualTo("llama-3.1-8b-instant");
+        assertThat(properties.getChatModel()).isEqualTo("openai/gpt-oss-20b");
         assertThat(properties.getReasoningTimeout()).isEqualTo(java.time.Duration.ofMinutes(2));
     }
 
