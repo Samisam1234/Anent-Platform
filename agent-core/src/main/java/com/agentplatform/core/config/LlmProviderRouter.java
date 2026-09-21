@@ -114,6 +114,7 @@ public class LlmProviderRouter {
         return switch (provider.providerName().toLowerCase()) {
             case "ollama" -> 10;
             case "gemini" -> 20;
+            case "groq" -> 30;
             default -> 100;
         };
     }

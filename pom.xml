@@ -97,6 +97,12 @@
                 <artifactId>langchain4j-google-ai-gemini</artifactId>
                 <version>${langchain4j.gemini.version}</version>
             </dependency>
+            <!-- LangChain4j OpenAI integration (for Groq and other OpenAI-compatible providers) -->
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-open-ai</artifactId>
+                <version>${langchain4j.version}</version>
+            </dependency>
 
             <!-- Apache PDFBox — resume parsing (PDF) -->
             <dependency>

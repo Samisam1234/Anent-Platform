@@ -49,6 +49,12 @@
             <artifactId>langchain4j-google-ai-gemini</artifactId>
         </dependency>
 
+        <!-- LangChain4j OpenAI integration (for Groq and other OpenAI-compatible providers) -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai</artifactId>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

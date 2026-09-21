@@ -45,6 +45,22 @@ ollama:
   # which then uses OllamaChatModelFactory.DEFAULT_TIMEOUT.
   reasoning-timeout: 300s
 
+# ── Groq AI Model Configuration ──────────────────────────────────────
+# Groq provides OpenAI-compatible API for fast inference.
+# These values are read by GroqProperties and GroqProvider in agent-core.
+groq:
+  enabled: false
+  # API key from https://console.groq.com/keys
+  # Override without editing this file: GROQ_API_KEY=<your-key>
+  api-key: ${GROQ_API_KEY:}
+  # Base URL for Groq's OpenAI-compatible endpoint.
+  base-url: https://api.groq.com/openai/v1
+  # Model name must match a model available on Groq.
+  # Current recommended models: llama-3.1-8b-instant (fast), llama-3.1-70b-versatile (quality)
+  chat-model: llama-3.1-8b-instant
+  # Request timeout for AI reasoning calls (default 2 minutes).
+  reasoning-timeout: 120s
+
 # ── Conversation Store Configuration ──────────────────────────────────
 # Select the ConversationStore implementation:
 #   inmemory  - In-memory store (default, survives browser navigation but not JVM restart)
