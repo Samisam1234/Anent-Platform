@@ -20,7 +20,12 @@ class OllamaChatModelFactoryTest {
         props.setBaseUrl("http://localhost:11434");
         props.setChatModel("llama3.2:3b");
         props.setReasoningTimeout(java.time.Duration.ofMinutes(3));
-        this.factory = new OllamaChatModelFactory(props);
+
+        // Create minimal router and provider for testing
+        OllamaProvider ollamaProvider = new OllamaProvider(props);
+        LlmProviderRouter router = new LlmProviderRouter(java.util.List.of(ollamaProvider));
+
+        this.factory = new OllamaChatModelFactory(props, router, ollamaProvider);
     }
 
     @Test
@@ -52,6 +57,13 @@ class OllamaChatModelFactoryTest {
     @DisplayName("chatModel builds a non-null ChatModel for the requested model")
     void chatModel_buildsModel() {
         ChatModel model = factory.chatModel("llama3.2:3b");
+        assertThat(model).isNotNull();
+    }
+
+    @Test
+    @DisplayName("chatModel with provider name builds a non-null ChatModel")
+    void chatModel_withProvider_buildsModel() {
+        ChatModel model = factory.chatModel("ollama", "llama3.2:3b");
         assertThat(model).isNotNull();
     }
 }
