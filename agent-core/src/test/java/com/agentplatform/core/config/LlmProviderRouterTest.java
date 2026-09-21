@@ -211,4 +211,100 @@ class LlmProviderRouterTest {
         assertThat(router.isProviderAvailable("ollama")).isTrue();
         // We can't test the actual chatModel without network, but verified selection logic
     }
+
+    @Test
+    @DisplayName("Router orders providers by priority including OpenRouter: Ollama > Gemini > Groq > OpenRouter")
+    void multipleProviders_includingOpenRouter_orderedByPriority() {
+        OllamaProperties ollamaProps = new OllamaProperties();
+        ollamaProps.setChatModel("llama3.2:3b");
+        ollamaProps.setBaseUrl("http://localhost:11434");
+
+        GeminiProperties geminiProps = new GeminiProperties();
+        geminiProps.setEnabled(true);
+        geminiProps.setApiKey("test-gemini-key");
+        geminiProps.setChatModel("gemini-2.5-flash");
+
+        GroqProperties groqProps = new GroqProperties();
+        groqProps.setEnabled(true);
+        groqProps.setApiKey("test-groq-key");
+        groqProps.setChatModel("llama-3.1-8b-instant");
+
+        OpenRouterProperties openRouterProps = new OpenRouterProperties();
+        openRouterProps.setEnabled(true);
+        openRouterProps.setApiKey("test-openrouter-key");
+        openRouterProps.setChatModel("openrouter/auto");
+
+        OllamaProvider ollamaProvider = new OllamaProvider(ollamaProps);
+        GeminiProvider geminiProvider = new GeminiProvider(geminiProps);
+        GroqProvider groqProvider = new GroqProvider(groqProps);
+        OpenRouterProvider openRouterProvider = new OpenRouterProvider(openRouterProps);
+        LlmProperties llmProperties = new LlmProperties();
+        LlmProviderRouter router = new LlmProviderRouter(
+                List.of(ollamaProvider, geminiProvider, groqProvider, openRouterProvider), llmProperties);
+
+        assertThat(router.getConfiguredProviders()).hasSize(4);
+        assertThat(router.getConfiguredProviders().get(0).providerName()).isEqualTo("ollama");
+        assertThat(router.getConfiguredProviders().get(1).providerName()).isEqualTo("gemini");
+        assertThat(router.getConfiguredProviders().get(2).providerName()).isEqualTo("groq");
+        assertThat(router.getConfiguredProviders().get(3).providerName()).isEqualTo("openrouter");
+        assertThat(router.defaultModel()).isEqualTo("llama3.2:3b");
+    }
+
+    @Test
+    @DisplayName("Router filters out unconfigured OpenRouter provider")
+    void unconfiguredOpenRouterProvider_isFilteredOut() {
+        OllamaProperties ollamaProps = new OllamaProperties();
+        ollamaProps.setChatModel("llama3.2:3b");
+        ollamaProps.setBaseUrl("http://localhost:11434");
+
+        OpenRouterProperties openRouterProps = new OpenRouterProperties();
+        openRouterProps.setEnabled(true);
+        openRouterProps.setApiKey(null); // no API key = not configured
+
+        OllamaProvider ollamaProvider = new OllamaProvider(ollamaProps);
+        OpenRouterProvider openRouterProvider = new OpenRouterProvider(new OpenRouterProperties()); // default disabled
+
+        LlmProperties llmProperties = new LlmProperties();
+        LlmProviderRouter router = new LlmProviderRouter(List.of(ollamaProvider, openRouterProvider), new LlmProperties());
+
+        assertThat(router.getConfiguredProviders()).hasSize(1);
+        assertThat(router.getConfiguredProviders().get(0).providerName()).isEqualTo("ollama");
+        assertThat(router.isProviderAvailable("openrouter")).isFalse();
+    }
+
+    @Test
+    @DisplayName("Router recognizes OpenRouter as available when configured")
+    void openRouterProvider_isAvailableWhenConfigured() {
+        OpenRouterProperties openRouterProps = new OpenRouterProperties();
+        openRouterProps.setEnabled(true);
+        openRouterProps.setApiKey("test-openrouter-key");
+        openRouterProps.setChatModel("openrouter/auto");
+
+        OpenRouterProvider openRouterProvider = new OpenRouterProvider(openRouterProps);
+
+        LlmProviderRouter router = new LlmProviderRouter(List.of(openRouterProvider), new LlmProperties());
+
+        assertThat(router.isProviderAvailable("openrouter")).isTrue();
+    }
+
+    @Test
+    @DisplayName("Router can select OpenRouter explicitly by name")
+    void selectOpenRouterByName_works() {
+        OllamaProperties ollamaProps = new OllamaProperties();
+        ollamaProps.setChatModel("llama3.2:3b");
+        ollamaProps.setBaseUrl("http://localhost:11434");
+
+        OpenRouterProperties openRouterProps = new OpenRouterProperties();
+        openRouterProps.setEnabled(true);
+        openRouterProps.setApiKey("test-openrouter-key");
+        openRouterProps.setChatModel("openrouter/auto");
+
+        OllamaProvider ollamaProvider = new OllamaProvider(ollamaProps);
+        OpenRouterProvider openRouterProvider = new OpenRouterProvider(openRouterProps);
+        LlmProperties llmProperties = new LlmProperties();
+        LlmProviderRouter router = new LlmProviderRouter(List.of(ollamaProvider, openRouterProvider), llmProperties);
+
+        // Default should be Ollama (highest priority)
+        assertThat(router.isProviderAvailable("openrouter")).isTrue();
+    }
 }

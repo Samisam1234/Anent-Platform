@@ -61,6 +61,22 @@ groq:
   # Request timeout for AI reasoning calls (default 2 minutes).
   reasoning-timeout: 120s
 
+# ── OpenRouter AI Model Configuration ────────────────────────────────
+# OpenRouter provides OpenAI-compatible API with access to multiple models.
+# These values are read by OpenRouterProperties and OpenRouterProvider in agent-core.
+openrouter:
+  enabled: false
+  # API key from https://openrouter.ai/keys
+  # Override without editing this file: OPENROUTER_API_KEY=<your-key>
+  api-key: ${OPENROUTER_API_KEY:}
+  # Base URL for OpenRouter's OpenAI-compatible endpoint.
+  base-url: https://openrouter.ai/api/v1
+  # Model name must match a model available on OpenRouter.
+  # Current recommended model: openrouter/auto
+  chat-model: openrouter/auto
+  # Request timeout for AI reasoning calls (default 2 minutes).
+  reasoning-timeout: 120s
+
 # ── Global LLM Routing Configuration ──────────────────────────────────
 # Controls which provider is used by default when no explicit provider is requested.
 # When not set, the highest-priority configured provider is used (Ollama > Gemini > Groq).
