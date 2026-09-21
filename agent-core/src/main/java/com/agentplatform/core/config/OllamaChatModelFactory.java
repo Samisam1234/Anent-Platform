@@ -47,12 +47,12 @@ public class OllamaChatModelFactory {
     }
 
     /**
-     * Returns a ready-to-use {@link ChatModel} backed by Ollama running
-     * {@code resolveModelName(model)}. Preserves original behavior for
-     * backward compatibility.
+     * Returns a ready-to-use {@link ChatModel} from the configured default provider
+     * (or highest-priority configured provider if no default is configured).
+     * This replaces the previous hardcoded "ollama" behavior.
      */
     public ChatModel chatModel(String model) {
-        return chatModel("ollama", model);
+        return router.chatModel(null, model);
     }
 
     /**

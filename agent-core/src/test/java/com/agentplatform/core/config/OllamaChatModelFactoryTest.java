@@ -23,7 +23,8 @@ class OllamaChatModelFactoryTest {
 
         // Create minimal router and provider for testing
         OllamaProvider ollamaProvider = new OllamaProvider(props);
-        LlmProviderRouter router = new LlmProviderRouter(java.util.List.of(ollamaProvider));
+        LlmProperties llmProperties = new LlmProperties();
+        LlmProviderRouter router = new LlmProviderRouter(java.util.List.of(ollamaProvider), llmProperties);
 
         this.factory = new OllamaChatModelFactory(props, router, ollamaProvider);
     }
@@ -64,6 +65,13 @@ class OllamaChatModelFactoryTest {
     @DisplayName("chatModel with provider name builds a non-null ChatModel")
     void chatModel_withProvider_buildsModel() {
         ChatModel model = factory.chatModel("ollama", "llama3.2:3b");
+        assertThat(model).isNotNull();
+    }
+
+    @Test
+    @DisplayName("chatModel uses provider-neutral router path (no longer hardcodes ollama)")
+    void chatModel_usesProviderNeutralPath() {
+        ChatModel model = factory.chatModel(null);
         assertThat(model).isNotNull();
     }
 }

@@ -20,7 +20,7 @@ import java.util.Optional;
  * <p>
  * This router does NOT implement automatic failover or retries.
  * It simply selects the appropriate provider based on the requested
- * provider name or falls back to the highest-priority configured provider.
+ * provider name or the configured default provider.
  * </p>
  */
 @Service
@@ -29,22 +29,26 @@ public class LlmProviderRouter {
     private static final Logger log = LoggerFactory.getLogger(LlmProviderRouter.class);
 
     private final List<LlmProvider> providers;
+    private final String configuredDefaultProvider;
 
-    public LlmProviderRouter(List<LlmProvider> providers) {
+    public LlmProviderRouter(List<LlmProvider> providers, LlmProperties llmProperties) {
         // Filter to only configured providers and sort by priority
         this.providers = providers.stream()
                 .filter(LlmProvider::isConfigured)
                 .sorted(Comparator.comparingInt(this::getProviderPriority))
                 .toList();
 
-        log.info("LlmProviderRouter initialized with {} configured providers: {}",
+        this.configuredDefaultProvider = llmProperties != null ? llmProperties.getDefaultProvider() : null;
+
+        log.info("LlmProviderRouter initialized with {} configured providers: {}, defaultProvider={}",
                 this.providers.size(),
-                this.providers.stream().map(LlmProvider::providerName).toList());
+                this.providers.stream().map(LlmProvider::providerName).toList(),
+                configuredDefaultProvider);
     }
 
     /**
-     * Returns a {@link ChatModel} from the specified provider, or the highest-priority
-     * configured provider if no provider name is given.
+     * Returns a {@link ChatModel} from the specified provider, or the configured
+     * default provider, or the highest-priority configured provider if no default is set.
      *
      * @param providerName the name of the provider to use (e.g., "ollama", "gemini"), or null for default
      * @param model the model name to use, or null for the provider's default
@@ -53,19 +57,29 @@ public class LlmProviderRouter {
      */
     public ChatModel chatModel(String providerName, String model) {
         if (providers.isEmpty()) {
-            throw new IllegalStateException("No LLM providers are configured. Check ollama and gemini configuration.");
+            throw new IllegalStateException("No LLM providers are configured. Check ollama, gemini, and groq configuration.");
         }
 
         LlmProvider provider;
         if (providerName != null && !providerName.isBlank()) {
+            // Explicit provider requested
             provider = providers.stream()
                     .filter(p -> p.providerName().equalsIgnoreCase(providerName))
                     .findFirst()
                     .orElseThrow(() -> new IllegalStateException(
                             "Provider '" + providerName + "' is not configured or not available. Available: " +
                                     providers.stream().map(LlmProvider::providerName).toList()));
+        } else if (configuredDefaultProvider != null && !configuredDefaultProvider.isBlank()) {
+            // Use configured default provider
+            provider = providers.stream()
+                    .filter(p -> p.providerName().equalsIgnoreCase(configuredDefaultProvider))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Configured default provider '" + configuredDefaultProvider + "' is not configured or not available. Available: " +
+                                    providers.stream().map(LlmProvider::providerName).toList()));
         } else {
-            provider = providers.get(0); // highest priority
+            // Fall back to highest-priority configured provider
+            provider = providers.get(0);
         }
 
         log.debug("Routing to provider: {} for model: {}", provider.providerName(), model);
@@ -73,11 +87,19 @@ public class LlmProviderRouter {
     }
 
     /**
-     * Returns the highest-priority configured provider's default model.
+     * Returns the configured default provider's default model, or the highest-priority
+     * configured provider's default model if no default is configured.
      */
     public String defaultModel() {
         if (providers.isEmpty()) {
             return OllamaChatModelFactory.DEFAULT_MODEL;
+        }
+        if (configuredDefaultProvider != null && !configuredDefaultProvider.isBlank()) {
+            return providers.stream()
+                    .filter(p -> p.providerName().equalsIgnoreCase(configuredDefaultProvider))
+                    .findFirst()
+                    .map(LlmProvider::defaultModel)
+                    .orElse(providers.get(0).defaultModel());
         }
         return providers.get(0).defaultModel();
     }
@@ -104,6 +126,13 @@ public class LlmProviderRouter {
         return providers.stream()
                 .filter(p -> p.providerName().equalsIgnoreCase(providerName))
                 .findFirst();
+    }
+
+    /**
+     * Returns the configured default provider name (may be null).
+     */
+    public String getConfiguredDefaultProvider() {
+        return configuredDefaultProvider;
     }
 
     /**

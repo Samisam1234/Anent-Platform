@@ -61,6 +61,14 @@ groq:
   # Request timeout for AI reasoning calls (default 2 minutes).
   reasoning-timeout: 120s
 
+# ── Global LLM Routing Configuration ──────────────────────────────────
+# Controls which provider is used by default when no explicit provider is requested.
+# When not set, the highest-priority configured provider is used (Ollama > Gemini > Groq).
+llm:
+  # Default provider name: "ollama", "gemini", or "groq".
+  # Override without editing this file: LLM_DEFAULT_PROVIDER=<provider>
+  default-provider: ${LLM_DEFAULT_PROVIDER:}
+
 # ── Conversation Store Configuration ──────────────────────────────────
 # Select the ConversationStore implementation:
 #   inmemory  - In-memory store (default, survives browser navigation but not JVM restart)
