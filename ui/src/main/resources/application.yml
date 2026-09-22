@@ -77,6 +77,22 @@ openrouter:
   # Request timeout for AI reasoning calls (default 2 minutes).
   reasoning-timeout: 120s
 
+# ── Cerebras AI Model Configuration ──────────────────────────────────
+# Cerebras provides OpenAI-compatible API for fast inference.
+# These values are read by CerebrasProperties and CerebrasProvider in agent-core.
+cerebras:
+  enabled: false
+  # API key from https://cloud.cerebras.ai/
+  # Override without editing this file: CEREBRAS_API_KEY=<your-key>
+  api-key: ${CEREBRAS_API_KEY:}
+  # Base URL for Cerebras's OpenAI-compatible endpoint.
+  base-url: https://api.cerebras.ai/v1
+  # Model name must match a model available on Cerebras.
+  # Current recommended model: llama3.1-8b
+  chat-model: llama3.1-8b
+  # Request timeout for AI reasoning calls (default 2 minutes).
+  reasoning-timeout: 120s
+
 # ── Global LLM Routing Configuration ──────────────────────────────────
 # Controls which provider is used by default when no explicit provider is requested.
 # When not set, the highest-priority configured provider is used (Ollama > Gemini > Groq).

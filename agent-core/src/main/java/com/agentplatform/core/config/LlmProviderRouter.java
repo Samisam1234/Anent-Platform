@@ -57,7 +57,7 @@ public class LlmProviderRouter {
      */
     public ChatModel chatModel(String providerName, String model) {
         if (providers.isEmpty()) {
-            throw new IllegalStateException("No LLM providers are configured. Check ollama, gemini, groq, and openrouter configuration.");
+            throw new IllegalStateException("No LLM providers are configured. Check ollama, gemini, groq, openrouter, and cerebras configuration.");
         }
 
         LlmProvider provider;
@@ -145,6 +145,7 @@ public class LlmProviderRouter {
             case "gemini" -> 20;
             case "groq" -> 30;
             case "openrouter" -> 40;
+            case "cerebras" -> 50;
             default -> 100;
         };
     }

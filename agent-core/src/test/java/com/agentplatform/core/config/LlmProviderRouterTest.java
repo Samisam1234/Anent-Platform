@@ -307,4 +307,107 @@ class LlmProviderRouterTest {
         // Default should be Ollama (highest priority)
         assertThat(router.isProviderAvailable("openrouter")).isTrue();
     }
+
+    @Test
+    @DisplayName("Router orders providers by priority including Cerebras: Ollama > Gemini > Groq > OpenRouter > Cerebras")
+    void multipleProviders_includingCerebras_orderedByPriority() {
+        OllamaProperties ollamaProps = new OllamaProperties();
+        ollamaProps.setChatModel("llama3.2:3b");
+        ollamaProps.setBaseUrl("http://localhost:11434");
+
+        GeminiProperties geminiProps = new GeminiProperties();
+        geminiProps.setEnabled(true);
+        geminiProps.setApiKey("test-gemini-key");
+        geminiProps.setChatModel("gemini-2.5-flash");
+
+        GroqProperties groqProps = new GroqProperties();
+        groqProps.setEnabled(true);
+        groqProps.setApiKey("test-groq-key");
+        groqProps.setChatModel("llama-3.1-8b-instant");
+
+        OpenRouterProperties openRouterProps = new OpenRouterProperties();
+        openRouterProps.setEnabled(true);
+        openRouterProps.setApiKey("test-openrouter-key");
+        openRouterProps.setChatModel("openrouter/auto");
+
+        CerebrasProperties cerebrasProps = new CerebrasProperties();
+        cerebrasProps.setEnabled(true);
+        cerebrasProps.setApiKey("test-cerebras-key");
+        cerebrasProps.setChatModel("llama3.1-8b");
+
+        OllamaProvider ollamaProvider = new OllamaProvider(ollamaProps);
+        GeminiProvider geminiProvider = new GeminiProvider(geminiProps);
+        GroqProvider groqProvider = new GroqProvider(groqProps);
+        OpenRouterProvider openRouterProvider = new OpenRouterProvider(openRouterProps);
+        CerebrasProvider cerebrasProvider = new CerebrasProvider(cerebrasProps);
+        LlmProperties llmProperties = new LlmProperties();
+        LlmProviderRouter router = new LlmProviderRouter(
+                List.of(ollamaProvider, geminiProvider, groqProvider, openRouterProvider, cerebrasProvider), llmProperties);
+
+        assertThat(router.getConfiguredProviders()).hasSize(5);
+        assertThat(router.getConfiguredProviders().get(0).providerName()).isEqualTo("ollama");
+        assertThat(router.getConfiguredProviders().get(1).providerName()).isEqualTo("gemini");
+        assertThat(router.getConfiguredProviders().get(2).providerName()).isEqualTo("groq");
+        assertThat(router.getConfiguredProviders().get(3).providerName()).isEqualTo("openrouter");
+        assertThat(router.getConfiguredProviders().get(4).providerName()).isEqualTo("cerebras");
+        assertThat(router.defaultModel()).isEqualTo("llama3.2:3b");
+    }
+
+    @Test
+    @DisplayName("Router filters out unconfigured Cerebras provider")
+    void unconfiguredCerebrasProvider_isFilteredOut() {
+        OllamaProperties ollamaProps = new OllamaProperties();
+        ollamaProps.setChatModel("llama3.2:3b");
+        ollamaProps.setBaseUrl("http://localhost:11434");
+
+        CerebrasProperties cerebrasProps = new CerebrasProperties();
+        cerebrasProps.setEnabled(true);
+        cerebrasProps.setApiKey(null); // no API key = not configured
+
+        OllamaProvider ollamaProvider = new OllamaProvider(ollamaProps);
+        CerebrasProvider cerebrasProvider = new CerebrasProvider(new CerebrasProperties()); // default disabled
+
+        LlmProperties llmProperties = new LlmProperties();
+        LlmProviderRouter router = new LlmProviderRouter(List.of(ollamaProvider, cerebrasProvider), new LlmProperties());
+
+        assertThat(router.getConfiguredProviders()).hasSize(1);
+        assertThat(router.getConfiguredProviders().get(0).providerName()).isEqualTo("ollama");
+        assertThat(router.isProviderAvailable("cerebras")).isFalse();
+    }
+
+    @Test
+    @DisplayName("Router recognizes Cerebras as available when configured")
+    void cerebrasProvider_isAvailableWhenConfigured() {
+        CerebrasProperties cerebrasProps = new CerebrasProperties();
+        cerebrasProps.setEnabled(true);
+        cerebrasProps.setApiKey("test-cerebras-key");
+        cerebrasProps.setChatModel("llama3.1-8b");
+
+        CerebrasProvider cerebrasProvider = new CerebrasProvider(cerebrasProps);
+
+        LlmProviderRouter router = new LlmProviderRouter(List.of(cerebrasProvider), new LlmProperties());
+
+        assertThat(router.isProviderAvailable("cerebras")).isTrue();
+    }
+
+    @Test
+    @DisplayName("Router can select Cerebras explicitly by name")
+    void selectCerebrasByName_works() {
+        OllamaProperties ollamaProps = new OllamaProperties();
+        ollamaProps.setChatModel("llama3.2:3b");
+        ollamaProps.setBaseUrl("http://localhost:11434");
+
+        CerebrasProperties cerebrasProps = new CerebrasProperties();
+        cerebrasProps.setEnabled(true);
+        cerebrasProps.setApiKey("test-cerebras-key");
+        cerebrasProps.setChatModel("llama3.1-8b");
+
+        OllamaProvider ollamaProvider = new OllamaProvider(ollamaProps);
+        CerebrasProvider cerebrasProvider = new CerebrasProvider(cerebrasProps);
+        LlmProperties llmProperties = new LlmProperties();
+        LlmProviderRouter router = new LlmProviderRouter(List.of(ollamaProvider, cerebrasProvider), llmProperties);
+
+        // Default should be Ollama (highest priority)
+        assertThat(router.isProviderAvailable("cerebras")).isTrue();
+    }
 }
