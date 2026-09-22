@@ -56,8 +56,8 @@ public class LlmProviderRouter {
      * @throws IllegalStateException if no providers are configured or the named provider is not available
      */
     public ChatModel chatModel(String providerName, String model) {
-        if (providers.isEmpty()) {
-            throw new IllegalStateException("No LLM providers are configured. Check ollama, gemini, groq, openrouter, and cerebras configuration.");
+if (providers.isEmpty()) {
+            throw new IllegalStateException("No LLM providers are configured. Check ollama, gemini, groq, openrouter, cerebras, and cloudflare-ai-gateway configuration.");
         }
 
         LlmProvider provider;
@@ -135,7 +135,7 @@ public class LlmProviderRouter {
         return configuredDefaultProvider;
     }
 
-    /**
+/**
      * Priority ordering for providers (lower = higher priority).
      * This can be extended via configuration in the future.
      */
@@ -146,6 +146,7 @@ public class LlmProviderRouter {
             case "groq" -> 30;
             case "openrouter" -> 40;
             case "cerebras" -> 50;
+            case "cloudflare-ai-gateway" -> 60;
             default -> 100;
         };
     }

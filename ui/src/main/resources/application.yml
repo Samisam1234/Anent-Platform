@@ -93,6 +93,29 @@ cerebras:
   # Request timeout for AI reasoning calls (default 2 minutes).
   reasoning-timeout: 120s
 
+# ── Cloudflare AI Gateway Configuration ───────────────────────────────
+# Cloudflare AI Gateway provides OpenAI-compatible API with access to multiple models.
+# These values are read by CloudflareAiGatewayProperties and CloudflareAiGatewayProvider in agent-core.
+cloudflare-ai-gateway:
+  enabled: false
+  # API token from https://dash.cloudflare.com/profile/api-tokens
+  # Override without editing this file: CLOUDFLARE_API_TOKEN=<your-token>
+  api-key: ${CLOUDFLARE_API_TOKEN:}
+  # Cloudflare Account ID
+  # Override without editing this file: CLOUDFLARE_ACCOUNT_ID=<your-account-id>
+  account-id: ${CLOUDFLARE_ACCOUNT_ID:}
+  # Cloudflare AI Gateway ID (optional, for gateway-specific routing)
+  # Override without editing this file: CLOUDFLARE_AI_GATEWAY_ID=<your-gateway-id>
+  gateway-id: ${CLOUDFLARE_AI_GATEWAY_ID:}
+  # Base URL for Cloudflare AI Gateway's OpenAI-compatible endpoint.
+  # Note: {accountId} will be replaced with the configured account-id at runtime.
+  base-url: https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/v1
+  # Model name must match a model available on Cloudflare AI Gateway.
+  # Current recommended model: @cf/meta/llama-3.1-8b-instruct
+  chat-model: @cf/meta/llama-3.1-8b-instruct
+  # Request timeout for AI reasoning calls (default 2 minutes).
+  reasoning-timeout: 120s
+
 # ── Global LLM Routing Configuration ──────────────────────────────────
 # Controls which provider is used by default when no explicit provider is requested.
 # When not set, the highest-priority configured provider is used (Ollama > Gemini > Groq).
