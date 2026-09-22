@@ -12,7 +12,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *   account-id: ${CLOUDFLARE_ACCOUNT_ID}
  *   gateway-id: ${CLOUDFLARE_AI_GATEWAY_ID:}
  *   base-url: https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/v1
- *   chat-model: @cf/meta/llama-3.1-8b-instruct
+ *   chat-model: @cf/meta/llama-3.1-8b-instruct-fp8
  *   reasoning-timeout: 120s
  * </pre>
  */
@@ -37,8 +37,8 @@ public class CloudflareAiGatewayProperties {
     /** Base URL for the Cloudflare AI Gateway OpenAI-compatible API. */
     private String baseUrl = "https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/v1";
 
-    /** Name of the Cloudflare AI Gateway chat model to use (e.g., @cf/meta/llama-3.1-8b-instruct). */
-    private String chatModel = "@cf/meta/llama-3.1-8b-instruct";
+    /** Name of the Cloudflare AI Gateway chat model to use (e.g., @cf/meta/llama-3.1-8b-instruct-fp8). */
+    private String chatModel = "@cf/meta/llama-3.1-8b-instruct-fp8";
 
     /** Request timeout for AI reasoning calls (default 2 minutes). */
     private java.time.Duration reasoningTimeout = java.time.Duration.ofMinutes(2);

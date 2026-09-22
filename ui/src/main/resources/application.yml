@@ -111,8 +111,8 @@ cloudflare-ai-gateway:
   # Note: {accountId} will be replaced with the configured account-id at runtime.
   base-url: https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/v1
   # Model name must match a model available on Cloudflare AI Gateway.
-  # Current recommended model: @cf/meta/llama-3.1-8b-instruct
-  chat-model: "@cf/meta/llama-3.1-8b-instruct"
+  # Current recommended model: @cf/meta/llama-3.1-8b-instruct-fp8
+  chat-model: "@cf/meta/llama-3.1-8b-instruct-fp8"
   # Request timeout for AI reasoning calls (default 2 minutes).
   reasoning-timeout: 120s
 

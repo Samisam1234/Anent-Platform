@@ -1,12 +1,26 @@
 package com.agentplatform.core.config;
 
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.Content;
+import dev.langchain4j.data.message.TextContent;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.ModelProvider;
+import dev.langchain4j.model.chat.Capability;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.listener.ChatModelListener;
+import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.request.ChatRequestParameters;
+import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Cloudflare AI Gateway (OpenAI-compatible) implementation of {@link LlmProvider}.
@@ -56,14 +70,14 @@ public class CloudflareAiGatewayProvider implements LlmProvider {
         String modelName = resolveModelName(model);
         String effectiveBaseUrl = baseUrl.replace("{accountId}", accountId);
         log.debug("Building OpenAiChatModel (Cloudflare AI Gateway) for model: {}", modelName);
-        return OpenAiChatModel.builder()
+        return new CloudflareCompatibleChatModel(OpenAiChatModel.builder()
                 .apiKey(apiKey)
                 .baseUrl(baseUrl.replace("{accountId}", accountId))
                 .modelName(modelName)
                 .temperature(0.1)
                 .maxTokens(4096)
                 .timeout(timeout)
-                .build();
+                .build());
     }
 
     @Override
@@ -97,5 +111,77 @@ public class CloudflareAiGatewayProvider implements LlmProvider {
      */
     public String resolveModelName(String model) {
         return (model == null || model.isBlank()) ? defaultModel : model;
+    }
+
+    /**
+     * Cloudflare Workers AI OpenAI-compatible endpoint rejects LangChain4j's
+     * multi-{@link Content} message serialization (HTTP 503 "Type mismatch of
+     * '/messages/0/content', 'array' not in 'string'") and tool-enabled requests.
+     * This wrapper normalizes every incoming message to plain single-string content
+     * and drops tool specifications BEFORE they reach the wire — Cloudflare only,
+     * every other provider still receives the raw request with tools.
+     */
+    static final class CloudflareCompatibleChatModel implements ChatModel {
+
+        private final ChatModel delegate;
+
+        CloudflareCompatibleChatModel(ChatModel delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public ChatResponse chat(ChatRequest chatRequest) {
+            // ponytail: request-level parameters are dropped; AgentChatService sends none,
+            // the delegate re-applies its own defaults (fp8 model, temperature, maxTokens).
+            return delegate.chat(ChatRequest.builder()
+                    .messages(chatRequest.messages().stream()
+                            .map(CloudflareCompatibleChatModel::toCloudflareCompatible)
+                            .toList())
+                    .build());
+        }
+
+        @Override
+        public ChatRequestParameters defaultRequestParameters() {
+            return delegate.defaultRequestParameters();
+        }
+
+        @Override
+        public List<ChatModelListener> listeners() {
+            return delegate.listeners();
+        }
+
+        @Override
+        public ModelProvider provider() {
+            return delegate.provider();
+        }
+
+        @Override
+        public Set<Capability> supportedCapabilities() {
+            return delegate.supportedCapabilities();
+        }
+
+        private static ChatMessage toCloudflareCompatible(ChatMessage message) {
+            if (message instanceof UserMessage userMessage) {
+                if (userMessage.hasSingleText()) {
+                    return userMessage;
+                }
+                return UserMessage.from(textOf(userMessage.contents()));
+            }
+            if (message instanceof AiMessage aiMessage) {
+                if (!aiMessage.hasToolExecutionRequests()) {
+                    return aiMessage;
+                }
+                String text = aiMessage.text() != null ? aiMessage.text() : "";
+                return AiMessage.from(text);
+            }
+            return message;
+        }
+
+        private static String textOf(List<Content> contents) {
+            return contents.stream()
+                    .filter(TextContent.class::isInstance)
+                    .map(content -> ((TextContent) content).text())
+                    .collect(Collectors.joining("\n"));
+        }
     }
 }

@@ -20,7 +20,7 @@ class CloudflareAiGatewayPropertiesTest {
         assertThat(properties.getAccountId()).isNull();
         assertThat(properties.getGatewayId()).isNull();
         assertThat(properties.getBaseUrl()).isEqualTo("https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/v1");
-        assertThat(properties.getChatModel()).isEqualTo("@cf/meta/llama-3.1-8b-instruct");
+        assertThat(properties.getChatModel()).isEqualTo("@cf/meta/llama-3.1-8b-instruct-fp8");
         assertThat(properties.getReasoningTimeout()).isEqualTo(java.time.Duration.ofMinutes(2));
     }
 

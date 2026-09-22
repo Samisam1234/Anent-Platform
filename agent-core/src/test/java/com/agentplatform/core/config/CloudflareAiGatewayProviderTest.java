@@ -25,7 +25,7 @@ class CloudflareAiGatewayProviderTest {
         assertThat(provider.isConfigured()).isFalse();
         assertThat(provider.providerName()).isEqualTo("cloudflare-ai-gateway");
         assertThat(provider.providerLabel()).isEqualTo("Cloudflare AI Gateway");
-        assertThat(provider.defaultModel()).isEqualTo("@cf/meta/llama-3.1-8b-instruct");
+        assertThat(provider.defaultModel()).isEqualTo("@cf/meta/llama-3.1-8b-instruct-fp8");
     }
 
     @Test
@@ -89,12 +89,12 @@ class CloudflareAiGatewayProviderTest {
         props.setEnabled(true);
         props.setApiKey("test-key");
         props.setAccountId("test-account-id");
-        props.setChatModel("@cf/meta/llama-3.1-8b-instruct");
+        props.setChatModel("@cf/meta/llama-3.1-8b-instruct-fp8");
 
         CloudflareAiGatewayProvider provider = new CloudflareAiGatewayProvider(props);
 
-        assertThat(provider.resolveModelName(null)).isEqualTo("@cf/meta/llama-3.1-8b-instruct");
-        assertThat(provider.resolveModelName("  ")).isEqualTo("@cf/meta/llama-3.1-8b-instruct");
+        assertThat(provider.resolveModelName(null)).isEqualTo("@cf/meta/llama-3.1-8b-instruct-fp8");
+        assertThat(provider.resolveModelName("  ")).isEqualTo("@cf/meta/llama-3.1-8b-instruct-fp8");
         assertThat(provider.resolveModelName("custom-model")).isEqualTo("custom-model");
     }
 
@@ -120,11 +120,11 @@ class CloudflareAiGatewayProviderTest {
         props.setEnabled(true);
         props.setApiKey("test-cloudflare-token");
         props.setAccountId("test-account-id");
-        props.setChatModel("@cf/meta/llama-3.1-8b-instruct");
+        props.setChatModel("@cf/meta/llama-3.1-8b-instruct-fp8");
 
         CloudflareAiGatewayProvider provider = new CloudflareAiGatewayProvider(props);
 
-        ChatModel model = provider.chatModel("@cf/meta/llama-3.1-8b-instruct");
+        ChatModel model = provider.chatModel("@cf/meta/llama-3.1-8b-instruct-fp8");
         assertThat(model).isNotNull();
     }
 
@@ -163,11 +163,11 @@ class CloudflareAiGatewayProviderTest {
         props.setEnabled(true);
         props.setApiKey("test-cloudflare-token");
         props.setAccountId("test-account-id");
-        props.setChatModel("@cf/meta/llama-3.1-8b-instruct");
+        props.setChatModel("@cf/meta/llama-3.1-8b-instruct-fp8");
 
         CloudflareAiGatewayProvider provider = new CloudflareAiGatewayProvider(props);
 
-        ChatModel model = provider.chatModel("@cf/meta/llama-3.1-8b-instruct");
+        ChatModel model = provider.chatModel("@cf/meta/llama-3.1-8b-instruct-fp8");
         assertThat(model).isNotNull();
         // The maxTokens=4096 is set in the OpenAiChatModel builder.
         // We verify the model builds successfully with the maxTokens configuration.
