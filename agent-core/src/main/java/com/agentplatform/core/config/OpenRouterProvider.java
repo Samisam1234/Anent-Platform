@@ -53,6 +53,7 @@ public class OpenRouterProvider implements LlmProvider {
                 .baseUrl(baseUrl)
                 .modelName(modelName)
                 .temperature(0.1)
+                .maxTokens(4096)
                 .timeout(timeout)
                 .build();
     }
