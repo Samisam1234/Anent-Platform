@@ -97,7 +97,7 @@ cerebras:
 # Cloudflare AI Gateway provides OpenAI-compatible API with access to multiple models.
 # These values are read by CloudflareAiGatewayProperties and CloudflareAiGatewayProvider in agent-core.
 cloudflare-ai-gateway:
-  enabled: false
+  enabled: ${CLOUDFLARE_ENABLED:false}
   # API token from https://dash.cloudflare.com/profile/api-tokens
   # Override without editing this file: CLOUDFLARE_API_TOKEN=<your-token>
   api-key: ${CLOUDFLARE_API_TOKEN:}

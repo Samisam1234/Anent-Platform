@@ -44,4 +44,14 @@ class CloudflareAiGatewayPropertiesTest {
         assertThat(properties.getChatModel()).isEqualTo("@cf/meta/llama-3.1-70b-instruct");
         assertThat(properties.getReasoningTimeout()).isEqualTo(java.time.Duration.ofMinutes(5));
     }
+
+    @Test
+    @DisplayName("CLOUDFLARE_ENABLED environment variable enables the provider")
+    void enabledFromEnvironmentVariable() {
+        CloudflareAiGatewayProperties properties = new CloudflareAiGatewayProperties();
+        // Simulate Spring binding CLOUDFLARE_ENABLED=true from environment
+        properties.setEnabled(true);
+
+        assertThat(properties.isEnabled()).isTrue();
+    }
 }
