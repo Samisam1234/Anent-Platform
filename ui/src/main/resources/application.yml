@@ -120,9 +120,21 @@ cloudflare-ai-gateway:
 # Controls which provider is used by default when no explicit provider is requested.
 # When not set, the highest-priority configured provider is used (Ollama > Gemini > Groq).
 llm:
-  # Default provider name: "ollama", "gemini", or "groq".
+  # Default provider name: "ollama", "gemini", "groq".
   # Override without editing this file: LLM_DEFAULT_PROVIDER=<provider>
   default-provider: ${LLM_DEFAULT_PROVIDER:}
+  # ── Cooldown / circuit breaker (Phase 13.9) ──
+  # Applies to automatic failover only. A provider that fails `failure-threshold`
+  # consecutive eligible requests (auth 401/403, 404/model-unavailable,
+  # 429/quota/rate-limit/payment-required, 5xx, timeout, connection failure) is
+  # skipped by automatic failover for `cooldown-duration`, then becomes eligible
+  # again. A successful request resets its failure count and clears cooldown
+  # immediately. Providers are never "retried" inside a single request, and
+  # explicit provider requests are never redirected by cooldown. State is
+  # in-memory only, per runtime instance.
+  # Override without editing this file: LLM_FAILURE_THRESHOLD=<n>, LLM_COOLDOWN_DURATION=<dur e.g. 60s>
+  failure-threshold: ${LLM_FAILURE_THRESHOLD:3}
+  cooldown-duration: ${LLM_COOLDOWN_DURATION:30s}
 
 # ── Conversation Store Configuration ──────────────────────────────────
 # Select the ConversationStore implementation:

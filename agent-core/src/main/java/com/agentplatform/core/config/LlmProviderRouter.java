@@ -6,12 +6,17 @@ import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Router for LLM providers.
@@ -24,7 +29,10 @@ import java.util.Optional;
  * When no explicit provider is requested, a {@link FailoverChatModel} is
  * returned that tries the configured default provider first, then the
  * remaining configured providers by priority, each exactly once, until one
- * succeeds. Failover lives here only — providers are not failover-aware.
+ * succeeds. An in-memory cooldown (Phase 13.9) skips providers that recently
+ * hit the configured failure threshold; explicit provider requests bypass the
+ * cooldown entirely. Failover and cooldown live here only — providers are not
+ * failover-aware.
  * </p>
  */
 @Service
@@ -34,20 +42,35 @@ public class LlmProviderRouter {
 
     private final List<LlmProvider> providers;
     private final String configuredDefaultProvider;
+    private final Clock clock;
+    private final int failureThreshold;
+    private final Duration cooldownDuration;
+    private final ConcurrentHashMap<String, ProviderState> providerStates = new ConcurrentHashMap<>();
 
+    @Autowired
     public LlmProviderRouter(List<LlmProvider> providers, LlmProperties llmProperties) {
+        this(providers, llmProperties, Clock.systemUTC());
+    }
+
+    LlmProviderRouter(List<LlmProvider> providers, LlmProperties llmProperties, Clock clock) {
+        LlmProperties props = llmProperties != null ? llmProperties : new LlmProperties();
         // Filter to only configured providers and sort by priority
         this.providers = providers.stream()
                 .filter(LlmProvider::isConfigured)
                 .sorted(Comparator.comparingInt(this::getProviderPriority))
                 .toList();
 
-        this.configuredDefaultProvider = llmProperties != null ? llmProperties.getDefaultProvider() : null;
+        this.configuredDefaultProvider = props.getDefaultProvider();
+        this.clock = clock;
+        this.failureThreshold = props.getFailureThreshold();
+        this.cooldownDuration = props.getCooldownDuration();
 
-        log.info("LlmProviderRouter initialized with {} configured providers: {}, defaultProvider={}",
+        log.info("LlmProviderRouter initialized with {} configured providers: {}, defaultProvider={}, failureThreshold={}, cooldownDuration={}",
                 this.providers.size(),
                 this.providers.stream().map(LlmProvider::providerName).toList(),
-                configuredDefaultProvider);
+                configuredDefaultProvider,
+                failureThreshold,
+                cooldownDuration);
     }
 
     /**
@@ -79,7 +102,7 @@ if (providers.isEmpty()) {
         }
 
         // No explicit provider: failover across all configured providers.
-        return new FailoverChatModel(candidateProviders(), model);
+        return new FailoverChatModel(this, candidateProviders(), model);
     }
 
     /**
@@ -166,16 +189,85 @@ if (providers.isEmpty()) {
         };
     }
 
+    // ─── Cooldown / circuit-breaker state (Phase 13.9) ───────────────────────
+
     /**
-     * A {@link ChatModel} that tries each failover candidate once, in order,
-     * and returns the first successful response. Every thrown exception from a
-     * candidate's chat call is failover-eligible (HTTP 401/403/404/429/5xx,
-     * timeouts, connection failures, model-unavailable errors).
+     * In-memory per-provider cooldown state. Not persisted. Guarded for
+     * concurrent use: the failure count is atomic and the cooldown timestamp is
+     * volatile. The network call itself is never serialized by this state.
+     */
+    private static final class ProviderState {
+        private final AtomicInteger consecutiveFailures = new AtomicInteger();
+        private volatile long cooldownUntilMillis;
+    }
+
+    /**
+     * True when {@code providerName} is currently in cooldown for automatic
+     * failover. Expired cooldowns are cleared lazily (no timer) and the
+     * provider becomes eligible again on the next check.
+     */
+    private boolean isProviderInCooldown(String providerName) {
+        ProviderState state = providerStates.get(providerName);
+        if (state == null) {
+            return false;
+        }
+        long cooldownUntil = state.cooldownUntilMillis;
+        if (cooldownUntil == 0) {
+            return false;
+        }
+        if (clock.millis() >= cooldownUntil) {
+            state.cooldownUntilMillis = 0;
+            log.debug("AI provider cooldown expired, eligible again: provider={}", providerName);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Records a failover-eligible failure. When the consecutive failure count
+     * reaches the configured threshold the provider enters cooldown for the
+     * configured duration. Cooldown applies to future automatic-failover
+     * requests only; this request has already consumed its single attempt.
+     */
+    private void recordFailure(String providerName) {
+        ProviderState state = providerStates.computeIfAbsent(providerName, k -> new ProviderState());
+        int failures = state.consecutiveFailures.incrementAndGet();
+        if (failures >= failureThreshold) {
+            state.cooldownUntilMillis = clock.millis() + cooldownDuration.toMillis();
+            log.warn("AI provider entered cooldown: provider={}, consecutiveFailures={}, cooldownDurationMs={}",
+                    providerName, failures, cooldownDuration.toMillis());
+        } else {
+            log.debug("AI provider failure recorded: provider={}, consecutiveFailures={}, threshold={}",
+                    providerName, failures, failureThreshold);
+        }
+    }
+
+    /**
+     * Resets a provider's failure count and clears its cooldown after a
+     * successful automatic-failover attempt.
+     */
+    private void recordSuccess(String providerName) {
+        ProviderState state = providerStates.get(providerName);
+        if (state != null && (state.consecutiveFailures.get() != 0 || state.cooldownUntilMillis != 0)) {
+            state.consecutiveFailures.set(0);
+            state.cooldownUntilMillis = 0;
+            log.debug("AI provider recovered, cooldown cleared: provider={}", providerName);
+        }
+    }
+
+    /**
+     * A {@link ChatModel} that consults the router's cooldown registry and tries
+     * each eligible failover candidate once, in order, returning the first
+     * successful response. Providers in cooldown are skipped without waiting.
+     * Every thrown exception from a candidate's chat call is failover-eligible
+     * (HTTP 401/403/404/429/5xx, timeouts, connection failures, model-unavailable
+     * errors) and contributes to that provider's cooldown state.
      * <p>
-     * If every candidate fails, throws an {@link IllegalStateException} whose
-     * message aggregates the {@link AiErrorClassifier}-classified, secret-free
-     * reasons per provider. Only provider names and classified messages are
-     * ever logged or surfaced — never keys, headers, request bodies, or prompts.
+     * If every candidate is skipped or fails, throws an {@link IllegalStateException}
+     * whose message aggregates the {@link AiErrorClassifier}-classified,
+     * secret-free reasons per provider. Only provider names and classified
+     * messages are ever logged or surfaced — never keys, headers, request
+     * bodies, or prompts.
      * </p>
      * <p>
      * Do not move provider-specific compatibility (e.g. the Cloudflare wrapper)
@@ -187,10 +279,12 @@ if (providers.isEmpty()) {
 
         private static final Logger log = LoggerFactory.getLogger(FailoverChatModel.class);
 
+        private final LlmProviderRouter router;
         private final List<LlmProvider> candidates;
         private final String model;
 
-        FailoverChatModel(List<LlmProvider> candidates, String model) {
+        FailoverChatModel(LlmProviderRouter router, List<LlmProvider> candidates, String model) {
+            this.router = router;
             this.candidates = candidates;
             this.model = model;
         }
@@ -200,13 +294,20 @@ if (providers.isEmpty()) {
             List<String> failures = new ArrayList<>();
             for (LlmProvider provider : candidates) {
                 String name = provider.providerName();
+                if (router.isProviderInCooldown(name)) {
+                    log.debug("AI provider skipped, in cooldown: provider={}", name);
+                    failures.add(name + ": skipped (provider in cooldown)");
+                    continue;
+                }
                 log.debug("AI provider attempt started: provider={}", name);
                 try {
                     ChatResponse response = provider.chatModel(model).chat(request);
+                    router.recordSuccess(name);
                     log.debug("AI provider succeeded: provider={}", name);
                     return response;
                 } catch (Exception e) {
                     String reason = AiErrorClassifier.classify(e, name).message();
+                    router.recordFailure(name);
                     log.warn("AI provider failed, failover to next provider: provider={}, reason={}", name, reason);
                     failures.add(name + ": " + reason);
                 }
