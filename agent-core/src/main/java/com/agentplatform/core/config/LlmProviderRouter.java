@@ -1,6 +1,9 @@
 package com.agentplatform.core.config;
 
+import com.agentplatform.core.ai.AiErrorClassifier;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.response.ChatResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -18,9 +21,10 @@ import java.util.Optional;
  * explicit priority (lower number = higher priority).
  * </p>
  * <p>
- * This router does NOT implement automatic failover or retries.
- * It simply selects the appropriate provider based on the requested
- * provider name or the configured default provider.
+ * When no explicit provider is requested, a {@link FailoverChatModel} is
+ * returned that tries the configured default provider first, then the
+ * remaining configured providers by priority, each exactly once, until one
+ * succeeds. Failover lives here only — providers are not failover-aware.
  * </p>
  */
 @Service
@@ -62,28 +66,39 @@ if (providers.isEmpty()) {
 
         LlmProvider provider;
         if (providerName != null && !providerName.isBlank()) {
-            // Explicit provider requested
+            // Explicit provider requested: single provider, no failover.
             provider = providers.stream()
                     .filter(p -> p.providerName().equalsIgnoreCase(providerName))
                     .findFirst()
                     .orElseThrow(() -> new IllegalStateException(
                             "Provider '" + providerName + "' is not configured or not available. Available: " +
                                     providers.stream().map(LlmProvider::providerName).toList()));
-        } else if (configuredDefaultProvider != null && !configuredDefaultProvider.isBlank()) {
-            // Use configured default provider
-            provider = providers.stream()
-                    .filter(p -> p.providerName().equalsIgnoreCase(configuredDefaultProvider))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException(
-                            "Configured default provider '" + configuredDefaultProvider + "' is not configured or not available. Available: " +
-                                    providers.stream().map(LlmProvider::providerName).toList()));
-        } else {
-            // Fall back to highest-priority configured provider
-            provider = providers.get(0);
+
+            log.debug("Routing to provider: {} for model: {}", provider.providerName(), model);
+            return provider.chatModel(model);
         }
 
-        log.debug("Routing to provider: {} for model: {}", provider.providerName(), model);
-        return provider.chatModel(model);
+        // No explicit provider: failover across all configured providers.
+        return new FailoverChatModel(candidateProviders(), model);
+    }
+
+    /**
+     * Failover candidates: the configured default provider first (if any),
+     * then the remaining configured providers by priority. Never contains
+     * duplicates or unconfigured providers.
+     */
+    private List<LlmProvider> candidateProviders() {
+        List<LlmProvider> candidates = new ArrayList<>();
+        if (configuredDefaultProvider != null && !configuredDefaultProvider.isBlank()) {
+            providers.stream()
+                    .filter(p -> p.providerName().equalsIgnoreCase(configuredDefaultProvider))
+                    .findFirst()
+                    .ifPresent(candidates::add);
+        }
+        providers.stream()
+                .filter(p -> !candidates.contains(p))
+                .forEach(candidates::add);
+        return List.copyOf(candidates);
     }
 
     /**
@@ -149,5 +164,55 @@ if (providers.isEmpty()) {
             case "cloudflare-ai-gateway" -> 60;
             default -> 100;
         };
+    }
+
+    /**
+     * A {@link ChatModel} that tries each failover candidate once, in order,
+     * and returns the first successful response. Every thrown exception from a
+     * candidate's chat call is failover-eligible (HTTP 401/403/404/429/5xx,
+     * timeouts, connection failures, model-unavailable errors).
+     * <p>
+     * If every candidate fails, throws an {@link IllegalStateException} whose
+     * message aggregates the {@link AiErrorClassifier}-classified, secret-free
+     * reasons per provider. Only provider names and classified messages are
+     * ever logged or surfaced — never keys, headers, request bodies, or prompts.
+     * </p>
+     * <p>
+     * Do not move provider-specific compatibility (e.g. the Cloudflare wrapper)
+     * or tool handling into this class: each provider's own {@code chatModel}
+     * contract is preserved as-is.
+     * </p>
+     */
+    static final class FailoverChatModel implements ChatModel {
+
+        private static final Logger log = LoggerFactory.getLogger(FailoverChatModel.class);
+
+        private final List<LlmProvider> candidates;
+        private final String model;
+
+        FailoverChatModel(List<LlmProvider> candidates, String model) {
+            this.candidates = candidates;
+            this.model = model;
+        }
+
+        @Override
+        public ChatResponse doChat(ChatRequest request) {
+            List<String> failures = new ArrayList<>();
+            for (LlmProvider provider : candidates) {
+                String name = provider.providerName();
+                log.debug("AI provider attempt started: provider={}", name);
+                try {
+                    ChatResponse response = provider.chatModel(model).chat(request);
+                    log.debug("AI provider succeeded: provider={}", name);
+                    return response;
+                } catch (Exception e) {
+                    String reason = AiErrorClassifier.classify(e, name).message();
+                    log.warn("AI provider failed, failover to next provider: provider={}, reason={}", name, reason);
+                    failures.add(name + ": " + reason);
+                }
+            }
+            throw new IllegalStateException(
+                    "All configured AI providers failed: " + String.join(" | ", failures));
+        }
     }
 }
