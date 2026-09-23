@@ -18,7 +18,7 @@ class CerebrasPropertiesTest {
         assertThat(properties.isEnabled()).isFalse();
         assertThat(properties.getApiKey()).isNull();
         assertThat(properties.getBaseUrl()).isEqualTo("https://api.cerebras.ai/v1");
-        assertThat(properties.getChatModel()).isEqualTo("llama3.1-8b");
+        assertThat(properties.getChatModel()).isEqualTo("gpt-oss-120b");
         assertThat(properties.getReasoningTimeout()).isEqualTo(java.time.Duration.ofMinutes(2));
     }
 

@@ -88,8 +88,8 @@ cerebras:
   # Base URL for Cerebras's OpenAI-compatible endpoint.
   base-url: https://api.cerebras.ai/v1
   # Model name must match a model available on Cerebras.
-  # Current recommended model: llama3.1-8b
-  chat-model: llama3.1-8b
+  # Current recommended model: gpt-oss-120b
+  chat-model: gpt-oss-120b
   # Request timeout for AI reasoning calls (default 2 minutes).
   reasoning-timeout: 120s
 

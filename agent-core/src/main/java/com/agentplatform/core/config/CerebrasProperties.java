@@ -10,7 +10,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *   enabled: false
  *   api-key: ${CEREBRAS_API_KEY}
  *   base-url: https://api.cerebras.ai/v1
- *   chat-model: llama3.1-8b
+ *   chat-model: gpt-oss-120b
  *   reasoning-timeout: 120s
  * </pre>
  */
@@ -29,8 +29,8 @@ public class CerebrasProperties {
     /** Base URL for the Cerebras OpenAI-compatible API. */
     private String baseUrl = "https://api.cerebras.ai/v1";
 
-    /** Name of the Cerebras chat model to use (e.g. llama3.1-8b). */
-    private String chatModel = "llama3.1-8b";
+    /** Name of the Cerebras chat model to use (e.g. gpt-oss-120b). */
+    private String chatModel = "gpt-oss-120b";
 
     /** Request timeout for AI reasoning calls (default 2 minutes). */
     private java.time.Duration reasoningTimeout = java.time.Duration.ofMinutes(2);

@@ -24,7 +24,7 @@ class CerebrasProviderTest {
         assertThat(provider.isConfigured()).isFalse();
         assertThat(provider.providerName()).isEqualTo("cerebras");
         assertThat(provider.providerLabel()).isEqualTo("Cerebras");
-        assertThat(provider.defaultModel()).isEqualTo("llama3.1-8b");
+        assertThat(provider.defaultModel()).isEqualTo("gpt-oss-120b");
     }
 
     @Test
