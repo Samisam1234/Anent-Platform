@@ -27,8 +27,10 @@ import java.util.HashSet;
  *
  * <p>When a request carries a {@code candidateProfileId} and no explicit keywords, the
  * relevance keywords are derived from that stored profile's parsed skills. This is what
- * lets job discovery follow the uploaded resume; the source contract itself is unchanged
- * (derived keywords are applied as a local relevance filter, never sent upstream).</p>
+ * lets job discovery follow the uploaded resume: the profile's career track and top
+ * skills are condensed into a single job-oriented query that is forwarded to the active
+ * sources, and the same derived keywords drive the local relevance filter. Explicit
+ * caller keywords always win over profile-derived ones.</p>
  */
 @Service
 public class JobSearchService {
@@ -167,8 +169,11 @@ public class JobSearchService {
         // Propagate derived keywords to downstream sources when no explicit keywords were provided.
         // For profile-driven searches, build a concise job-oriented query from the profile's
         // track and top skills, instead of passing all 12 skills as individual keywords.
-        JobSearchRequest effectiveRequest = explicitKeywords ? request
-                : new JobSearchRequest(List.of(buildJobOrientedQuery(profile, candidateTracks, relevanceKeywords)),
+        // A blank derivation (anonymous search with nothing to derive) means there is no
+        // query to forward — pass the original request so no empty keyword is pushed upstream.
+        String derivedQuery = buildJobOrientedQuery(profile, candidateTracks, relevanceKeywords);
+        JobSearchRequest effectiveRequest = explicitKeywords || derivedQuery.isBlank() ? request
+                : new JobSearchRequest(List.of(derivedQuery),
                         request.location(), request.experience(),
                         request.employmentType(), request.datePosted(), request.limit(), request.source(),
                         request.candidateProfileId());
