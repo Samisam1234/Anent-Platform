@@ -1,6 +1,6 @@
 # Rules — agent-platform
 
-> **Status**: CURRENT — non-negotiable engineering constraints as of commit a6eaf5c (Phase 12.3 verified)
+> **Status**: CURRENT — non-negotiable engineering constraints as of commit da933ac (Phase 12.4 verified)
 
 ---
 
@@ -15,7 +15,8 @@
 | Phase 12.1 | 553eb76 | **FROZEN** | Evidence-based resume parsing, MCP job search |
 | Phase 12.2 | f47562b | **FROZEN** | Resume/Profile frontend reliability |
 | **Phase 12.3** | a6eaf5c | **VERIFIED** | Job search flow and live job sources |
-| **Phase 12.4** | — | **PLANNED** | Match Details — Job Details modal polish, source URLs |
+| **Phase 12.4** | da933ac | **VERIFIED** | Match Details — Job Details modal visual polish, source URLs |
+| **Phase 12.5** | — | **PLANNED** | Career Analysis + Readiness |
 
 **Rule**: Frozen phases are **immutable**. No code changes, no refactoring, no "improvements" unless explicitly required by a new phase with approval.
 

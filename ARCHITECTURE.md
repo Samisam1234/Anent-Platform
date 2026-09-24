@@ -1,7 +1,7 @@
 # Architecture — agent-platform
 
-> **Status**: CURRENT — reflects actual repository state as of commit a6eaf5c (Phase 12.3 verified)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c
+> **Status**: CURRENT — reflects actual repository state as of commit da933ac (Phase 12.4 verified)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---

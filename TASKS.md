@@ -1,7 +1,7 @@
 # Tasks — agent-platform
 
-> **Status**: CURRENT — roadmap as of commit a6eaf5c (Phase 12.3 — job search flow and live job sources)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c
+> **Status**: CURRENT — roadmap as of commit da933ac (Phase 12.4 — Match Details UI polish)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac
 
 ---
 
@@ -17,7 +17,8 @@
 | Phase 12.2 prep | f47562b | **CHECKPOINT** | Local AI runtime, timeouts, model config |
 | Phase 12.2 | f47562b | **FROZEN** | Resume/Profile frontend reliability |
 | **Phase 12.3** | a6eaf5c | **VERIFIED** | Job search reliability, live sources |
-| **Phase 12.4** | — | **NEXT / PLANNED** | Match Details — Job Details modal polish, source URLs |
+| **Phase 12.4** | da933ac | **VERIFIED** | Match Details — Job Details modal polish, source URLs |
+| **Phase 12.5** | — | **NEXT / PLANNED** | Career Analysis + Readiness |
 
 ---
 
@@ -63,7 +64,7 @@ Make the browser UI accurately display the profile that the backend produces fro
 
 ---
 
-## Phase 12.3 — Job Search Reliability (PLANNED)
+## Phase 12.3 — Job Search Reliability (VERIFIED)
 
 - Enable live job sources by default (`job-sources.public-api.enabled: true`)
 - Remove free-text keyword fields from Job Search and Matches
@@ -73,11 +74,19 @@ Make the browser UI accurately display the profile that the backend produces fro
 
 ---
 
-## Phase 12.4 — Match Details (PLANNED)
+## Phase 12.4 — Match Details (VERIFIED)
 
-- Polish Job Details modal (source URL, application URL)
-- Match factor visualization (factor bars)
-- Strengths/Concerns rendering
+Implementation: `da933ac` ("Phase 12.4 - polish match details UI"). Live browser verification passed.
+
+- [x] Match Details / Job Details modal visual polish (`style.css`)
+- [x] Six match factor bars (label / bar / mono %)
+- [x] Strengths / Concerns presentation
+- [x] Skills (matched / missing / preferred) and metadata presentation
+- [x] Source / application action semantics preserved — source "View Job Listing"; employer apply URL never fabricated
+- [x] Responsive modal behavior verified (desktop + narrow viewports, no truncation)
+- [x] Console / network checks passed (0 errors, 0 failed requests)
+- [x] No automatic application submission — explicit user action only
+- [x] No matching algorithm / backend / schema / provider changes
 
 ---
 

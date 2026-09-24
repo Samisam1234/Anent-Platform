@@ -1,6 +1,6 @@
 # Memory — agent-platform
 
-> **Status**: CURRENT — historical context as of commit a6eaf5c (Phase 12.3 verified)
+> **Status**: CURRENT — historical context as of commit da933ac (Phase 12.4 verified)
 > **Purpose**: Historical context, not authority over current rules. See RULES.md for current constraints.
 
 ---
@@ -13,6 +13,7 @@
 | Phase 12.1 | 553eb76 | 2026-09-19 | Evidence-based resume parsing, MCP job search |
 | Phase 12.2 prep | f47562b | 2026-09-20 | Local AI runtime, timeouts, model config |
 | Phase 12.3 | a6eaf5c | 2026-09-20 | Job search flow, live job sources |
+| Phase 12.4 | da933ac | 2026-09-24 | Match Details — Job Details modal visual polish; live browser verified |
 
 ---
 
