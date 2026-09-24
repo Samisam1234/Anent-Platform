@@ -1,7 +1,7 @@
 # Tasks — agent-platform
 
-> **Status**: CURRENT — roadmap as of commit f47562b (Phase 12.2 prep)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b
+> **Status**: CURRENT — roadmap as of commit a6eaf5c (Phase 12.3 — job search flow and live job sources)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c
 
 ---
 
@@ -15,7 +15,9 @@
 | Phase 11.1 (MCP) | 0d141d6 | **FROZEN** | OPENINGS-MCP integration; config-only changes |
 | Phase 12.1 | 553eb76 | **FROZEN** | Evidence-based resume parsing, MCP job search |
 | Phase 12.2 prep | f47562b | **CHECKPOINT** | Local AI runtime, timeouts, model config |
-| **Phase 12.2** | — | **ACTIVE** | Resume/Profile frontend reliability |
+| Phase 12.2 | f47562b | **FROZEN** | Resume/Profile frontend reliability |
+| **Phase 12.3** | a6eaf5c | **VERIFIED** | Job search reliability, live sources |
+| **Phase 12.4** | — | **NEXT / PLANNED** | Match Details — Job Details modal polish, source URLs |
 
 ---
 

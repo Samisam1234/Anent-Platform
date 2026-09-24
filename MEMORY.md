@@ -1,6 +1,6 @@
 # Memory — agent-platform
 
-> **Status**: CURRENT — historical context as of commit f47562b (Phase 12.2 prep)
+> **Status**: CURRENT — historical context as of commit a6eaf5c (Phase 12.3 verified)
 > **Purpose**: Historical context, not authority over current rules. See RULES.md for current constraints.
 
 ---
@@ -12,6 +12,7 @@
 | Phase 11.1 (MCP) | 0d141d6 | 2026-09-19 | OPENINGS-MCP job source provider with keyword plumbing |
 | Phase 12.1 | 553eb76 | 2026-09-19 | Evidence-based resume parsing, MCP job search |
 | Phase 12.2 prep | f47562b | 2026-09-20 | Local AI runtime, timeouts, model config |
+| Phase 12.3 | a6eaf5c | 2026-09-20 | Job search flow, live job sources |
 
 ---
 

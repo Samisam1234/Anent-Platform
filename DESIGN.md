@@ -1,7 +1,7 @@
 # Design — agent-platform
 
-> **Status**: CURRENT — reflects actual UX as of commit f47562b (Phase 12.2 prep)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b
+> **Status**: CURRENT — reflects actual UX as of commit a6eaf5c (Phase 12.3 — job search flow and live job sources)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -238,8 +238,8 @@
 
 | Element | Location | Action |
 |---------|----------|--------|
-| `#jobsKeywordsInput` | `jobs.html` + `jobs.js` | **REMOVE** |
-| `#matchesKeywordsInput` | `matches.html` + `matches.js` | **REMOVE** |
+| `#jobsKeywordsInput` | `jobs.html` + `jobs.js` | **REMOVED (12.3)** |
+| `#matchesKeywordsInput` | `matches.html` + `matches.js` | **REMOVED (12.3)** |
 | "Development Mock Source Active" default banner | `jobs.js` / `matches.js` | **REPLACE** with live-first logic |
 | `#jobsKeywordsInput` in `buildPayload` | `jobs.js` | **REMOVE** |
 | `#matchesKeywordsInput` in payload | `matches.js` | **REMOVE** |

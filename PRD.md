@@ -1,7 +1,7 @@
 # Product Requirements Document — agent-platform
 
-> **Status**: CURRENT — reflects actual implemented product as of commit f47562b (Phase 12.2 prep)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b
+> **Status**: CURRENT — reflects actual implemented product as of commit a6eaf5c (Phase 12.3 — job search flow and live job sources)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -20,7 +20,7 @@ agent-platform is a local-first AI Career Agent platform that helps users turn a
 |------|---------|--------|-------|
 | 1 | **Resume Upload** (PDF/DOCX) → text extraction → LLM parsing → structured `CandidateProfile` | **IMPLEMENTED** | PDF/DOCX via PDFBox/POI; LLM parsing with deterministic fallback |
 | 2 | **Profile Display** — structured candidate profile in browser | **IMPLEMENTED** | Profile page renders parsed data; some UI bugs exist (see §3) |
-| 3 | **Job Search** — profile-driven search (skills/location/experience/employmentType) | **PARTIAL** | Search works but free-text keyword field still present (violates PRD) |
+| 3 | **Job Search** — profile-driven search (skills/location/experience/employmentType) | **IMPLEMENTED** | Profile-driven search; free-text keyword field removed (Phase 12.3) |
 | 4 | **Job Matches** — deterministic scoring, explainable results | **IMPLEMENTED** | Weighted scoring (skills/role/experience/track/location/education) |
 | 4b | **Job Details** — official listing URL, source attribution | **IMPLEMENTED** | Job modal shows source URL, never fabricates employer URLs |
 | 5 | **Career Analysis** — readiness score, gaps, recommendations | **BACKEND OK / FRONTEND BROKEN** | Backend works; modal DOM elements missing (§8 INVESTIGATION) |
@@ -44,7 +44,7 @@ agent-platform is a local-first AI Career Agent platform that helps users turn a
 | **No Fabricated Qualifications** | ✅ Enforced | Tailoring reorders existing content; never invents skills/experience |
 | **No Auto-Submit** | ✅ Enforced | Explicit "Approve for Application" step required |
 | **Evidence-Based Career Tracks** | Partial | Tracks inferred from resume evidence; UI over-infers (fixed in 12.1) |
-| **Explicit Keyword Behavior** | Violated | Free-text keyword field still present on Job Search / Matches |
+| **Explicit Keyword Behavior** | ✅ Enforced | Free-text keyword field removed (Phase 12.3); keywords derive from profile skills/roles |
 | **Official/Source URLs Only** | ✅ | Job modal shows "View Job Listing" (source) vs "Apply on Employer Site" |
 
 ---
@@ -53,7 +53,7 @@ agent-platform is a local-first AI Career Agent platform that helps users turn a
 
 | Item | Status | Details |
 |------|--------|---------|
-| Job Search: remove free-text keyword field | **PLANNED** | Keywords should derive from profile skills/roles |
+| Job Search: remove free-text keyword field | ✅ Done (12.3) | Removed; keywords derive from profile skills/roles |
 | Live job sources enabled by default | **PLANNED** | `job-sources.public-api.enabled: false` currently |
 | Career Analysis modal DOM fixes | **PLANNED** | Missing `advisorReviewJobTitle`, `advisorReviewCompany` |
 | Prepared Application modal wrapper | **PLANNED** | Missing `prepReviewOverlay` wrapper |
