@@ -41,7 +41,8 @@ public class JobApplication {
     @Column(name = "cover_letter")
     private String coverLetter;
 
-    @Column(name = "application_answers")
+    // TEXT (not VARCHAR 255): generated answers regularly exceed 255 chars.
+    @Column(name = "application_answers", columnDefinition = "TEXT")
     private String applicationAnswers;
 
     @Column(name = "candidate_strengths")
