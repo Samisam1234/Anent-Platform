@@ -673,11 +673,12 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         });
     }
 
-    /** Renders a list as bullets, or a muted line when it is empty. */
-    function listOrEmpty(values, emptyText) {
+    /** Renders a list as bullets (optionally with tone icons), or a muted line when it is empty. */
+    function listOrEmpty(values, emptyText, listClass) {
         const items = (values || []).filter(v => v !== null && v !== undefined && String(v).trim() !== '');
         if (!items.length) return `<p class="modal-empty-line">${esc(emptyText)}</p>`;
-        return `<ul class="match-sc-list">${items.map(v => `<li>${esc(v)}</li>`).join('')}</ul>`;
+        const cls = listClass ? `match-sc-list ${listClass}` : 'match-sc-list';
+        return `<ul class="${cls}">${items.map(v => `<li>${esc(v)}</li>`).join('')}</ul>`;
     }
 
     function copyElementText(sourceId, btn) {
@@ -937,7 +938,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             ${rows.length ? `
             <div class="modal-job-section">
                 <h4 class="modal-section-title">Readiness breakdown</h4>
-                <div class="fit-rows">${rows.map(([label, value]) => {
+                <div class="fit-rows advisor-breakdown">${rows.map(([label, value]) => {
                     const pct = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
                     const tone = pct >= 70 ? 'is-good' : (pct >= 40 ? 'is-mid' : 'is-low');
                     return `
@@ -966,12 +967,12 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
 
             <div class="modal-job-section">
                 <h4 class="modal-section-title">Strengths</h4>
-                ${listOrEmpty(adv.strengths, 'No strengths were reported.')}
+                ${listOrEmpty(adv.strengths, 'No strengths were reported.', 'fit-list is-good')}
             </div>
 
             <div class="modal-job-section">
                 <h4 class="modal-section-title">Important gaps</h4>
-                ${listOrEmpty(gaps, 'No gaps were reported.')}
+                ${listOrEmpty(gaps, 'No gaps were reported.', 'fit-list is-bad')}
             </div>
 
             <div class="modal-job-section">

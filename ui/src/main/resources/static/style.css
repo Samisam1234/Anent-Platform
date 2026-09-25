@@ -1003,3 +1003,37 @@ body.modal-open{overflow:hidden}
 
 /* Headline score bar in Career Analysis — same component as the factor rows. */
 .career-report-score .fit-bar{width:100%;min-width:110px;margin-top:2px}
+
+/* ── Phase 12.5 polish: Career Analysis & Application Readiness ─────────────
+   Scoped visual pass for the two agent-review modals. Reuses the product
+   tokens and the factor-bar / skill-chip / badge vocabulary already polished
+   in Match Details; markup semantics and scoring behaviour are unchanged. */
+
+/* Career Analysis: quiet "completed" line, head → score hero with hairline,
+   roomier sections. */
+.analysis-complete{margin:0;padding:0;border:0;background:transparent;font-size:.76rem;font-weight:600;color:var(--success)}
+.career-report-head{align-items:center;padding:2px 0 18px;border-bottom:1px solid var(--border)}
+.career-report-title{font-size:1.15rem}
+.career-report-company{font-size:.88rem}
+.career-report-score{min-width:172px;padding:12px 16px;gap:6px}
+.career-report-score .fit-value{font-size:2rem}
+.career-report-section{gap:10px}
+.career-report-section .analysis-sub{margin-top:8px}
+
+/* Agent footnote: hairline above turns it into a quiet footer line. */
+.career-report .agent-note,.ms-body > .agent-note{margin:0;padding-top:12px;border-top:1px solid var(--border)}
+
+/* Recommended actions: numbered, scannable, accent markers. */
+.career-next-steps{gap:12px}
+.career-next-steps li::marker{color:var(--accent);font-weight:700}
+.career-step-focus{font-size:.86rem}
+.career-step-desc{font-size:.82rem;line-height:1.55}
+
+/* Application Readiness: score hero block with roomier breakdown rows/bars. */
+.advisor-hero{padding:16px 18px;gap:20px}
+.advisor-hero-score{min-width:150px;gap:6px}
+.advisor-hero-score .fit-value{font-size:2rem}
+.advisor-hero-rec{gap:6px}
+.advisor-breakdown{display:flex;flex-direction:column;gap:10px}
+.advisor-breakdown .fit-row{grid-template-columns:150px minmax(0,1fr) 46px;gap:12px}
+.advisor-breakdown .fit-bar,.advisor-breakdown .fit-bar-fill{height:8px;border-radius:4px}
