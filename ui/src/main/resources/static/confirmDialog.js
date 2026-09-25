@@ -47,6 +47,24 @@
      * @param {string} [spec.cancelLabel]  defaults to "Cancel"
      * @returns {Promise<boolean>}
      */
+    // Single delegated click handler for the answer buttons, attached once for the
+    // whole page. The modal shell reuses one persistent overlay and replaces its
+    // content on every open(), so attaching a listener here per ask() would
+    // accumulate them (and stale ones would fire on later dialogs). Routing every
+    // dialog through the active state keeps exactly one effective handler.
+    let active = null;
+    document.addEventListener('click', e => {
+        const state = active;
+        if (!state) return;
+        if (e.target.closest('[data-confirm-accept]')) {
+            state.confirmed = true;
+            window.modalShell.close();
+        } else if (e.target.closest('[data-confirm-cancel]')) {
+            state.confirmed = false;
+            window.modalShell.close();
+        }
+    });
+
     function ask(spec) {
         const s = spec || {};
         const confirmLabel = s.confirmLabel || 'Continue';
@@ -61,13 +79,16 @@
                 return;
             }
 
-            let confirmed = false;
+            const state = { confirmed: false };
             let settled = false;
             const finish = value => {
                 if (settled) return;
                 settled = true;
+                if (active === state) active = null;
                 resolve(value);
             };
+
+            active = state;
 
             window.modalShell.open({
                 title: s.title || 'Please confirm',
@@ -82,22 +103,13 @@
                 footer: `
                     <button type="button" class="btn-secondary" data-confirm-cancel="true">${esc(cancelLabel)}</button>
                     <button type="button" class="btn-primary" data-confirm-accept="true">${esc(confirmLabel)}</button>`,
-                onClose: () => finish(confirmed)
+                onClose: () => finish(state.confirmed)
             });
 
+            // Move focus to the affirmative action so Enter confirms and Tab starts
+            // from a predictable place.
             const overlay = document.querySelector('.ms-overlay');
             if (overlay) {
-                overlay.addEventListener('click', e => {
-                    if (e.target.closest('[data-confirm-accept]')) {
-                        confirmed = true;
-                        window.modalShell.close();
-                    } else if (e.target.closest('[data-confirm-cancel]')) {
-                        confirmed = false;
-                        window.modalShell.close();
-                    }
-                });
-                // Move focus to the affirmative action so Enter confirms and Tab starts
-                // from a predictable place.
                 const accept = overlay.querySelector('[data-confirm-accept]');
                 if (accept) accept.focus();
             }
