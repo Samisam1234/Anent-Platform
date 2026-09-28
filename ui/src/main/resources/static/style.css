@@ -989,6 +989,18 @@ body.modal-open{overflow:hidden}
 .tailoring-item-reason{font-size:.82rem;color:var(--text-secondary);line-height:1.6}
 .tailoring-item-evidence{font-size:.74rem;color:var(--text-muted)}
 
+/* ── Tailored resume draft preview ─────────────────────────────────────────────
+   Styles for the draft content rendered alongside the analysis. Reuses existing
+   tokens and components (skill-tag, match-sc-list, modal-job-section). */
+.skill-tag.skill-draft{background:var(--accent-light);border-color:var(--accent);color:var(--accent)}
+.match-sc-list.is-caution{background:var(--warning-light);border-color:var(--warning)}
+.match-sc-list.is-caution li{color:var(--text-primary)}
+
+/* Download button loading state */
+.tailor-download-btn.loading{position:relative;color:transparent;pointer-events:none}
+.tailor-download-btn.loading::after{content:'';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
 /* ── Unavailable application destination ───────────────────────────────────────
    When a source supplies neither an employer application URL nor a usable listing
    URL, the control is rendered disabled rather than pretending to go somewhere. */

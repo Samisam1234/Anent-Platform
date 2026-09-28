@@ -723,6 +723,11 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
      * Calls the existing deterministic tailoring service. It only reorders and
      * emphasises content the parsed profile already contains; missing requirements come
      * back in a separate list and are shown as gaps, never as qualifications.
+     *
+     * The backend now returns { analysis, draft }. This handler unwraps that shape
+     * (with a compat guard for stale caches) and renders both the analysis and the
+     * tailored-resume draft in the single global modal. Download buttons for PDF and
+     * DOCX are added to the footer once the JSON payload resolves.
      */
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('.resume-tailor-btn');
@@ -730,22 +735,27 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
 
         const candidateId = Number(btn.dataset.candidateId);
         const jobId = btn.dataset.jobId;
+        const jobTitle = btn.dataset.jobTitle || '';
+        const company = btn.dataset.company || '';
         if (!candidateId || !jobId) {
             showToast('Missing required information to tailor your resume.', 'error');
             return;
         }
 
+        const requestBody = { candidateId: candidateId, jobId: jobId };
+
         window.modalShell.open({
             kicker: 'ATS Resume Tailoring',
-            title: btn.dataset.jobTitle || 'Selected role',
-            subtitle: btn.dataset.company || '',
-            body: `<div class="agent-run-loading"><span class="processing-spinner"></span><span>Analysing your resume against this role…</span></div>`
+            title: jobTitle || 'Selected role',
+            subtitle: company || '',
+            body: `<div class="agent-run-loading"><span class="processing-spinner"></span><span>Analysing your resume against this role…</span></div>`,
+            footer: ''
         });
 
         fetch('/api/v1/resume/tailor', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ candidateId: candidateId, jobId: jobId })
+            body: JSON.stringify(requestBody)
         })
         .then(response => {
             if (!response.ok) {
@@ -754,7 +764,23 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             }
             return response.json();
         })
-        .then(data => window.modalShell.setBody(buildTailoringHtml(data)))
+        .then(data => {
+            // Response shape: { analysis: ResumeTailoringAnalysis, draft: TailoredResumeDraft }
+            // Compat: a stale cached page might still receive the old top-level analysis.
+            const analysis = data?.analysis ?? data;
+            const draft = data?.draft ?? null;
+
+            if (!analysis) {
+                throw new Error('Tailoring response did not contain analysis data.');
+            }
+
+            // Render the combined preview (analysis + draft)
+            window.modalShell.setBody(buildTailoringPreviewHtml(analysis, draft));
+
+            // Add download actions to the footer
+            const footerHtml = buildTailoringFooterHtml(requestBody);
+            window.modalShell.setFooter(footerHtml);
+        })
         .catch(err => {
             console.error('Resume tailoring error:', err);
             window.modalShell.setBody(
@@ -762,6 +788,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
                     <span class="agent-summary-status">Tailoring unavailable</span>
                     <span class="agent-summary-message">${esc(window.apiError.describe(err, 'Could not tailor your resume for this role.'))}</span>
                 </div>`);
+            window.modalShell.setFooter('');
         });
     });
 
@@ -883,6 +910,214 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
 
             <p class="agent-note">Tailoring reorders and rewords the content already in your resume. It never adds skills, employers, projects, certifications or education you do not have.</p>`;
     }
+
+    /**
+     * Builds the combined tailoring preview HTML from the analysis and the draft.
+     * The draft contains the tailored resume content (professional summary, ordered skills,
+     * highlighted projects/experience/internships, section order, warnings).
+     *
+     * @param {object} analysis  ResumeTailoringAnalysis (matched/missing skills, highlighted skills, recommendations, atsReadiness, etc.)
+     * @param {object|null} draft  TailoredResumeDraft or null if backend returned old shape
+     */
+    function buildTailoringPreviewHtml(analysis, draft) {
+        const a = analysis || {};
+        const d = draft || {};
+
+        // Reuse the existing analysis rendering for the top part
+        const ats = a.atsReadiness || {};
+        const chips = (list, cls) => (list || [])
+            .map(s => `<span class="skill-tag ${cls}">${esc(s)}</span>`).join('');
+        const matched = chips(a.matchedRequiredSkills, 'required-skill match-hit')
+            + chips(a.matchedPreferredSkills, 'preferred-skill match-hit');
+        const missing = chips(a.missingRequiredSkills, 'required-skill match-miss')
+            + chips(a.missingPreferredSkills, 'preferred-skill match-miss');
+
+        const recommendations = (a.tailoringRecommendations || [])
+            .map(recommendationItemHtml).filter(Boolean).join('');
+        const missingReqs = (a.missingRequirements || [])
+            .map(recommendationItemHtml).filter(Boolean).join('');
+        const order = (a.recommendedSectionOrder || [])
+            .map(sec => sec ? `<li>${esc(humanizeEnum(sec))}</li>` : '').join('');
+        const highlighted = (a.highlightedSkills || [])
+            .map(h => highlightedSkillHtml(h)).filter(Boolean).join('');
+
+        // --- Draft sections (new) ---
+        const professionalSummary = d.professionalSummary ? String(d.professionalSummary).trim() : '';
+        const orderedSkills = (d.orderedSkills || []).filter(s => s && String(s).trim());
+        const highlightedProjects = (d.highlightedProjects || []).filter(p => p && String(p).trim());
+        const highlightedExperience = (d.highlightedExperience || []).filter(e => e && String(e).trim());
+        const highlightedInternships = (d.highlightedInternships || []).filter(i => i && String(i).trim());
+        const sectionOrder = (d.sectionOrder || []).filter(s => s);
+        const warnings = (d.warnings || []).filter(w => w && String(w).trim());
+
+        // Build draft section HTML in the order specified by the draft
+        const sectionRenderers = {
+            SUMMARY: () => professionalSummary
+                ? `<div class="modal-job-section"><h4 class="modal-section-title">Professional Summary</h4><p class="modal-description">${esc(professionalSummary)}</p></div>`
+                : '',
+            SKILLS: () => orderedSkills.length
+                ? `<div class="modal-job-section"><h4 class="modal-section-title">Skills</h4><div class="skills-tags-wrap">${orderedSkills.map(s => `<span class="skill-tag skill-draft">${esc(s)}</span>`).join('')}</div>`
+                : '',
+            PROJECTS: () => highlightedProjects.length
+                ? `<div class="modal-job-section"><h4 class="modal-section-title">Projects</h4><ul class="match-sc-list">${highlightedProjects.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>`
+                : '',
+            EXPERIENCE: () => highlightedExperience.length
+                ? `<div class="modal-job-section"><h4 class="modal-section-title">Experience</h4><ul class="match-sc-list">${highlightedExperience.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>`
+                : '',
+            INTERNSHIPS: () => highlightedInternships.length
+                ? `<div class="modal-job-section"><h4 class="modal-section-title">Internships</h4><ul class="match-sc-list">${highlightedInternships.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div>`
+                : '',
+            CERTIFICATIONS: () => '', // Not in draft; comes from profile if needed
+            EDUCATION: () => ''       // Not in draft; comes from profile if needed
+        };
+
+        const draftSectionsHtml = sectionOrder
+            .map(sec => sectionRenderers[sec]?.() ?? '')
+            .filter(Boolean)
+            .join('');
+
+        const warningsHtml = warnings.length
+            ? `<div class="modal-job-section"><h4 class="modal-section-title">Notes</h4><ul class="match-sc-list is-caution">${warnings.map(w => `<li>${esc(w)}</li>`).join('')}</ul></div>`
+            : '';
+
+        return `
+            <div class="prep-summary">
+                <span class="summary-chip">ATS readiness: ${Number.isFinite(ats.score) ? esc(ats.score) + '/100' : 'not calculated'}</span>
+                ${ats.label ? `<span class="summary-chip">${esc(humanizeEnum(ats.label))}</span>` : ''}
+                <span class="summary-chip">Nothing is invented — only your own content is reordered</span>
+            </div>
+
+            ${ats.explanation ? `<div class="modal-job-section"><h4 class="modal-section-title">ATS alignment</h4><p class="modal-description">${esc(ats.explanation)}</p></div>` : ''}
+
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Skills to lead with</h4>
+                ${matched ? `<div class="skills-tags-wrap">${matched}</div>` : `<p class="modal-empty-line">No overlapping skills were found for this role.</p>`}
+            </div>
+
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Missing requirements (not added to your resume)</h4>
+                ${missing ? `<div class="skills-tags-wrap">${missing}</div>` : `<p class="modal-empty-line">Nothing required by this role is missing.</p>`}
+            </div>
+
+            ${highlighted ? `<div class="modal-job-section"><h4 class="modal-section-title">Genuine evidence to emphasise</h4><ul class="match-sc-list">${highlighted}</ul></div>` : ''}
+
+            ${recommendations ? `<div class="modal-job-section"><h4 class="modal-section-title">Suggested changes</h4><ul class="match-sc-list">${recommendations}</ul></div>` : ''}
+
+            ${missingReqs ? `<div class="modal-job-section"><h4 class="modal-section-title">Gaps to address separately</h4><ul class="match-sc-list">${missingReqs}</ul></div>` : ''}
+
+            ${order ? `<div class="modal-job-section"><h4 class="modal-section-title">Recommended section order</h4><ol class="match-sc-list">${order}</ol></div>` : ''}
+
+            ${draftSectionsHtml}
+
+            ${warningsHtml}
+
+            <p class="agent-note">Tailoring reorders and rewords the content already in your resume. It never adds skills, employers, projects, certifications or education you do not have.</p>`;
+    }
+
+    /**
+     * Builds the footer HTML with PDF and DOCX download buttons.
+     * Each button POSTs to the respective binary endpoint with the same request body.
+     *
+     * @param {object} requestBody  { candidateId, jobId }
+     */
+    function buildTailoringFooterHtml(requestBody) {
+        return `
+            <span class="modal-hint">Download the tailored resume as a real document (PDF or DOCX). Nothing is submitted to the employer.</span>
+            <button type="button" class="btn-secondary tailor-download-btn" data-format="pdf" data-candidate-id="${esc(requestBody.candidateId)}" data-job-id="${esc(requestBody.jobId)}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
+                <span>Download PDF</span>
+            </button>
+            <button type="button" class="btn-secondary tailor-download-btn" data-format="docx" data-candidate-id="${esc(requestBody.candidateId)}" data-job-id="${esc(requestBody.jobId)}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
+                <span>Download DOCX</span>
+            </button>`;
+    }
+
+    // ─── Download handlers for PDF/DOCX ─────────────────────────────────────
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.tailor-download-btn');
+        if (!btn) return;
+
+        const format = btn.dataset.format; // 'pdf' or 'docx'
+        const candidateId = Number(btn.dataset.candidateId);
+        const jobId = btn.dataset.jobId;
+
+        if (!candidateId || !jobId) {
+            showToast('Missing required information for download.', 'error');
+            return;
+        }
+
+        // Disable both buttons during generation
+        const overlay = document.querySelector('.ms-overlay');
+        if (!overlay) return;
+        const buttons = overlay.querySelectorAll('.tailor-download-btn');
+        buttons.forEach(b => {
+            b.disabled = true;
+            b.classList.add('loading');
+        });
+
+        const endpoint = `/api/v1/resume/tailor/${format}`;
+        const acceptType = format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        const fallbackFilename = `tailored-resume.${format}`;
+
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': acceptType
+                },
+                body: JSON.stringify({ candidateId: candidateId, jobId: jobId })
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                let errorTitle = `Download failed (${response.status})`;
+                try {
+                    const errJson = JSON.parse(errText);
+                    errorTitle = errJson.detail || errJson.title || errorTitle;
+                } catch (_) { /* keep fallback */ }
+                throw new Error(errorTitle);
+            }
+
+            const blob = await response.blob();
+            if (!blob || blob.size === 0) {
+                throw new Error('Received empty document from server.');
+            }
+
+            // Extract filename from Content-Disposition header if present
+            let filename = fallbackFilename;
+            const cd = response.headers.get('Content-Disposition');
+            if (cd) {
+                const match = cd.match(/filename\*?=(?:UTF-8''|")?([^";]+)/i);
+                if (match && match[1]) {
+                    filename = decodeURIComponent(match[1]).replace(/^"+|"+$/g, '');
+                }
+            }
+
+            // Trigger download via object URL
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            // Revoke after a short delay to ensure the download starts
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+            showToast(`${format.toUpperCase()} downloaded successfully.`, 'success');
+        } catch (err) {
+            console.error(`${format.toUpperCase()} download error:`, err);
+            showToast(window.apiError.describe(err, `Could not download the tailored resume as ${format.toUpperCase()}.`), 'error');
+        } finally {
+            buttons.forEach(b => {
+                b.disabled = false;
+                b.classList.remove('loading');
+            });
+        }
+    });
 
     // ─── Application readiness review ───────────────────────────────────────
     function openAdvisorReview(data, ctx) {
