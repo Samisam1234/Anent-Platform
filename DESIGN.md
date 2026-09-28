@@ -1,7 +1,7 @@
 # Design — agent-platform
 
-> **Status**: CURRENT — reflects actual UX as of commit da933ac (Phase 12.4 — Match Details UI polish)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac
+> **Status**: CURRENT — reflects actual UX as of commit bc457e2 (Phase 12.6 — ATS Resume Tailoring preview + PDF/DOCX download UI)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.6 implemented**: 92c0942 (spec), 055db64 (backend + tests), bc457e2 (frontend)
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -173,6 +173,67 @@
 
 ---
 
+## 7b. ATS Resume Tailoring Modal (Implemented — Phase 12.6)
+
+### Overview
+The "Tailor Resume" action opens the single global `modalShell` with a combined preview of the deterministic tailoring analysis and the tailored resume draft. Two download buttons (PDF, DOCX) are added to the footer after the JSON payload resolves.
+
+### Entry Points (Preserved from Existing Implementation)
+1. **Match Card** — "Tailor Resume" button (`.btn-tailor.resume-tailor-btn`) at `matches.js:385`
+2. **Match Details Footer** — "Tailor Resume" button in `buildMatchDetailsFooter` at `matches.js:1199`
+
+Both route through the same delegated handler at `matches.js:727`.
+
+### Request Flow
+```javascript
+// POST /api/v1/resume/tailor
+{ candidateId: number, jobId: string }
+
+// Response: { analysis: ResumeTailoringAnalysis, draft: TailoredResumeDraft }
+// Compat guard: data?.analysis ?? data (handles stale cached pages)
+```
+
+### Preview Rendering (in `buildTailoringPreviewHtml`)
+| Section | Source | Notes |
+|---------|--------|-------|
+| ATS readiness score + label | `analysis.atsReadiness` | Score chip + label chip |
+| ATS alignment explanation | `analysis.atsReadiness.explanation` | Optional |
+| Skills to lead with | `analysis.matchedRequiredSkills` + `matchedPreferredSkills` | Green skill tags |
+| Missing requirements | `analysis.missingRequiredSkills` + `missingPreferredSkills` | Red skill tags (not added to resume) |
+| Genuine evidence to emphasise | `analysis.highlightedSkills` | Structured `tailoring-item` cards |
+| Suggested changes | `analysis.tailoringRecommendations` | Structured `tailoring-item` cards |
+| Gaps to address separately | `analysis.missingRequirements` | Structured `tailoring-item` cards |
+| Recommended section order | `analysis.recommendedSectionOrder` | Ordered list |
+| **Professional Summary** | `draft.professionalSummary` | Only when non-empty |
+| **Skills** | `draft.orderedSkills` | Accent-colored skill tags |
+| **Projects** | `draft.highlightedProjects` | Bullet list |
+| **Experience** | `draft.highlightedExperience` | Bullet list |
+| **Internships** | `draft.highlightedInternships` | Bullet list |
+| **Notes** | `draft.warnings` | Caution-styled list |
+
+Sections render in `draft.sectionOrder` order; empty sections omitted.
+
+### Download Actions (in modal footer)
+| Button | Endpoint | Response Handling |
+|--------|----------|-------------------|
+| Download PDF | `POST /api/v1/resume/tailor/pdf` | Binary `application/pdf`; `Content-Disposition` filename; Blob → object URL → `<a download>` → revoke |
+| Download DOCX | `POST /api/v1/resume/tailor/docx` | Binary `application/vnd.openxmlformats-officedocument.wordprocessingml.document`; same flow |
+
+Both buttons disable during generation (spinner), restore on success/failure. Errors show toast with `apiError.describe()`.
+
+### Styling (style.css additions)
+- `.skill-tag.skill-draft` — accent background for draft skills
+- `.match-sc-list.is-caution` — warning background for notes
+- `.tailor-download-btn.loading` — spinner animation during generation
+
+### Safety
+- No invented qualifications — draft only reorders/rephrases existing resume content
+- Missing requirements shown only in analysis gaps, never in draft or documents
+- No auto-apply, no auto-email, no persistence
+- RFC 7807 errors via `GlobalExceptionHandler` (404 candidate/job, 400 validation, 500 safe generic)
+
+---
+
 ## 8. Resume Upload States (Implemented)
 
 | State | Visual |
@@ -196,6 +257,7 @@
 | **Button Apply** | `.btn-apply` | Prepare Application |
 | **Button Advisor** | `.btn-advisor` | Career Analysis |
 | **Button Tailor** | `.btn-tailor` | ATS Tailoring |
+| **Button Tailor Download** | `.tailor-download-btn` | PDF/DOCX download in tailoring modal |
 | **Button Source Listing** | `.btn-source-listing` | View Job Listing |
 | **Button Apply External** | `.btn-apply-external` | Apply on Employer Site |
 | **Skill Tag** | `.skill-tag` + variants | Skills display |

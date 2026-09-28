@@ -1,6 +1,6 @@
 # Memory — agent-platform
 
-> **Status**: CURRENT — historical context as of commit da933ac (Phase 12.4 verified)
+> **Status**: CURRENT — historical context as of commit bc457e2 (Phase 12.6 implemented — ATS Resume Tailoring preview + PDF/DOCX download UI)
 > **Purpose**: Historical context, not authority over current rules. See RULES.md for current constraints.
 
 ---
@@ -14,6 +14,7 @@
 | Phase 12.2 prep | f47562b | 2026-09-20 | Local AI runtime, timeouts, model config |
 | Phase 12.3 | a6eaf5c | 2026-09-20 | Job search flow, live job sources |
 | Phase 12.4 | da933ac | 2026-09-24 | Match Details — Job Details modal visual polish; live browser verified |
+| Phase 12.6 | 92c0942, 055db64, bc457e2 | 2026-09-28 | ATS Resume Tailoring — spec (92c0942), backend + tests (055db64), frontend preview + PDF/DOCX download UI (bc457e2); end-to-end browser verification **pending** |
 
 ---
 
@@ -39,6 +40,7 @@
 | Phase 10 | — | FROZEN | — |
 | Phase 11.1 (MCP) | 0d141d6 | FROZEN | OPENINGS-MCP integration; config-only changes |
 | Phase 12.1 | 553eb76 | FROZEN | Evidence-based resume parsing, MCP job search |
+| Phase 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | IMPLEMENTED | Backend document generation (PDF/DOCX), controller with 3 endpoints, controller tests, generator tests, frontend preview modal with download buttons |
 
 **Note**: Phase 11.1 MCP is "frozen" in the sense that its **code is complete and tested**; only configuration changes (enable/disable, URLs, timeouts) are allowed. The code itself is not modified.
 
@@ -94,6 +96,7 @@
 | Phase 10 | — | — |
 | Phase 11.1 (MCP) | 0d141d6 | OPENINGS-MCP integration; config-only changes |
 | Phase 12.1 | 553eb76 | Evidence-based resume parsing, MCP job search |
+| Phase 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | Backend document generation (PDF/DOCX), controller with 3 endpoints, controller tests, generator tests, frontend preview modal with download buttons |
 
 ---
 

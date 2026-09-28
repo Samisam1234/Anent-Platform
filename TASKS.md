@@ -1,7 +1,7 @@
 # Tasks — agent-platform
 
-> **Status**: CURRENT — roadmap as of commit da933ac (Phase 12.4 — Match Details UI polish)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac
+> **Status**: CURRENT — roadmap as of commit bc457e2 (Phase 12.6 — ATS Resume Tailoring preview + PDF/DOCX download UI)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.6 implemented**: 92c0942 (spec), 055db64 (backend + tests), bc457e2 (frontend)
 
 ---
 
@@ -18,7 +18,7 @@
 | Phase 12.2 | f47562b | **FROZEN** | Resume/Profile frontend reliability |
 | **Phase 12.3** | a6eaf5c | **VERIFIED** | Job search reliability, live sources |
 | **Phase 12.4** | da933ac | **VERIFIED** | Match Details — Job Details modal polish, source URLs |
-| **Phase 12.5** | — | **NEXT / PLANNED** | Career Analysis + Readiness |
+| **Phase 12.6** | 92c0942, 055db64, bc457e2 | **IMPLEMENTED** | ATS Resume Tailoring — spec, backend + tests, frontend preview + PDF/DOCX download UI; end-to-end browser verification pending |
 
 ---
 
@@ -56,7 +56,7 @@ Make the browser UI accurately display the profile that the backend produces fro
 | **12.3** | Job search reliability | Profile-driven search, live sources enabled |
 | **12.4** | Match details | Job Details modal polish, source URLs |
 | **12.5** | Career Analysis + Readiness | Career Analysis modal, Readiness modal |
-| **12.6** | ATS Resume Tailoring | Tailored resume preview/download |
+| **12.6** | ATS Resume Tailoring | **IMPLEMENTED** — Tailored resume preview/download |
 | **12.7** | Application Package | Prepare Application modal, review/approve |
 | **12.8** | Employer Application | "Apply on Employer Site" flow |
 | **12.9** | Application Tracking | Application list, status, history |
@@ -98,12 +98,16 @@ Implementation: `da933ac` ("Phase 12.4 - polish match details UI"). Live browser
 
 ---
 
-## Phase 12.6 — ATS Resume Tailoring (PLANNED)
+## Phase 12.6 — ATS Resume Tailoring (IMPLEMENTED)
 
-- Tailored resume preview modal
-- Download tailored resume (PDF/DOCX)
-- Section reordering preview
-- Highlighted skills/projects
+- Tailored resume preview modal (analysis + draft) — `matches.js:buildTailoringPreviewHtml`
+- Download tailored resume (PDF/DOCX) — `POST /api/v1/resume/tailor/pdf` and `/docx`
+- Section reordering preview — `draft.sectionOrder` rendered in order
+- Highlighted skills/projects/experience/internships — `draft.highlighted*`
+- Professional summary — `draft.professionalSummary`
+- Warnings/notes — `draft.warnings`
+- Commits: 92c0942 (spec), 055db64 (backend + tests), bc457e2 (frontend)
+- End-to-end browser verification **pending** (requires uploaded resume + live job match)
 
 ---
 

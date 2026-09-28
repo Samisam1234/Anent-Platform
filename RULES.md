@@ -16,7 +16,7 @@
 | Phase 12.2 | f47562b | **FROZEN** | Resume/Profile frontend reliability |
 | **Phase 12.3** | a6eaf5c | **VERIFIED** | Job search flow and live job sources |
 | **Phase 12.4** | da933ac | **VERIFIED** | Match Details — Job Details modal visual polish, source URLs |
-| **Phase 12.5** | — | **PLANNED** | Career Analysis + Readiness |
+| **Phase 12.6** | 92c0942, 055db64, bc457e2 | **IMPLEMENTED** | ATS Resume Tailoring — spec, backend + tests, frontend preview + PDF/DOCX download UI; end-to-end browser verification pending |
 
 **Rule**: Frozen phases are **immutable**. No code changes, no refactoring, no "improvements" unless explicitly required by a new phase with approval.
 
@@ -49,7 +49,7 @@
 | Phase 10 | — | **FROZEN** | None |
 | Phase 11.1 (MCP) | 0d141d6 | **FROZEN** | Config-only changes (enable/disable, URLs, timeouts) |
 | Phase 12.1 | 553eb76 | **FROZEN** | Evidence-based resume parsing, MCP job search |
-| Phase 12.2 prep | f47562b | **CHECKPOINT** | Local AI runtime, timeouts, model config |
+| Phase 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **IMPLEMENTED** | No changes; backend (PDF/DOCX generation, 3 endpoints, tests), frontend (preview modal, download buttons) complete; browser verification pending |
 
 **Rule**: Frozen phases are **immutable**. No code changes, refactoring, or "improvements" unless explicitly required by a new phase with approval.
 
@@ -190,7 +190,7 @@
 | 11.1 (MCP) | 0d141d6 | **FROZEN** | Config-only changes allowed |
 | 12.1 | 553eb76 | **FROZEN** | Evidence-based resume, MCP job search |
 | 12.2 prep | f47562b | **CHECKPOINT** | Local AI runtime, timeouts |
-| **12.2** | — | **ACTIVE** | Resume/Profile frontend reliability |
+| 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **IMPLEMENTED** | Spec, backend + tests, frontend preview + PDF/DOCX download UI; end-to-end browser verification pending |
 
 ---
 

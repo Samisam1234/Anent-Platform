@@ -1,7 +1,7 @@
 # Architecture — agent-platform
 
-> **Status**: CURRENT — reflects actual repository state as of commit da933ac (Phase 12.4 verified)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac
+> **Status**: CURRENT — reflects actual repository state as of commit bc457e2 (Phase 12.6 — ATS Resume Tailoring preview + PDF/DOCX download UI)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.6 implemented**: 92c0942 (spec), 055db64 (backend + tests), bc457e2 (frontend)
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -64,11 +64,12 @@ rag-service
 | `matching` | JobMatchingService, Skill/Role/Experience/Education/Location/Track engines |
 | `resume` | ResumeProfileService, ResumeParserService, DeterministicCandidateProfileBuilder |
 | `tailoring` | ResumeTailoringAnalysisService, TailoredResumeDraftService |
+| `document` | ResumeDocumentGenerator, PdfResumeDocumentGenerator, DocxResumeDocumentGenerator |
 | `service` | AgentChatService, OrchestrationService, EvaluationService |
 | `service.agent` | AgentChatService (chat with history, tool calling) |
 
 ### ui (`com.agentplatform.ui`)
-- **Controllers**: AgentChatController, AiStatusController, ResumeUploadController, ResumeTailoringController, JobSearchController, JobMatchController, JobDetailsController, JobMatchController, ApplicationAdvisorController, ApplicationEmailController, CustomAgentController, OrchestrationController, ApplicationAdvisorController
+- **Controllers**: AgentChatController, AiStatusController, ResumeUploadController, ResumeTailoringController (POST /tailor, /tailor/pdf, /tailor/docx), JobSearchController, JobMatchController, JobDetailsController, ApplicationAdvisorController, ApplicationEmailController, CustomAgentController, OrchestrationController
 - **Static assets**: `src/main/resources/static/` — 5 HTML pages + 13 JS modules + CSS
 - **PersistenceConfig** — `@EnableJpaRepositories` + `@EntityScan` over `com.agentplatform`
 
@@ -147,6 +148,16 @@ POST /api/v1/resume/tailor {candidateId, jobId}
     → ResumeTailoringAnalysisService.analyze()
       → CareerGapAnalysisService.analyze()
       → Deterministic reordering/emphasis of existing resume content
+
+POST /api/v1/resume/tailor/pdf {candidateId, jobId}
+  → ResumeTailoringController
+    → PdfResumeDocumentGenerator.generate(draft, profile, job)
+      → Returns application/pdf with Content-Disposition attachment
+
+POST /api/v1/resume/tailor/docx {candidateId, jobId}
+  → ResumeTailoringController
+    → DocxResumeDocumentGenerator.generate(draft, profile, job)
+      → Returns application/vnd.openxmlformats-officedocument.wordprocessingml.document with Content-Disposition attachment
 ```
 
 ---
@@ -190,6 +201,7 @@ POST /api/v1/resume/tailor {candidateId, jobId}
 | Phase 11.1 | 0d141d6 | **FROZEN** |
 | Phase 12.1 | 553eb76 | **FROZEN** |
 | Phase 12.2 prep | f47562b | **CHECKPOINT** |
+| Phase 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **IMPLEMENTED** — backend (document generation, 3 endpoints, controller tests, generator tests) + frontend (preview modal, download buttons) |
 
 ---
 
@@ -242,7 +254,8 @@ agent.matching:
 ## 9. Testing Strategy
 
 - **No full `@SpringBootTest`** — slice tests (`@WebMvcTest`) + mocked services
-- **Plain JUnit** for deterministic logic (matching engines, resume parsing)
+- **Plain JUnit** for deterministic logic (matching engines, resume parsing, document generation)
 - **No DB/LLM required** for unit tests — hermetic, fast
 - 74+ test files across modules
 - Browser automation (Shiplight/Playwright) for E2E verification
+- **New in 12.6**: `ResumeTailoringControllerTest` (12 cases: JSON 200, 404s, 400s, PDF 200, DOCX 200, safe 500 on generator failure), `PdfResumeDocumentGeneratorTest` (7 cases: PDF magic, text re-read, unicode safe, pagination, byte determinism, null inputs, slugify), `DocxResumeDocumentGeneratorTest` (6 cases: DOCX magic, text re-read, cert/education sections, null inputs, content stability, slugify)

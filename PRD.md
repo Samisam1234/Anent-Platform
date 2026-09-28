@@ -1,7 +1,7 @@
 # Product Requirements Document — agent-platform
 
-> **Status**: CURRENT — reflects actual implemented product as of commit da933ac (Phase 12.4 — Match Details UI polish)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac
+> **Status**: CURRENT — reflects actual implemented product as of commit bc457e2 (Phase 12.6 — ATS Resume Tailoring preview + PDF/DOCX download UI)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.6 implemented**: 92c0942 (spec), 055db64 (backend + tests), bc457e2 (frontend)
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -25,7 +25,7 @@ agent-platform is a local-first AI Career Agent platform that helps users turn a
 | 4b | **Job Details** — official listing URL, source attribution | **IMPLEMENTED** | Job modal shows source URL, never fabricates employer URLs |
 | 5 | **Career Analysis** — readiness score, gaps, recommendations | **BACKEND OK / FRONTEND BROKEN** | Backend works; modal DOM elements missing (§8 INVESTIGATION) |
 | 6 | **Application Readiness** — readiness score, gaps, recommended actions | **IMPLEMENTED** | Backend works; modal opens but DOM issues |
-| 7 | **ATS Resume Tailoring** — reorder/emphasize existing content only | **IMPLEMENTED** | Deterministic; never invents skills/experience |
+| 7 | **ATS Resume Tailoring** — reorder/emphasize existing content only | **IMPLEMENTED** | Deterministic; preview modal + PDF/DOCX download; never invents skills/experience; end-to-end browser verification **pending** |
 | 8 | **Application Preparation** — tailored resume + cover letter + Q&A | **PARTIAL** | Backend prepares; modal DOM missing; content ignores profile |
 | 9 | **Employer Application** — manual via official URL only | **IMPLEMENTED** | "Apply on Employer Site" / "View Job Listing" buttons; no auto-submit |
 | 10 | **Application Tracking** | **PLANNED** | Not yet implemented |
@@ -64,6 +64,7 @@ agent-platform is a local-first AI Career Agent platform that helps users turn a
 | Prepared Application modal wrapper | **PLANNED** | Missing overlay wrapper |
 | Duplicate DOM IDs in advisor modal | **PLANNED** | Four duplicate IDs on wrapper div + inner ul |
 | Live job source reachability | **UNVERIFIED** | Sandbox has no outbound network |
+| End-to-end ATS Resume Tailoring browser verification | **PENDING** | Requires uploaded resume + live job match; not exercised in Commit 2/3 |
 
 ---
 
