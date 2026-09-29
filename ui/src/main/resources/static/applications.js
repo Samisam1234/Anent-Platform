@@ -27,6 +27,7 @@
     const applicationDetailRecommendation = document.getElementById('applicationDetailRecommendation');
     const editApplicationBtn = document.getElementById('editApplicationBtn');
     const approveApplicationBtn = document.getElementById('approveApplicationBtn');
+    const assistedApplyBtn = document.getElementById('assistedApplyBtn');
     const sendEmailBtn = document.getElementById('sendEmailBtn');
     const goToResumeBtn = document.getElementById('goToResumeBtn');
     const backToApplicationsBtn = document.getElementById('backToApplicationsBtn');
@@ -391,6 +392,151 @@
         }
     }
 
+    /**
+     * Assisted Apply — review surface (Phase 12.8, Slice 1).
+     *
+     * Opens the Apply Kit in the single global modal shell for an approved package.
+     * The kit REVIEWS the destination: it resolves the genuine employer application
+     * URL from the stored job id (never constructed, guessed or rewritten) and shows
+     * the package context, the plan for whitelisted fields (later slice) and the
+     * honest handoff to the employer site. Nothing here fills a form, writes to the
+     * employer page, submits anything, or sends email.
+     *
+     * The modal is opened exactly once with its final state after the application
+     * and the listing both resolve, so a closed or superseded dialog can never be
+     * overwritten by a late callback.
+     */
+    function openApplyKit(id) {
+        fetch(`${API_ENDPOINT}/${id}`)
+            .then(response => {
+                if (!response.ok) throw new Error(`Failed to fetch application: ${response.status}`);
+                return response.json();
+            })
+            .then(app => {
+                if (!app || !app.id) {
+                    showToast('Application not found.', 'error');
+                    return;
+                }
+                resolveJob(app.jobId).then(job => renderApplyKit(app, job));
+            })
+            .catch(err => {
+                console.error('Error opening Apply Kit:', err);
+                showToast(window.apiError.describe(err, 'Failed to load application.'), 'error');
+            });
+    }
+
+    function renderApplyKit(app, job) {
+        const statusKey = app.applicationStatus || 'DRAFT';
+        const status = STATUS_LABELS[statusKey]
+            || { label: humanizeStatus(statusKey), cls: 'draft', hint: '' };
+        const approved = isApproved(statusKey);
+        // jobLink.resolve() is the single source of truth for the destination — safeUrl
+        // has already rejected loopback/private/fake hosts, so only a genuine source
+        // URL can ever be shown here. A missing listing resolves to kind 'none'.
+        const target = window.jobLink
+            ? window.jobLink.resolve(job)
+            : { kind: 'none', url: null, label: 'Application Link Unavailable', reason: 'Link resolution is unavailable.', source: null };
+
+        const preparedOn = app.createdAt
+            ? new Date(app.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+            : 'not recorded';
+
+        const block = (title, html) => `
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">${esc(title)}</h4>
+                ${html}
+            </div>`;
+        const closeBtn = '<button type="button" class="btn-secondary" data-apply-close>Close</button>';
+        const fallbackNote = 'The manual link above remains available while this screen is blocked.';
+
+        let state, body, footer, subtitle;
+
+        if (!approved) {
+            // Defensive: the entry button is hidden for non-approved packages, but a
+            // stale detail view could still reach this if the status changed server-side.
+            state = 'blocked-status';
+            subtitle = `${status.label} · prepared ${preparedOn} · not submitted`;
+            body = `
+                <div class="apply-kit" data-apply-state="${state}">
+                    <div class="apply-kit-state">
+                        <div class="apply-kit-state-title">Not approved for application</div>
+                        <p>The Apply Kit needs a package you have approved first. This application is currently <strong>${esc(status.label)}</strong> — approve it in Applications, then reopen Assisted Apply.</p>
+                    </div>
+                    <p class="agent-note">${fallbackNote}</p>
+                </div>`;
+            footer = closeBtn;
+        } else if (!job || !job.id) {
+            state = 'blocked-resolve';
+            subtitle = `${status.label} · prepared ${preparedOn} · not submitted`;
+            body = `
+                <div class="apply-kit" data-apply-state="${state}">
+                    <div class="apply-kit-state">
+                        <div class="apply-kit-state-title">Employer destination not found</div>
+                        <p>The original listing is no longer indexed, so its employer application URL cannot be shown. The URL is never guessed or reconstructed.</p>
+                    </div>
+                    <p class="agent-note">${fallbackNote}</p>
+                </div>`;
+            footer = closeBtn;
+        } else if (target.kind !== 'employer') {
+            state = 'blocked-resolve';
+            subtitle = `${status.label} · prepared ${preparedOn} · not submitted`;
+            const reason = target.reason
+                || 'The source supplied no employer application link, so Assisted Apply cannot be used.';
+            body = `
+                <div class="apply-kit" data-apply-state="${state}">
+                    <div class="apply-kit-state">
+                        <div class="apply-kit-state-title">Employer application URL unavailable</div>
+                        <p>${esc(reason)}</p>
+                        <p>Assisted Apply needs a genuine employer application URL from the job source. This job has nothing to transfer to, so only the manual path applies.</p>
+                    </div>
+                    <p class="agent-note">${fallbackNote}</p>
+                </div>`;
+            footer = closeBtn;
+        } else {
+            state = 'eligible';
+            subtitle = `${status.label} · prepared ${preparedOn} · not submitted`;
+            body = `
+                <div class="apply-kit" data-apply-state="${state}">
+                    <div class="prep-summary">
+                        <span class="summary-chip">Job ID: ${esc(app.jobId || '—')}</span>
+                        <span class="summary-chip">Company: ${esc(app.company || '—')}</span>
+                        <span class="summary-chip">Location: ${esc(app.location || 'Not specified')}</span>
+                        <span class="summary-chip">Skill coverage: ${app.matchScore != null ? esc(app.matchScore) + '/100' : 'not calculated'}</span>
+                    </div>
+
+                    <div class="apply-kit-destination" title="The employer application URL exactly as the job source supplied it">
+                        <span class="external-badge">Assisted Apply — review only</span>
+                        <code class="apply-kit-url" data-apply-url="${esc(target.url)}">${esc(target.url)}</code>
+                        <span class="external-note">From ${esc(target.source || 'the job source')} · never edited, guessed or rewritten.</span>
+                    </div>
+
+                    ${block('What the Apply Kit prepares', `
+                        <p class="modal-description">A reviewable set of values for common employer-form fields, each taken from your approved profile or this package so you can review and edit before transferring:</p>
+                        <ul class="match-sc-list">
+                            <li>Name, Email, Phone, Location</li>
+                            <li>Professional summary</li>
+                            <li>Skills</li>
+                        </ul>
+                        <p class="external-note">Field values and per-field copy arrive in a later step; this screen confirms the employer destination and eligibility first.</p>`)}
+                    ${block('Where you apply', `
+                        <p class="modal-description">Open the employer site, review the prepared values there, and submit yourself. The platform never writes to or submits a page outside this app, and it never applies on your behalf.</p>`)}
+                </div>`;
+            footer = `
+                <span class="modal-hint">You submit on the employer site — the platform never does.</span>
+                ${closeBtn}
+                <a class="btn-primary btn-apply-external" href="${esc(target.url)}" target="_blank" rel="noopener noreferrer"
+                   title="Opens the employer's own application page in a new tab — you review and submit there yourself">Open employer site to apply</a>`;
+        }
+
+        window.modalShell.open({
+            kicker: 'Assisted Apply',
+            title: `${app.jobTitle || 'Role'} — ${app.company || 'Company'}`,
+            subtitle: subtitle,
+            body: body,
+            footer: footer
+        });
+    }
+
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-edit-application]');
         if (!btn) return;
@@ -573,6 +719,13 @@
             approveApplicationBtn.textContent = 'Approve Application';
         }
 
+        // Assisted Apply button: only for a package the user has approved. The kit is
+        // a review + assisted-transfer surface, so it is gated on the same approval
+        // the manual apply path uses.
+        if (assistedApplyBtn) {
+            assistedApplyBtn.hidden = !isApproved(status);
+        }
+
         // Send Email button: only show for APPROVED_FOR_APPLICATION
         if (sendEmailBtn) {
             sendEmailBtn.hidden = !isApproved(status);
@@ -607,6 +760,7 @@
         // Update button states
         if (editApplicationBtn) editApplicationBtn.hidden = true;
         if (approveApplicationBtn) approveApplicationBtn.hidden = true;
+        if (assistedApplyBtn) assistedApplyBtn.hidden = true;
         if (sendEmailBtn) sendEmailBtn.hidden = true;
         if (saveEditBtn) saveEditBtn.hidden = false;
         if (cancelEditBtn) cancelEditBtn.hidden = false;
@@ -965,6 +1119,13 @@
             }
         });
 
+        // Apply Kit close button (delegated — the kit lives in the shared modal shell)
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('[data-apply-close]')) {
+                window.modalShell.close();
+            }
+        });
+
         // Edit application button
         if (editApplicationBtn) {
             editApplicationBtn.addEventListener('click', enterEditMode);
@@ -986,6 +1147,13 @@
         if (approveApplicationBtn) {
             approveApplicationBtn.addEventListener('click', () => {
                 if (currentApplicationId) approveApplication(currentApplicationId);
+            });
+        }
+
+        // Assisted Apply button (detail view, shown for approved packages only).
+        if (assistedApplyBtn) {
+            assistedApplyBtn.addEventListener('click', () => {
+                if (currentApplicationId) openApplyKit(currentApplicationId);
             });
         }
 

@@ -913,6 +913,16 @@ body.modal-open{overflow:hidden}
 .external-badge.is-muted{background:var(--bg-card);color:var(--text-muted);border-color:var(--border)}
 .external-note{font-size:.75rem;color:var(--text-muted);line-height:1.5}
 
+/* ── Assisted Apply Kit (Phase 12.8, Slice 1 review surface) ───────────────────
+   The kit lives inside the shared modal shell. It shows the genuine employer URL,
+   the package context and the whitelist plan; it never fills or submits anything. */
+.apply-kit-destination{display:flex;flex-direction:column;gap:8px;padding:12px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius)}
+.apply-kit-url{font-family:var(--font-mono);font-size:.74rem;color:var(--text-secondary);word-break:break-all}
+.apply-kit-state{padding:12px 14px;background:var(--bg-input);border:1px solid var(--border);border-left-width:3px;border-left-color:var(--warning);border-radius:var(--radius)}
+.apply-kit-state-title{font-size:.9rem;font-weight:700;color:var(--text-primary)}
+.apply-kit-state p{font-size:.82rem;color:var(--text-secondary);line-height:1.6;margin:6px 0 0}
+.apply-kit-state p:first-of-type{margin-top:4px}
+
 /* ── Applications portal: package contents ───────────────────────────────────── */
 .application-card-package{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .package-chip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:.72rem;font-weight:600;border:1px solid var(--border);background:var(--bg-input);color:var(--text-muted)}
