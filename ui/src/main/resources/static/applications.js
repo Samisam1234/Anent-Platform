@@ -830,6 +830,12 @@
         updateProfileBadge();
         loadApplications();
 
+        // Deep link from the Matches page: applications.html?application=<id>
+        const deepLinkId = Number(new URLSearchParams(window.location.search).get('application'));
+        if (Number.isFinite(deepLinkId) && deepLinkId > 0 && candidateId != null) {
+            viewApplication(deepLinkId);
+        }
+
         // Copy buttons (delegated)
         document.addEventListener('click', (e) => {
             const copyBtn = e.target.closest('.copy-btn');

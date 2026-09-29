@@ -626,6 +626,7 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             <div class="prep-summary">
                 <span class="summary-chip">Company: ${esc(app.company || '—')}</span>
                 <span class="summary-chip">Skill coverage: ${app.matchScore != null ? esc(app.matchScore) + '/100' : 'not calculated'}</span>
+                ${app.recommendation ? `<span class="summary-chip">Advisor: ${esc(humanizeEnum(app.recommendation))}</span>` : ''}
                 <span class="summary-chip">Prepared for your review — not submitted</span>
             </div>
 
@@ -656,13 +657,23 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             </div>
 
             <div class="modal-job-section">
+                <h4 class="modal-section-title">Suggested application answers</h4>
+                ${splitListOrEmpty(app.suggestedAnswers, 'No suggested answers available.')}
+            </div>
+
+            <div class="modal-job-section">
+                <h4 class="modal-section-title">Your strengths</h4>
+                ${listOrEmpty(app.candidateStrengths, 'No candidate strengths listed.')}
+            </div>
+
+            <div class="modal-job-section">
                 <h4 class="modal-section-title">Resume highlights</h4>
                 ${listOrEmpty(app.resumeHighlights, 'No resume highlights available.')}
             </div>`;
 
         const footer = `
             <span class="modal-hint">Nothing has been submitted. Review, then apply on the employer's own site.</span>
-            ${app.applicationId ? `<a class="btn-secondary" href="applications.html">Review in Applications</a>` : ''}`;
+            ${app.applicationId ? `<a class="btn-secondary" href="applications.html?application=${encodeURIComponent(app.applicationId)}">Review &amp; Edit in Applications</a>` : ''}`;
 
         window.modalShell.open({
             kicker: 'Prepared Application',
@@ -679,6 +690,12 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
         if (!items.length) return `<p class="modal-empty-line">${esc(emptyText)}</p>`;
         const cls = listClass ? `match-sc-list ${listClass}` : 'match-sc-list';
         return `<ul class="${cls}">${items.map(v => `<li>${esc(v)}</li>`).join('')}</ul>`;
+    }
+
+    /** Splits the delimited suggested-answers string (same convention as applications.js splitList). */
+    function splitListOrEmpty(text, emptyText) {
+        const items = String(text || '').split(/[,\u2014-]\s*|\s+\|\|\s+/).map(s => s.trim()).filter(Boolean);
+        return listOrEmpty(items, emptyText);
     }
 
     function copyElementText(sourceId, btn) {
