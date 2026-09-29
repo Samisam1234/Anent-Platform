@@ -60,7 +60,7 @@ Make the browser UI accurately display the profile that the backend produces fro
 | **12.5** | Career Analysis + Readiness | **IMPLEMENTED — verification not recorded** (6f4b483) |
 | **12.6** | ATS Resume Tailoring | **VERIFIED** — Tailored resume preview/download; D2 page-level overflow deferred |
 | **12.7** | Application Package | **VERIFIED** — review sections, editing, recipient-verified email; full suite 1,216 tests green; browser acceptance 51/51; D2 page-level overflow + live job-source reachability open (12.10 E2E gate) |
-| **12.8** | Employer Application | "Apply on Employer Site" flow |
+| **12.8** | Employer Application | "Apply on Employer Site" flow — assisted apply, spec: PHASE_12.8_SPEC.md (Slice 0 only) |
 | **12.9** | Application Tracking | Application list, status, history |
 | **12.10** | Final Shiplight E2E | Full browser E2E regression |
 
@@ -132,12 +132,21 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
 
 ---
 
-## Phase 12.8 — Employer Application (PLANNED)
+## Phase 12.8 — Employer Application (PLANNED — spec only, not implemented)
 
-- "Apply on Employer Site" flow
-- Browser automation for form filling (supported fields only)
-- User review before submit
-- No CAPTCHA/MFA bypass
+> Detailed, reviewable specification: **PHASE_12.8_SPEC.md** (Slice 0, created 2026-09-29).
+
+- "Apply on Employer Site" flow — **user-triggered, assisted apply**, reconciled with PRD §4:
+  the user starts the flow from an approved package, reviews/edits every prepared value, and
+  performs the final paste and submit on the employer site; the app never writes to or submits a
+  page it does not serve, never touches CAPTCHA/MFA, never handles credentials.
+- Assists only whitelisted supported fields (name, email, phone, location, headline, professional
+  summary, skills), carried by the Apply Kit + one read-only `GET /api/v1/candidate/{candidateId}`
+  endpoint (grounded by inspection — no front-end profile read path exists). Links are initially
+  unsupported (the parser stores no GitHub/LinkedIn URLs).
+- User review before submit; user alone submits on the employer site; safe decline for
+  unsupported forms; client-side-only apply marker as the Phase 12.9 migration seam.
+- No CAPTCHA/MFA bypass, no automation of employer-page DOM, no unattended filling.
 
 ---
 

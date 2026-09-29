@@ -73,11 +73,16 @@ agent-platform is a local-first AI Career Agent platform that helps users turn a
 
 ## 4. Out of Scope (Not Planned)
 
-- Automatic application submission (CAPTCHA/MFA bypass)
-- Automatic form filling on employer sites
+- Automatic (unattended) form filling on employer sites — filling or submitting without user review and a user-triggered action
+- Automatic application submission, including any CAPTCHA/MFA bypass
 - React/SPA migration (vanilla HTML/CSS/JS only)
 - Cloud-only deployment (local-first architecture)
 - Multi-user / multi-tenant (single-user local app)
+
+> **Assisted apply (Phase 12.8) is NOT excluded by the above**: the user starts the flow from an
+> approved application package, reviews and edits every prepared value in the platform UI, and
+> performs the final paste and submit on the employer site themselves. The platform never writes to
+> or submits a page it does not serve, and never touches CAPTCHA/MFA or credentials.
 
 ---
 
