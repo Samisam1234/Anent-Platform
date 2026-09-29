@@ -1,6 +1,6 @@
 # Memory — agent-platform
 
-> **Status**: CURRENT — historical context as of commit 0a02e22 (Phase 12.6 verified; Phase 12.7 planned)
+> **Status**: CURRENT — historical context as of commit 9275582 (Phase 12.6 verified; Phase 12.7 Slices 1–3 implemented; docs sync applied, not yet committed)
 > **Purpose**: Historical context, not authority over current rules. See RULES.md for current constraints.
 
 ---
@@ -16,6 +16,7 @@
 | Phase 12.4 | da933ac | 2026-09-24 | Match Details — Job Details modal visual polish; live browser verified |
 | Phase 12.5 | 6f4b483 | 2026-09-25 | Career Analysis + Readiness UI polish — CSS + markup only (`matches.js`, `style.css`); no spec, no tests, no recorded browser-verification evidence → **IMPLEMENTED, verification not recorded** |
 | Phase 12.6 | 92c0942, 055db64, bc457e2, 091f7c3, 0a02e22 | 2026-09-28 | ATS Resume Tailoring — spec (92c0942), backend + tests (055db64), frontend preview + PDF/DOCX download UI (bc457e2), docs sync (091f7c3), PDF-determinism/D2 doc follow-up (0a02e22); core workflow + PDF/DOCX read-back verified 2026-09-29; D2 page-level overflow at ≤768px deferred to 12.10 |
+| Phase 12.7 (Slices 1–3) | 9009aae, 351283e, 9275582 | 2026-09-29 | Application Package — prepared-review sections (9009aae); editing flow (351283e, 999 tests + browser checks); email recipient verification + simulated-send labelling (9275582, 1,002 tests + controlled browser checks with route-intercepted mock email transport, no real email sent). Docs sync (Slice 4) applied, not yet committed. Final Phase 12.7 acceptance verification and the Phase 12.10 E2E gate (D2 page-level overflow, live job-source reachability) remain pending |
 
 ---
 

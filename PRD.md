@@ -1,7 +1,7 @@
 # Product Requirements Document — agent-platform
 
-> **Status**: CURRENT — reflects actual implemented product as of commit 0a02e22 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 planned)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 planned**
+> **Status**: CURRENT — reflects actual implemented product as of commit 9275582 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 Slices 1–3 implemented; docs sync applied, not yet committed)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 implemented (Slices 1–3)**: 9009aae, 351283e, 9275582
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -26,7 +26,7 @@ agent-platform is a local-first AI Career Agent platform that helps users turn a
 | 5 | **Career Analysis** — readiness score, gaps, recommendations | **IMPLEMENTED** | Backend works; renders via the shared modal shell (legacy DOM wrappers removed); Phase 12.5 UI-polish browser verification not recorded |
 | 6 | **Application Readiness** — readiness score, gaps, recommended actions | **IMPLEMENTED** | Backend works; renders via the shared modal shell (advisor breakdown) |
 | 7 | **ATS Resume Tailoring** — reorder/emphasize existing content only | **IMPLEMENTED** | Deterministic; preview modal + PDF/DOCX download; never invents skills/experience; core workflow + PDF/DOCX read-back verified (D2 page-level overflow at ≤768px deferred) |
-| 8 | **Application Preparation** — tailored resume + cover letter + Q&A | **PARTIAL** | Prepare endpoint, profile-derived package generation (`JobApplicationPreparationService`), and review via the shared modal shell exist; remaining Phase 12.7 deltas (Q&A/strengths/recommendation review sections, edit deep-link, email recipient verification) defined in PHASE_12.7_SPEC.md |
+| 8 | **Application Preparation** — tailored resume + cover letter + Q&A | **IMPLEMENTED** | Prepare endpoint, profile-derived package generation, prepared-review modal (Q&A/strengths/recommendation), Applications-page editing, and email send with a user-entered/confirmed recipient are implemented (Slices 1–3). No SMTP is configured — email sends are simulated and labelled as such; the approval gate is unchanged. Final Phase 12.7 acceptance verification pending |
 | 9 | **Employer Application** — manual via official URL only | **IMPLEMENTED** | "Apply on Employer Site" / "View Job Listing" buttons; no auto-submit |
 | 10 | **Application Tracking** | **PLANNED** | Not yet implemented |
 
@@ -63,6 +63,9 @@ agent-platform is a local-first AI Career Agent platform that helps users turn a
 | Career Agent "WAITING" UI artifact | **PLANNED** | Rename/drop placeholder state |
 | Duplicate DOM IDs in advisor modal | **SUPERSEDED** | Legacy four-duplicate-ID issue on the pre-modal-shell wrapper; advisor modal now renders via the shared modal shell (single body), with `jobTitle`/`company` on `ApplicationAdvisorResponse` |
 | Live job source reachability | **UNVERIFIED** | Sandbox has no outbound network |
+| SMTP transport for application email | **NOT CONFIGURED** | No SMTP configured; email sends are simulated and labelled in the UI ("Email send simulated — no SMTP configured. Nothing was actually mailed.") |
+| Persisted email-sent flag | **NOT IMPLEMENTED** | No sent flag / `emailSentAt` is persisted — duplicate-send prevention is not a completed capability (the UI has an in-flight guard plus mandatory re-confirmation only); recorded as a limitation |
+| D2 page-level overflow (≤768px) | **DEFERRED** | Page-level horizontal overflow is deferred to Phase 12.10 (modal-level overflow verified per feature); must be addressed before the 12.10 full E2E acceptance |
 | End-to-end ATS Resume Tailoring browser verification | **DONE** | Core workflow verified (tailor 200, modal render 1440/768/390, PDF/DOCX download 200, close/reopen, 0 console/network errors) + H artifact read-back passed via PDFBox 3 / POI 5.2.5; D2 page-level overflow at 768/390px deferred pending 12.10 |
 
 ---

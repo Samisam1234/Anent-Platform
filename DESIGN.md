@@ -1,7 +1,7 @@
 # Design — agent-platform
 
-> **Status**: CURRENT — reflects actual UX as of commit 0a02e22 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 planned)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 planned**
+> **Status**: CURRENT — reflects actual UX as of commit 9275582 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 Slices 1–3 implemented; docs sync applied, not yet committed)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 implemented (Slices 1–3)**: 9009aae, 351283e, 9275582
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -238,6 +238,42 @@ Both buttons disable during generation (spinner), restore on success/failure. Er
 - Core workflow browser-verified: `POST /tailor` 200; preview modal renders analysis + draft at 1440/768/390px; PDF/DOCX downloads return 200 with correct `Content-Disposition` filename + MIME; modal close/reopen leaves no stale state; 0 console errors; 0 failed network requests.
 - **H (artifact read-back) passed**: the saved `test.pdf` (2,900 bytes) and `test.docx` (3,902 bytes) were parsed with PDFBox 3 (`Loader.loadPDF` + `PDFTextStripper`) and POI 5.2.5 (`XWPFDocument`); both contain the candidate name, the tailored professional summary, an ordered skills section, and the notes/warnings footer. DOCX skill lines are bullet-prefixed (`• `); the PDF renders the same ordered skills without bullets — both are intentional (see `DocxResumeDocumentGenerator` `BULLET + item`).
 - **Deferred — D2 page-level overflow**: at 768px and 390px the tailoring modal itself fits and its controls remain usable, but the page still has horizontal overflow — `scrollWidth=943` versus client widths 768 and 390. This is the known, deferred D2 issue, not a claim that the page has no overflow. D2 remains open and must be addressed before the Phase 12.10 full E2E acceptance.
+
+---
+
+## 7c. Application Package — Prepared Review, Editing, Email (Implemented — Phase 12.7)
+
+### Overview
+Flow: prepare → review (shared `modalShell`) → edit via the Applications page → approve → email send with a user-confirmed recipient. No automatic email sending and no employer application submission at any point.
+
+### Prepared Application review modal (`matches.js:openPreparedReview`)
+| Section | Source field | Notes |
+|---------|--------------|-------|
+| Advisor recommendation chip | `recommendation` | Humanized label chip beside the existing skill-coverage chip |
+| Suggested application answers | `suggestedAnswers` | Ordered Q&A list (split on comma/em-dash/`\|\|`) |
+| Strengths to emphasise | `candidateStrengths` | Bullet list |
+| (existing: matched/missing skills, tailored summary + Copy, cover letter + Copy, resume highlights, match-score chip) | — | Each section renders only when non-empty |
+| Footer copy | — | "Nothing has been submitted. Approving the package in Applications is required before any email can go out." |
+| Footer actions | — | "Review in Applications" / "Edit in Applications" → `applications.html?application=<id>[&edit=1]` |
+
+### Editing (`applications.js`)
+- **Edit deep link**: `applications.html?application=<id>&edit=1` auto-enters edit mode when edit-eligible — DRAFT/GENERATED/UNDER_REVIEW and APPROVED_FOR_APPLICATION (i.e. before sending); not for REJECTED/ARCHIVED.
+- **Inline validation**: per-field error messages (professional summary and cover letter required); no silent overwrite.
+- **Saving state + double-submit protection**: Save/Cancel disabled and "Saving..." while a `PUT` is in flight (`setEditSaving` / `saveEditSaving` guard).
+- **Server reload after save**: on success the app exits edit mode and re-fetches the application from the server so the saved content is confirmed.
+- **Safe cancel**: exits edit mode and re-fetches server state — unsaved edits are discarded.
+- **Editing stays separate from approval**: approve/reject/send actions are hidden while editing; edits never change status.
+
+### Application email send (`applications.js:sendEmail` + `confirmDialog.js`)
+- The send-email dialog has a required recipient email field (label "Recipient email"), pre-filled when a candidate email is available but always editable; blank/invalid blocks send inline with the dialog kept open and no request fired.
+- The recipient is **user-entered and user-confirmed** — a guessed/placeholder address is never substituted. This is manual user confirmation only; independent mailbox-ownership verification is not performed.
+- Approval gate: only `APPROVED_FOR_APPLICATION` + `approved=true` reaches the service; otherwise `REJECTED` is returned and surfaced.
+- The result is surfaced verbatim: `SENT_SIMULATED` is labelled ("Email send simulated — no SMTP configured. Nothing was actually mailed."); `REJECTED`/`FAILED` messages are shown as returned by the API.
+
+### Phase 12.7 verification evidence
+- **Slice 2**: 999 tests passed, no failures, errors, or skips; browser checks passed.
+- **Slice 3**: 1,002 tests passed, no failures, errors, or skips; controlled browser checks passed using a route-intercepted mock email transport — no real email was sent.
+- No automatic email sending or employer application submission at any step. Final Phase 12.7 acceptance verification remains pending (12.10 E2E gate: D2 page-level overflow, live job-source reachability).
 
 ---
 

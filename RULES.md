@@ -1,6 +1,6 @@
 # Rules — agent-platform
 
-> **Status**: CURRENT — non-negotiable engineering constraints as of commit 0a02e22 (Phase 12.6 verified; Phase 12.7 planned)
+> **Status**: CURRENT — non-negotiable engineering constraints as of commit 9275582 (Phase 12.6 verified; Phase 12.7 Slices 1–3 implemented)
 
 ---
 
@@ -33,6 +33,7 @@
 | **Explicit Keyword Behavior** | Free-text keyword field **removed** from Job Search / Matches. Keywords derive from profile skills/roles. |
 | **Official/Source URLs Only** | Job modal shows "View Job Listing" (source URL) and "Apply on Employer Site" (employer URL if provided). Never fabricate URLs. |
 | **Manual/User-Authorized Application Only** | No automatic form submission. Explicit "Approve for Application" step required. "Apply on Employer Site" opens employer URL in new tab. |
+| **No Guessed Email Recipient** | Email recipient is user-entered and user-confirmed before any send; a placeholder address is never used as a real send address. Simulated sends (no SMTP) are labelled as simulated in the UI — never disguised as real mail. |
 | **No Fabricated Qualifications** | ATS tailoring reorders/rephrases existing content only. Never invent skills, employers, projects, certifications, education, or years of experience. |
 | **Explicit Keyword Behavior** | Free-text keyword input **removed** from Job Search and Matches. Keywords derived from profile skills/roles/tracks. |
 | **Official/Source URLs Only** | Job modal shows "View Job Listing" (source URL) and "Apply on Employer Site" (if employer URL provided). Never fabricate. |
@@ -192,7 +193,7 @@
 | 12.2 prep | f47562b | **CHECKPOINT** | Local AI runtime, timeouts |
 | 12.5 (Career Analysis + Readiness UI) | 6f4b483 | **IMPLEMENTED — verification not recorded** | CSS + markup polish only (career report + advisor breakdown); no spec, no tests, no committed browser-verification evidence |
 | 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **VERIFIED** | Spec, backend + tests, frontend preview + PDF/DOCX download UI; core workflow + PDF/DOCX read-back verified; D2 page-level overflow deferred to 12.10 |
-| 12.7 (Application Package) | — | **PLANNED** | Prepare Application modal/review, edit package, Approve for Application, email with explicit approval — scope defined in PHASE_12.7_SPEC.md |
+| 12.7 (Application Package) | 9009aae, 351283e, 9275582 | **IMPLEMENTED (Slices 1–3)** | Prepared-review sections, editing flow, email recipient verification + simulated-send labelling; 999 (Slice 2) + 1,002 (Slice 3) tests passed, browser checks passed; final acceptance verification pending; D2 page-level overflow + live job-source reachability remain open (Phase 12.10 gate) |
 
 ---
 

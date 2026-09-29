@@ -1,4 +1,4 @@
-# PHASE 12.7 SPEC STATUS: READY FOR IMPLEMENTATION
+# PHASE 12.7 SPEC STATUS: IMPLEMENTED — Slices 1–3 (acceptance verification pending)
 
 ## FULL REVISED SPECIFICATION — Phase 12.7 Application Package
 
@@ -187,17 +187,32 @@ job-search/match-score change; no new storage schema (`JobApplication` exists, `
 update`); no email transport provisioning (stub `EmailTools` remains the send path); no D2
 fix; no resume-tailoring change (Phase 12.6 frozen/verified).
 
-### 12. Commits (proposed, NOT executed)
+### 12. Commits (EXECUTED — Slices 1–3; docs sync applied, not yet committed)
 
-1. **Backend** — email/send DTO `recipientEmail` + service placeholder/validation delta +
-   extended `ApplicationEmailControllerTest` + `ApplicationEmailServiceTest`. →
-   `Phase 12.7 - application package email recipient verification + tests`
-2. **Frontend** — `matches.js` prepared-review modal adds Q&A/strengths/recommendation
-   sections + explicit approval copy + Edit deep-link; `applications.js` recipient field on
-   send-email modal + simulated-send labelling; `style.css` only if needed. →
-   `Phase 12.7 - application package review + approval UI`
-3. **Docs sync** — `TASKS.md`, `DESIGN.md`, `ARCHITECTURE.md`, `PRD.md`, `MEMORY.md`,
-   `RULES.md`. → `Phase 12.7 - sync docs`
+The phase was delivered as three implementation slices (not the two-commit split originally
+proposed; §4/§5 deltas were grouped by user-visible slice instead):
+
+1. **Slice 1 — prepared-review completeness** (`9009aae`): `matches.js` renders
+   `suggestedAnswers`/`candidateStrengths`/`recommendation`+`matchScore` in the prepared-review
+   modal; explicit approval-gate footer copy; "Review in Applications" / "Edit in Applications"
+   deep links.
+2. **Slice 2 — editing flow** (`351283e`): edit deep link (`?edit=1`) + edit-eligible status
+   behavior, inline validation, saving state, double-submit protection, server reload after
+   save, safe cancel, editing separate from approval. **Verification**: 999 tests passed, no
+   failures/errors/skips; browser checks passed.
+3. **Slice 3 — recipient verification + safe sending** (`9275582`): backend (DTO
+   `recipientEmail`, `ApplicationEmailService.isValidRecipient`, `SENT_SIMULATED`, status-string
+   result mapping) + `confirmDialog` input support + `applications.js` recipient field and
+   simulated/REJECTED/FAILED labelling + tests. **Verification**: 1,002 tests passed, no
+   failures/errors/skips; controlled browser checks passed (route-intercepted mock email
+   transport; no real email sent).
+4. **Docs sync (planned `Phase 12.7 - sync docs` commit)**: `TASKS.md`, `DESIGN.md`,
+   `ARCHITECTURE.md`, `PRD.md`, `MEMORY.md`, `RULES.md`, and this section updated — **applied
+   but not yet committed** (awaits review).
+
+Remaining planned work (NOT executed): full §8 checkpoint pass A–P as a committed browser
+acceptance run, and the Phase 12.10 E2E gate (D2 page-level overflow, live job-source
+reachability). Phase 12.7 is not marked complete until final acceptance criteria are verified.
 
 ### 13. Architectural risk (low, acknowledged)
 

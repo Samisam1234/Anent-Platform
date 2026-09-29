@@ -1,7 +1,7 @@
 # Tasks — agent-platform
 
-> **Status**: CURRENT — roadmap as of commit 0a02e22 (Phase 12.6 verified; Phase 12.7 planned)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 planned**
+> **Status**: CURRENT — roadmap as of commit 9275582 (Phase 12.6 verified; Phase 12.7 Slices 1–3 implemented; docs sync applied, not yet committed)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 implemented (Slices 1–3)**: 9009aae, 351283e, 9275582
 
 ---
 
@@ -20,7 +20,7 @@
 | **Phase 12.4** | da933ac | **VERIFIED** | Match Details — Job Details modal polish, source URLs |
 | **Phase 12.5** | 6f4b483 | **IMPLEMENTED — verification not recorded** | Career Analysis + Readiness UI polish — CSS + markup only (career report + advisor breakdown); no spec, no tests, no committed browser-verification evidence |
 | **Phase 12.6** | 92c0942, 055db64, bc457e2 | **VERIFIED** | ATS Resume Tailoring — spec, backend + tests, frontend preview + PDF/DOCX download UI; core workflow + PDF/DOCX read-back verified; D2 page-level overflow deferred to 12.10 |
-| **Phase 12.7** | — | **PLANNED** | Application Package — scope defined in PHASE_12.7_SPEC.md |
+| **Phase 12.7** | 9009aae, 351283e, 9275582 | **IMPLEMENTED (Slices 1–3)** | Application Package — prepared-review sections (9009aae), editing flow (351283e), email recipient verification + simulated-send labelling (9275582); Slice 2 999 tests + Slice 3 1,002 tests passed; docs sync (Slice 4) applied, not yet committed; final acceptance verification pending |
 
 ---
 
@@ -59,7 +59,7 @@ Make the browser UI accurately display the profile that the backend produces fro
 | **12.4** | Match details | **VERIFIED** — Job Details modal polish, source URLs |
 | **12.5** | Career Analysis + Readiness | **IMPLEMENTED — verification not recorded** (6f4b483) |
 | **12.6** | ATS Resume Tailoring | **VERIFIED** — Tailored resume preview/download; D2 page-level overflow deferred |
-| **12.7** | Application Package | Prepare Application modal, review/approve |
+| **12.7** | Application Package | **IMPLEMENTED (Slices 1–3)** — review sections, editing, recipient-verified email; final acceptance pending (12.10 E2E gate) |
 | **12.8** | Employer Application | "Apply on Employer Site" flow |
 | **12.9** | Application Tracking | Application list, status, history |
 | **12.10** | Final Shiplight E2E | Full browser E2E regression |
@@ -116,14 +116,16 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
 
 ---
 
-## Phase 12.7 — Application Package (PLANNED)
+## Phase 12.7 — Application Package (IMPLEMENTED — Slices 1–3; final acceptance pending)
 
 > Detailed, reviewable specification: **PHASE_12.7_SPEC.md** (created during roadmap reconciliation).
 
-- Prepare Application modal (review tailored resume, cover letter, Q&A)
-- Edit mode for package content
-- Approve for Application action
-- Email send (with approval)
+- **Slice 1 — Prepared-Application review completeness** (`9009aae`, `matches.js` + `applications.js`): prepare-review modal renders the previously missing `suggestedAnswers` (Q&A), `candidateStrengths`, and `recommendation` + `matchScore` (advisor recommendation chip); footer copy makes the approval gate explicit ("Approving the package in Applications is required before any email can go out."); "Review in Applications" / "Edit in Applications" deep links.
+- **Slice 2 — Application Package editing** (`351283e`, `applications.js` + `style.css`): edit deep link (`applications.html?application=<id>&edit=1`) auto-enters the Applications-page edit surface when edit-eligible (DRAFT/GENERATED/UNDER_REVIEW and APPROVED_FOR_APPLICATION — i.e. before sending); inline per-field validation, saving state + double-submit protection, reload-from-server after save, safe cancel; editing remains separate from approval.
+  - **Verification**: 999 tests passed, no failures, errors, or skips; browser checks passed.
+- **Slice 3 — Email recipient verification + safe sending** (`9275582`, backend + tests + UI): email/send accepts an optional `recipientEmail`; the recipient is user-entered and user-confirmed (required, editable, inline-validated); no guessed/substituted placeholder is ever used (absent → draft `REVIEW_REQUIRED`, invalid → 400 before the service runs); backend approval gate unchanged (stored `APPROVED_FOR_APPLICATION` **and** `approved=true` required, else `REJECTED`); simulated sends are labelled ("simulated — no SMTP configured. Nothing was actually mailed."); `REJECTED`/`FAILED` results surfaced verbatim.
+  - **Verification**: 1,002 tests passed, no failures, errors, or skips; controlled browser checks passed using a route-intercepted mock email transport — no real email was sent.
+- No automatic email sending or employer application submission at any point.
 
 ---
 

@@ -1,7 +1,7 @@
 # Architecture — agent-platform
 
-> **Status**: CURRENT — reflects actual repository state as of commit 0a02e22 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 planned)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 planned**
+> **Status**: CURRENT — reflects actual repository state as of commit 9275582 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 Slices 1–3 implemented; docs sync applied, not yet committed)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 implemented (Slices 1–3)**: 9009aae, 351283e, 9275582
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -160,6 +160,35 @@ POST /api/v1/resume/tailor/docx {candidateId, jobId}
       → Returns application/vnd.openxmlformats-officedocument.wordprocessingml.document with Content-Disposition attachment
 ```
 
+### Application Package (Prepare → Review → Edit → Approve → Email)
+
+```
+POST /api/v1/applications/prepare {candidateId, jobId, jobTitle, company, location, customInstructions}
+  → JobApplicationPreparationService.prepareApplication(...)
+      → ApplicationPreparationResult (profile + job driven; deterministic fallback when no AI; never invents)
+    → ApplicationStorageService.store(...) → JobApplication (status GENERATED)
+
+GET /api/v1/applications/{id}           → detail; the prepared-review modal deep-links here (optionally &edit=1)
+PUT /api/v1/applications/{id}           → ApplicationUpdates{coverLetter, professionalSummary, applicationAnswers}
+POST /api/v1/applications/{id}/approve  → APPROVED_FOR_APPLICATION; /reject → REJECTED
+
+POST /api/v1/applications/email/send {applicationId, approved, recipientEmail?}
+  → ApplicationEmailController
+    → stored status must be APPROVED_FOR_APPLICATION and approved == true, else REJECTED (400, service not invoked)
+    → recipientEmail present but invalid → 400 before the service runs;
+      absent → draft stays REVIEW_REQUIRED (null recipient) — the placeholder is never substituted
+    → ApplicationEmailService.send(draft, approved) → ApplicationSendResult
+      {status: SENT | REJECTED | FAILED, simulated}
+      → SENT_SIMULATED when no EmailTools/SMTP transport is wired — labelled "simulated" in the UI,
+        never disguised as real mail
+```
+
+- The email recipient is **user-entered and user-confirmed** (required, editable, inline-validated in the UI).
+  This is manual confirmation of the address by the user — independent mailbox-ownership verification is
+  NOT implemented and is out of scope.
+- No automatic email sending and no employer-application submission at any point; approval only enables
+  the (user-triggered) email send.
+
 ---
 
 ## 5. Key Integrations
@@ -211,7 +240,7 @@ POST /api/v1/resume/tailor/docx {candidateId, jobId}
 - `Job` — title, company, location, description, skills, source, sourceUrl, applicationUrl
 - `JobMatchResult` — matchScore, recommendation, matched/missing skills, strengths, concerns
 - `CandidateProfile` (persistence) — JPA entity with JSON converters for lists
-- `JobApplication` — status (DRAFT/GENERATED/APPROVED/SENT), tailored content
+- `JobApplication` — status (DRAFT/GENERATED/UNDER_REVIEW/APPROVED_FOR_APPLICATION/REJECTED/ARCHIVED), tailored content
 - `ConversationStore` — messages with vector embeddings (pgvector)
 
 ---
