@@ -1,6 +1,6 @@
 # Rules — agent-platform
 
-> **Status**: CURRENT — non-negotiable engineering constraints as of commit 9275582 (Phase 12.6 verified; Phase 12.7 Slices 1–3 implemented)
+> **Status**: CURRENT — non-negotiable engineering constraints as of commit 6a9f647 (Phase 12.6 verified; Phase 12.7 COMPLETE AND VERIFIED)
 
 ---
 
@@ -17,6 +17,7 @@
 | **Phase 12.3** | a6eaf5c | **VERIFIED** | Job search flow and live job sources |
 | **Phase 12.4** | da933ac | **VERIFIED** | Match Details — Job Details modal visual polish, source URLs |
 | **Phase 12.6** | 92c0942, 055db64, bc457e2 | **VERIFIED** | ATS Resume Tailoring — spec, backend + tests, frontend preview + PDF/DOCX download UI; core workflow + PDF/DOCX read-back verified; D2 page-level overflow deferred to 12.10 |
+| **Phase 12.7** | 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **VERIFIED** | Application Package — prepared-review sections, editing flow, email recipient verification + simulated-send labelling; full suite 1,216 tests green + browser acceptance A–P 51/51 (2026-09-29); H2 long-text `TEXT` persistence fix + regression test + two `applications.js` regression fixes in 6a9f647. D2 page-level overflow + live job-source reachability deferred to 12.10; SMTP not configured (simulated sends labelled) |
 
 **Rule**: Frozen phases are **immutable**. No code changes, no refactoring, no "improvements" unless explicitly required by a new phase with approval.
 
@@ -51,6 +52,7 @@
 | Phase 11.1 (MCP) | 0d141d6 | **FROZEN** | Config-only changes (enable/disable, URLs, timeouts) |
 | Phase 12.1 | 553eb76 | **FROZEN** | Evidence-based resume parsing, MCP job search |
 | Phase 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **VERIFIED** | No changes; backend (PDF/DOCX generation, 3 endpoints, tests), frontend (preview modal, download buttons) complete; core workflow + PDF/DOCX read-back browser-verified 2026-09-29; D2 page-level overflow at ≤768px remains deferred to 12.10 (not resolved); live job-source reachability remains UNVERIFIED (PRD Known Gaps) |
+| Phase 12.7 (Application Package) | 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **VERIFIED** | No changes; prepared-review sections, editing flow, recipient-verified email complete; full suite 1,216 tests green + browser acceptance A–P 51/51 verified 2026-09-29; H2 long-text `TEXT` fix + regression test + two `applications.js` regression fixes in 6a9f647; D2 page-level overflow ≤768px + live job-source reachability remain open (Phase 12.10); SMTP not configured (simulated sends labelled) |
 
 **Rule**: Frozen phases are **immutable**. No code changes, refactoring, or "improvements" unless explicitly required by a new phase with approval.
 
@@ -193,7 +195,7 @@
 | 12.2 prep | f47562b | **CHECKPOINT** | Local AI runtime, timeouts |
 | 12.5 (Career Analysis + Readiness UI) | 6f4b483 | **IMPLEMENTED — verification not recorded** | CSS + markup polish only (career report + advisor breakdown); no spec, no tests, no committed browser-verification evidence |
 | 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **VERIFIED** | Spec, backend + tests, frontend preview + PDF/DOCX download UI; core workflow + PDF/DOCX read-back verified; D2 page-level overflow deferred to 12.10 |
-| 12.7 (Application Package) | 9009aae, 351283e, 9275582 | **IMPLEMENTED (Slices 1–3)** | Prepared-review sections, editing flow, email recipient verification + simulated-send labelling; 999 (Slice 2) + 1,002 (Slice 3) tests passed, browser checks passed; final acceptance verification pending; D2 page-level overflow + live job-source reachability remain open (Phase 12.10 gate) |
+| 12.7 (Application Package) | 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **VERIFIED** | Prepared-review sections, editing flow, email recipient verification + simulated-send labelling; docs sync (cceccc3); H2 long-text `TEXT` persistence fix + `JobApplicationLongTextFieldsPersistenceTest` regression + two `applications.js` regression fixes (6a9f647). Full suite 1,216 tests, 0 failures / 0 errors / 15 skipped; browser acceptance A–P 51/51 passed (2026-09-29). D2 page-level overflow + live job-source reachability remain open (Phase 12.10 gate); SMTP not configured (simulated sends labelled) |
 
 ---
 

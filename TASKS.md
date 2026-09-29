@@ -1,7 +1,7 @@
 # Tasks — agent-platform
 
-> **Status**: CURRENT — roadmap as of commit 9275582 (Phase 12.6 verified; Phase 12.7 Slices 1–3 implemented; docs sync applied, not yet committed)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 implemented (Slices 1–3)**: 9009aae, 351283e, 9275582
+> **Status**: CURRENT — roadmap as of commit 6a9f647 (Phase 12.6 verified; Phase 12.7 COMPLETE AND VERIFIED)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647
 
 ---
 
@@ -20,7 +20,7 @@
 | **Phase 12.4** | da933ac | **VERIFIED** | Match Details — Job Details modal polish, source URLs |
 | **Phase 12.5** | 6f4b483 | **IMPLEMENTED — verification not recorded** | Career Analysis + Readiness UI polish — CSS + markup only (career report + advisor breakdown); no spec, no tests, no committed browser-verification evidence |
 | **Phase 12.6** | 92c0942, 055db64, bc457e2 | **VERIFIED** | ATS Resume Tailoring — spec, backend + tests, frontend preview + PDF/DOCX download UI; core workflow + PDF/DOCX read-back verified; D2 page-level overflow deferred to 12.10 |
-| **Phase 12.7** | 9009aae, 351283e, 9275582 | **IMPLEMENTED (Slices 1–3)** | Application Package — prepared-review sections (9009aae), editing flow (351283e), email recipient verification + simulated-send labelling (9275582); Slice 2 999 tests + Slice 3 1,002 tests passed; docs sync (Slice 4) applied, not yet committed; final acceptance verification pending |
+| **Phase 12.7** | 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **VERIFIED** | Application Package — prepared-review sections (9009aae), editing flow (351283e), email recipient verification + simulated-send labelling (9275582), docs sync (cceccc3), acceptance fixes (6a9f647: H2 long-text `TEXT` persistence fix + `JobApplicationLongTextFieldsPersistenceTest` regression + two `applications.js` regression fixes). Slices 1–3 verified: full suite 1,216 tests, 0 failures / 0 errors / 15 skipped; browser acceptance A–P 51/51 checks passed. D2 page-level overflow + live job-source reachability + SMTP-unconfigured simulated sends remain open/pending (Phase 12.10) |
 
 ---
 
@@ -59,7 +59,7 @@ Make the browser UI accurately display the profile that the backend produces fro
 | **12.4** | Match details | **VERIFIED** — Job Details modal polish, source URLs |
 | **12.5** | Career Analysis + Readiness | **IMPLEMENTED — verification not recorded** (6f4b483) |
 | **12.6** | ATS Resume Tailoring | **VERIFIED** — Tailored resume preview/download; D2 page-level overflow deferred |
-| **12.7** | Application Package | **IMPLEMENTED (Slices 1–3)** — review sections, editing, recipient-verified email; final acceptance pending (12.10 E2E gate) |
+| **12.7** | Application Package | **VERIFIED** — review sections, editing, recipient-verified email; full suite 1,216 tests green; browser acceptance 51/51; D2 page-level overflow + live job-source reachability open (12.10 E2E gate) |
 | **12.8** | Employer Application | "Apply on Employer Site" flow |
 | **12.9** | Application Tracking | Application list, status, history |
 | **12.10** | Final Shiplight E2E | Full browser E2E regression |
@@ -116,7 +116,7 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
 
 ---
 
-## Phase 12.7 — Application Package (IMPLEMENTED — Slices 1–3; final acceptance pending)
+## Phase 12.7 — Application Package (VERIFIED)
 
 > Detailed, reviewable specification: **PHASE_12.7_SPEC.md** (created during roadmap reconciliation).
 
@@ -125,6 +125,9 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
   - **Verification**: 999 tests passed, no failures, errors, or skips; browser checks passed.
 - **Slice 3 — Email recipient verification + safe sending** (`9275582`, backend + tests + UI): email/send accepts an optional `recipientEmail`; the recipient is user-entered and user-confirmed (required, editable, inline-validated); no guessed/substituted placeholder is ever used (absent → draft `REVIEW_REQUIRED`, invalid → 400 before the service runs); backend approval gate unchanged (stored `APPROVED_FOR_APPLICATION` **and** `approved=true` required, else `REJECTED`); simulated sends are labelled ("simulated — no SMTP configured. Nothing was actually mailed."); `REJECTED`/`FAILED` results surfaced verbatim.
   - **Verification**: 1,002 tests passed, no failures, errors, or skips; controlled browser checks passed using a route-intercepted mock email transport — no real email was sent.
+- **Slice 4 — Documentation sync** (`cceccc3`, docs): `TASKS.md`, `DESIGN.md`, `ARCHITECTURE.md`, `PRD.md`, `MEMORY.md`, `RULES.md`, and `PHASE_12.7_SPEC.md` updated to record Slices 1–3.
+- **Acceptance fixes** (`6a9f647`): H2 long-text persistence fix — the six prepared-content fields are mapped `TEXT` (no VARCHAR 255 truncation; H2 500 on prepare otherwise) — with the `JobApplicationLongTextFieldsPersistenceTest` regression (store + reload, values > 255 chars); plus two acceptance-discovered `applications.js` regressions fixed: the applications-page deep-link detail-visibility race, and the missing detail-view "Approve Application" button handler.
+- **Final acceptance (2026-09-29, VERIFIED)**: full `mvn clean test` → **1,216 tests, 0 failures, 0 errors, 15 skipped**; browser acceptance A–P → **51/51 checks passed** (covering the two `applications.js` fixes above). Unchanged limitations: D2 page-level overflow ≤768px deferred (12.10); live job-source reachability UNVERIFIED; SMTP not configured — simulated sends labelled; no persisted email-sent flag; no independent mailbox-ownership verification; Phase 12.5 verification not recorded.
 - No automatic email sending or employer application submission at any point.
 
 ---

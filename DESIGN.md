@@ -1,7 +1,7 @@
 # Design — agent-platform
 
-> **Status**: CURRENT — reflects actual UX as of commit 9275582 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 Slices 1–3 implemented; docs sync applied, not yet committed)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 implemented (Slices 1–3)**: 9009aae, 351283e, 9275582
+> **Status**: CURRENT — reflects actual UX as of commit 6a9f647 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 COMPLETE AND VERIFIED)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -273,7 +273,8 @@ Flow: prepare → review (shared `modalShell`) → edit via the Applications pag
 ### Phase 12.7 verification evidence
 - **Slice 2**: 999 tests passed, no failures, errors, or skips; browser checks passed.
 - **Slice 3**: 1,002 tests passed, no failures, errors, or skips; controlled browser checks passed using a route-intercepted mock email transport — no real email was sent.
-- No automatic email sending or employer application submission at any step. Final Phase 12.7 acceptance verification remains pending (12.10 E2E gate: D2 page-level overflow, live job-source reachability).
+- **Final acceptance (2026-09-29, VERIFIED)**: full `mvn clean test` — **1,216 tests, 0 failures, 0 errors, 15 skipped**; browser acceptance A–P — **51/51 checks passed**. Includes the H2 long-text persistence fix (six prepared-content fields mapped `TEXT` + `JobApplicationLongTextFieldsPersistenceTest` regression) and two acceptance-discovered `applications.js` regressions fixed — the applications-page deep-link detail-visibility race, and the missing detail-view "Approve Application" button handler (commit `6a9f647`).
+- No automatic email sending or employer application submission at any step. D2 page-level overflow (12.10) + live job-source reachability (UNVERIFIED) remain open; SMTP not configured (simulated sends labelled).
 
 ---
 

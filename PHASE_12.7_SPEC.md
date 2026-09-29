@@ -1,4 +1,4 @@
-# PHASE 12.7 SPEC STATUS: IMPLEMENTED — Slices 1–3 (acceptance verification pending)
+# PHASE 12.7 SPEC STATUS: COMPLETE AND VERIFIED
 
 ## FULL REVISED SPECIFICATION — Phase 12.7 Application Package
 
@@ -187,7 +187,7 @@ job-search/match-score change; no new storage schema (`JobApplication` exists, `
 update`); no email transport provisioning (stub `EmailTools` remains the send path); no D2
 fix; no resume-tailoring change (Phase 12.6 frozen/verified).
 
-### 12. Commits (EXECUTED — Slices 1–3; docs sync applied, not yet committed)
+### 12. Commits (EXECUTED — Slices 1–3, docs sync, acceptance fixes; phase VERIFIED)
 
 The phase was delivered as three implementation slices (not the two-commit split originally
 proposed; §4/§5 deltas were grouped by user-visible slice instead):
@@ -206,13 +206,33 @@ proposed; §4/§5 deltas were grouped by user-visible slice instead):
    simulated/REJECTED/FAILED labelling + tests. **Verification**: 1,002 tests passed, no
    failures/errors/skips; controlled browser checks passed (route-intercepted mock email
    transport; no real email sent).
-4. **Docs sync (planned `Phase 12.7 - sync docs` commit)**: `TASKS.md`, `DESIGN.md`,
-   `ARCHITECTURE.md`, `PRD.md`, `MEMORY.md`, `RULES.md`, and this section updated — **applied
-   but not yet committed** (awaits review).
+4. **Docs sync** (`cceccc3`): `TASKS.md`, `DESIGN.md`, `ARCHITECTURE.md`, `PRD.md`,
+   `MEMORY.md`, `RULES.md`, and this section updated to record Slices 1–3.
+5. **Acceptance fixes** (`6a9f647`): H2 long-text persistence fix — the six prepared-content
+   fields (`generated_resume_summary`, `cover_letter`, `candidate_strengths`,
+   `matching_skills`, `missing_skills`, `resume_highlights`) are mapped `TEXT` so long
+   summaries/cover letters/answers survive persistence (H2 90046/22001, HTTP 500 on prepare
+   otherwise); new `JobApplicationLongTextFieldsPersistenceTest` regression (store + reload,
+   values > 255 chars) — plus two acceptance-discovered `applications.js` regressions fixed:
+   the applications-page deep-link detail-visibility race and the missing detail-view
+   "Approve Application" button handler.
 
-Remaining planned work (NOT executed): full §8 checkpoint pass A–P as a committed browser
-acceptance run, and the Phase 12.10 E2E gate (D2 page-level overflow, live job-source
-reachability). Phase 12.7 is not marked complete until final acceptance criteria are verified.
+### 12a. Final acceptance (2026-09-29) — Phase 12.7 VERIFIED
+
+- **Maven**: full `mvn clean test` → **1,216 tests, 0 failures, 0 errors, 15 skipped**.
+- **Browser**: full §8 checkpoint pass A–P executed as the committed
+  `qa-slice4-acceptance.mjs` acceptance run against a fresh in-memory H2 boot →
+  **51/51 checks passed** (prepare API + modal sections, empty-skills display, deep-link
+  review/edit journey, edit save/cancel/double-submit guard, approval via confirm dialog,
+  send-email recipient validation + simulated send, reopen cleanliness ×3, 1440/768/390px
+  modal-overflow checks, 0 console errors on happy path, no auto-email).
+- The two acceptance-discovered `applications.js` regressions above were fixed in `6a9f647`
+  and are covered by that run.
+- Unresolved (unchanged, out of this phase): D2 page-level overflow at ≤768px is **deferred
+  to Phase 12.10**; live job-source reachability remains **UNVERIFIED**; SMTP is **not
+  configured** (simulated sends are labelled); there is **no persisted email-sent flag**;
+  independent mailbox-ownership verification is **not implemented** (manual user
+  confirmation only); Phase 12.5 verification remains **not recorded**.
 
 ### 13. Architectural risk (low, acknowledged)
 

@@ -1,7 +1,7 @@
 # Architecture — agent-platform
 
-> **Status**: CURRENT — reflects actual repository state as of commit 9275582 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 Slices 1–3 implemented; docs sync applied, not yet committed)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 implemented (Slices 1–3)**: 9009aae, 351283e, 9275582
+> **Status**: CURRENT — reflects actual repository state as of commit 6a9f647 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 COMPLETE AND VERIFIED)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -167,6 +167,8 @@ POST /api/v1/applications/prepare {candidateId, jobId, jobTitle, company, locati
   → JobApplicationPreparationService.prepareApplication(...)
       → ApplicationPreparationResult (profile + job driven; deterministic fallback when no AI; never invents)
     → ApplicationStorageService.store(...) → JobApplication (status GENERATED)
+      → prepared-content fields are mapped TEXT (not VARCHAR 255): long summaries/cover letters/answers
+        persist without H2 truncation (fix + regression in 6a9f647)
 
 GET /api/v1/applications/{id}           → detail; the prepared-review modal deep-links here (optionally &edit=1)
 PUT /api/v1/applications/{id}           → ApplicationUpdates{coverLetter, professionalSummary, applicationAnswers}
@@ -231,6 +233,7 @@ POST /api/v1/applications/email/send {applicationId, approved, recipientEmail?}
 | Phase 12.1 | 553eb76 | **FROZEN** |
 | Phase 12.2 prep | f47562b | **CHECKPOINT** |
 | Phase 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **VERIFIED** — backend (document generation, 3 endpoints, controller tests, generator tests) + frontend (preview modal, download buttons); core workflow + PDF/DOCX read-back verified; D2 page-level overflow deferred to 12.10 |
+| Phase 12.7 (Application Package) | 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **VERIFIED** — prepared-review sections, editing flow, recipient-verified email; full suite 1,216 tests green + browser acceptance A–P 51/51 (2026-09-29); H2 long-text `TEXT` persistence fix + regression test + two `applications.js` regression fixes in 6a9f647; D2 page-level overflow + live job-source reachability deferred to 12.10 |
 
 ---
 
@@ -240,7 +243,7 @@ POST /api/v1/applications/email/send {applicationId, approved, recipientEmail?}
 - `Job` — title, company, location, description, skills, source, sourceUrl, applicationUrl
 - `JobMatchResult` — matchScore, recommendation, matched/missing skills, strengths, concerns
 - `CandidateProfile` (persistence) — JPA entity with JSON converters for lists
-- `JobApplication` — status (DRAFT/GENERATED/UNDER_REVIEW/APPROVED_FOR_APPLICATION/REJECTED/ARCHIVED), tailored content
+- `JobApplication` — status (DRAFT/GENERATED/UNDER_REVIEW/APPROVED_FOR_APPLICATION/REJECTED/ARCHIVED), tailored content; prepared-content long-text fields mapped `TEXT` (H2/PostgreSQL, no VARCHAR 255 truncation)
 - `ConversationStore` — messages with vector embeddings (pgvector)
 
 ---
