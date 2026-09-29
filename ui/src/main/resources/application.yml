@@ -1,5 +1,8 @@
 server:
   port: 8080
+  # Loopback-only by default (Phase 12.8 security disposition): the app is a trusted,
+  # single-user, local-first prototype. Override only with an approved networked design.
+  address: 127.0.0.1
 
 spring:
   application:

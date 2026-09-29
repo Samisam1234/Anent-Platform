@@ -923,6 +923,23 @@ body.modal-open{overflow:hidden}
 .apply-kit-state p{font-size:.82rem;color:var(--text-secondary);line-height:1.6;margin:6px 0 0}
 .apply-kit-state p:first-of-type{margin-top:4px}
 
+/* ── Assisted Apply Kit fields (Phase 12.8, Slice 2) ─────────────────────────── */
+.apply-kit-fields{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+.apply-kit-field{display:flex;flex-direction:column;gap:6px}
+.apply-kit-field-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.apply-kit-field-label{font-size:.82rem;font-weight:700;color:var(--text-primary)}
+.apply-kit-source{font-size:.72rem;color:var(--text-muted)}
+.apply-kit-field-control{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
+.apply-kit-field-control input,.apply-kit-field-control textarea{flex:1 1 240px;min-width:0;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-input);color:var(--text-primary);font-size:.82rem;line-height:1.5;transition:border-color .2s}
+.apply-kit-field-control input:focus,.apply-kit-field-control textarea:focus{outline:none;border-color:var(--accent)}
+.apply-kit-field-control textarea{resize:vertical;min-height:64px}
+.apply-kit-field-control .btn-apply-copy{flex:0 0 auto;padding:8px 14px;background:transparent;color:var(--accent);border:1px solid var(--border-light);border-radius:var(--radius);font-size:.78rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.apply-kit-field-control .btn-apply-copy:hover{border-color:var(--accent);background:var(--accent-light)}
+.apply-kit-absent{font-size:.74rem;color:var(--text-muted);font-style:italic}
+.apply-kit-toolbar{display:flex;justify-content:flex-end;margin-top:14px}
+.apply-kit-toolbar .btn-secondary{padding:7px 14px;font-size:.78rem}
+.apply-kit-note{font-size:.75rem;color:var(--text-muted);line-height:1.5;margin:4px 0 0}
+
 /* ── Applications portal: package contents ───────────────────────────────────── */
 .application-card-package{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .package-chip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:.72rem;font-weight:600;border:1px solid var(--border);background:var(--bg-input);color:var(--text-muted)}

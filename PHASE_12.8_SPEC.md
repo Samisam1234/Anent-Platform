@@ -165,6 +165,14 @@ Acceptance: no automation path exists (P-style check below); a stale package is 
 blocked; the marker is only written client-side.
 Tests: browser acceptance only. Dependencies: Slices 1–2.
 
+**Slice 2 security disposition (bounded).** `GET /api/v1/candidate/{candidateId}` is
+unauthenticated and has no per-candidate ownership authorization; candidate IDs are sequential and
+enumerable. The endpoint is intended only for the trusted, single-user, local-first prototype:
+`server.address: 127.0.0.1` in `application.yml` restricts remote/LAN access but does not isolate
+local processes or operating-system users. Networked or multi-user deployment is blocked pending a
+proper identity, ownership, and transport-security design. No partial authentication, fake
+ownership checks, ID obscurity, or rate-limit workarounds are added.
+
 **Slice 4 — Documentation sync + phase-level acceptance.** Update TASKS/PRD-principle docs if
 needed (only what changes), run the full §7 acceptance checklist, full `mvn clean test` (hermetic),
 record evidence in the roadmap docs, commit, and stop for review. Phase 12.8 is marked VERIFIED

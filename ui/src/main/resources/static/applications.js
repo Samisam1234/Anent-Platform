@@ -45,6 +45,7 @@
     const API_ENDPOINT = '/api/v1/applications';
     const EMAIL_ENDPOINT = '/api/v1/applications/email/send';
     const JOB_ENDPOINT = '/api/v1/jobs/';
+    const CANDIDATE_ENDPOINT = '/api/v1/candidate/';
 
     // Shared UI + backend recipient syntax; mirrors ApplicationEmailService.
     const EMAIL_RE = /^[\w.]+@([a-z0-9-]+\.)+[a-z]{2,6}$/i;
@@ -69,6 +70,8 @@
     // Cache of resolved job listings so a list of applications for the same role does
     // not refetch, and a listing that is no longer indexed is only probed once.
     const jobLookupCache = new Map();
+    // Same idea for candidate kit profiles: fetch once per candidate, keep misses cached.
+    const candidateLookupCache = new Map();
 
     // Shared with matches.js
     const LS_CANDIDATE_ID = 'agentplatform:candidateId';
@@ -392,6 +395,127 @@
         }
     }
 
+    // ─── Apply Kit field helpers (Phase 12.8, Slice 2) ─────────────────────────
+    /**
+     * Resolves a stored candidate id to its allowlisted kit profile, caching both
+     * hits and misses. A failure resolves to null — the kit then shows the
+     * candidate-derived fields as unavailable instead of failing the whole screen.
+     */
+    function resolveCandidate(candidateId) {
+        if (candidateId == null) return Promise.resolve(null);
+        const key = String(candidateId);
+        if (candidateLookupCache.has(key)) return Promise.resolve(candidateLookupCache.get(key));
+        return fetch(CANDIDATE_ENDPOINT + encodeURIComponent(key))
+            .then(response => response.ok ? response.json() : null)
+            .catch(() => null)
+            .then(candidate => {
+                candidateLookupCache.set(key, candidate || null);
+                return candidate || null;
+            });
+    }
+
+    /** Joins the allowlisted skill list into one editable line: deduped, capped. */
+    function joinSkills(skills) {
+        if (!Array.isArray(skills) || skills.length === 0) return null;
+        const seen = new Set();
+        const out = [];
+        for (const s of skills) {
+            const t = String(s || '').trim();
+            if (!t || seen.has(t.toLowerCase())) continue;
+            seen.add(t.toLowerCase());
+            out.push(t);
+        }
+        if (!out.length) return null;
+        const joined = out.join(', ');
+        // ponytail: soft cap at 2000 chars with a visible truncation marker; the edit
+        // box stays honest about it, a real text store would add length validation.
+        return joined.length > 2000 ? joined.slice(0, 2000).replace(/,\s*$/, '') + ' …' : joined;
+    }
+
+    /**
+     * Builds the whitelisted, source-labelled kit fields for one package.
+     * Values come only from the stored candidate profile or this application record;
+     * anything missing stays null and the row says so instead of inventing a value.
+     * Links (GitHub/LinkedIn) are deliberately not offered — the parser stores none.
+     */
+    function buildKitFields(app, candidate) {
+        const location = candidate && (candidate.location || candidate.preferredLocation) ? (candidate.location || candidate.preferredLocation) : null;
+        const locationSource = candidate && !candidate.location && candidate.preferredLocation
+            ? 'From your resume profile · preferred location'
+            : 'From your resume profile';
+        const summary = app.generatedResumeSummary ? app.generatedResumeSummary : null;
+        const summarySource = 'From your prepared application for this role';
+        return [
+            { key: 'name', label: 'Name', source: 'From your resume profile', value: candidate ? candidate.name || null : null, type: 'text', maxlength: 200,
+              absent: 'No name on file — type your own if the employer form needs one.' },
+            { key: 'email', label: 'Email', source: 'From your resume profile', value: candidate && candidate.email ? String(candidate.email).trim().toLowerCase() : null, type: 'text', maxlength: 200,
+              absent: 'No email on file — the platform never guesses an address; type your own if needed.' },
+            { key: 'phone', label: 'Phone', source: 'From your resume profile', value: candidate ? candidate.phone || null : null, type: 'text', maxlength: 200,
+              absent: 'No phone number on file — type your own if needed.' },
+            { key: 'location', label: 'Location', source: locationSource, value: location, type: 'text', maxlength: 200,
+              absent: 'No location on file — type your own if needed.' },
+            { key: 'headline', label: 'Headline', source: 'From your resume profile · preferred roles', value: candidate ? candidate.headline || null : null, type: 'text', maxlength: 200,
+              absent: 'No headline on file — it is derived from your preferred roles; none are stored.' },
+            { key: 'summary', label: 'Professional summary', source: summarySource, value: summary, type: 'textarea', maxlength: 4000,
+              absent: 'This package has no professional summary — generate it in Applications, or type your own here.' },
+            { key: 'skills', label: 'Skills', source: 'From your skills on your resume profile', value: candidate ? joinSkills(candidate.skills) : null, type: 'textarea', maxlength: 2000,
+              absent: 'No skills on file — type your own if the employer form needs them.' }
+        ];
+    }
+
+    function kitFieldRow(field) {
+        const control = field.type === 'textarea'
+            ? `<textarea data-kit-field="${field.key}" data-kit-server="${esc(field.value || '')}" maxlength="${field.maxlength}" rows="3" placeholder="Type the value the employer form needs">${esc(field.value || '')}</textarea>`
+            : `<input data-kit-field="${field.key}" data-kit-server="${esc(field.value || '')}" maxlength="${field.maxlength}" type="text" value="${esc(field.value || '')}" placeholder="Type the value the employer form needs">`;
+        const absentNote = field.value ? '' : `<p class="apply-kit-absent">${esc(field.absent)}</p>`;
+        return `
+            <div class="apply-kit-field">
+                <div class="apply-kit-field-head">
+                    <label class="apply-kit-field-label" for="kit-${field.key}">${esc(field.label)}</label>
+                    <span class="apply-kit-source">${esc(field.source)}</span>
+                </div>
+                <div class="apply-kit-field-control">
+                    ${control}
+                    <button type="button" class="btn-apply-copy" data-copy-kit-field="${field.key}" title="Copies the value shown in this field">Copy</button>
+                </div>
+                ${absentNote}
+            </div>`;
+    }
+
+    function copyKitText(text, btn) {
+        if (!text) {
+            showToast('Nothing to copy yet — type a value first.', 'info');
+            return;
+        }
+        const done = () => {
+            if (btn) {
+                btn.textContent = 'Copied ✓';
+                setTimeout(() => { btn.textContent = 'Copy'; }, 1600);
+            }
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+        } else {
+            fallbackCopy(text, done);
+        }
+    }
+
+    document.addEventListener('click', (e) => {
+        const copyBtn = e.target.closest('[data-copy-kit-field]');
+        if (copyBtn) {
+            const key = copyBtn.getAttribute('data-copy-kit-field');
+            const input = document.querySelector(`[data-kit-field="${key}"]`);
+            if (input) copyKitText((input.value || '').trim(), copyBtn);
+            return;
+        }
+        if (e.target.closest('#applyKitResetBtn')) {
+            document.querySelectorAll('[data-kit-field]').forEach(el => {
+                el.value = el.getAttribute('data-kit-server') || '';
+            });
+            showToast('Kit values reset to the values from your profile and application.', 'info');
+        }
+    });
+
     /**
      * Assisted Apply — review surface (Phase 12.8, Slice 1).
      *
@@ -417,7 +541,10 @@
                     showToast('Application not found.', 'error');
                     return;
                 }
-                resolveJob(app.jobId).then(job => renderApplyKit(app, job));
+                Promise.all([
+                    resolveJob(app.jobId),
+                    resolveCandidate(app.candidateId)
+                ]).then(([job, candidate]) => renderApplyKit(app, job, candidate));
             })
             .catch(err => {
                 console.error('Error opening Apply Kit:', err);
@@ -425,7 +552,7 @@
             });
     }
 
-    function renderApplyKit(app, job) {
+    function renderApplyKit(app, job, candidate) {
         const statusKey = app.applicationStatus || 'DRAFT';
         const status = STATUS_LABELS[statusKey]
             || { label: humanizeStatus(statusKey), cls: 'draft', hint: '' };
@@ -511,13 +638,12 @@
                     </div>
 
                     ${block('What the Apply Kit prepares', `
-                        <p class="modal-description">A reviewable set of values for common employer-form fields, each taken from your approved profile or this package so you can review and edit before transferring:</p>
-                        <ul class="match-sc-list">
-                            <li>Name, Email, Phone, Location</li>
-                            <li>Professional summary</li>
-                            <li>Skills</li>
-                        </ul>
-                        <p class="external-note">Field values and per-field copy arrive in a later step; this screen confirms the employer destination and eligibility first.</p>`)}
+                        <p class="modal-description">Review, edit and copy each value. Every field states its source — your resume profile or your prepared application for this role. Links (GitHub/LinkedIn) are not offered: the resume parser stores none, so nothing is invented.</p>
+                        <div class="apply-kit-fields">${buildKitFields(app, candidate).map(kitFieldRow).join('')}</div>
+                        <div class="apply-kit-toolbar">
+                            <button type="button" class="btn-secondary" id="applyKitResetBtn">Reset kit values</button>
+                        </div>
+                        <p class="apply-kit-note">Values are copied one at a time and applied by you on the employer site. This screen never fills a form, writes to the employer page, or submits anything.</p>`)}
                     ${block('Where you apply', `
                         <p class="modal-description">Open the employer site, review the prepared values there, and submit yourself. The platform never writes to or submits a page outside this app, and it never applies on your behalf.</p>`)}
                 </div>`;
