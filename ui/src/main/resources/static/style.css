@@ -1027,6 +1027,11 @@ body.modal-open{overflow:hidden}
 .confirm-message{font-size:.95rem;color:var(--text-primary);font-weight:600;margin:0}
 .confirm-detail{font-size:.85rem;color:var(--text-secondary);line-height:1.65;margin:0}
 .confirm-warning{font-size:.82rem;color:var(--warning);background:var(--warning-light);border-left:3px solid var(--warning);padding:8px 10px;border-radius:var(--radius-sm);margin:0}
+.confirm-field{display:flex;flex-direction:column;gap:6px}
+.confirm-field-label{font-size:.74rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted)}
+.confirm-input{padding:10px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:.9rem;font-family:var(--font-sans);transition:border-color .2s}
+.confirm-input:focus{outline:none;border-color:var(--accent)}
+.confirm-error{margin-top:2px;font-size:.78rem;font-weight:600;color:var(--danger)}
 
 /* Headline score bar in Career Analysis — same component as the factor rows. */
 .career-report-score .fit-bar{width:100%;min-width:110px;margin-top:2px}

@@ -45,6 +45,11 @@
     const EMAIL_ENDPOINT = '/api/v1/applications/email/send';
     const JOB_ENDPOINT = '/api/v1/jobs/';
 
+    // Shared UI + backend recipient syntax; mirrors ApplicationEmailService.
+    const EMAIL_RE = /^[\w.]+@([a-z0-9-]+\.)+[a-z]{2,6}$/i;
+    // Pre-fill convenience when available; never a guessed address.
+    const LS_CANDIDATE_EMAIL = 'agentplatform:candidateEmail';
+
     /**
      * User-facing lifecycle wording for the statuses the backend actually stores
      * (ApplicationStatus). Nothing here claims a submission happened: this platform
@@ -749,16 +754,27 @@
             return;
         }
 
-        // Styled confirmation via the shared modal shell — never a native browser dialog.
-        const proceed = await window.confirmDialog.ask({
+        // Recipient is user-entered and user-verified before any send; the dialog
+        // blocks blank/invalid addresses inline and never substitutes a guessed one.
+        const recipient = await window.confirmDialog.ask({
             title: 'Send application email',
             message: 'Send this application email now?',
-            detail: 'The prepared application will be sent to the recipient.',
-            warning: 'This action cannot be undone.',
+            detail: 'The prepared application will be sent to the recipient you confirm below.',
+            warning: 'The email goes out only after you confirm the address. This cannot be undone.',
             confirmLabel: 'Send email',
-            cancelLabel: 'Cancel'
+            cancelLabel: 'Cancel',
+            input: {
+                label: 'Recipient email',
+                value: localStorage.getItem(LS_CANDIDATE_EMAIL) || '',
+                placeholder: 'hiring@company.com',
+                required: true,
+                requiredMessage: 'Recipient email is required.',
+                validate: value => EMAIL_RE.test(value)
+                    ? null
+                    : 'Enter a valid email address (e.g. name@example.com).'
+            }
         });
-        if (!proceed) {
+        if (recipient === false) {
             return;
         }
 
@@ -773,20 +789,34 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 applicationId: currentApplicationId,
-                approved: true
+                approved: true,
+                recipientEmail: recipient
             })
         })
-        .then(response => {
+        .then(async response => {
+            // email/send returns ApplicationSendResult JSON on non-2xx too — surface
+            // its message verbatim instead of a bare "HTTP 400".
+            const body = await response.json().catch(() => null);
             if (!response.ok) {
-                return response.json().then(err => { throw new Error(err.detail || `HTTP ${response.status}`); });
+                const reason = body && body.message
+                    ? `${body.status || 'Email send'} — ${body.message}`
+                    : ((body && body.detail) || `HTTP ${response.status}`);
+                throw new Error(reason);
             }
-            return response.json();
+            return body;
         })
         .then(data => {
             if (data && data.status === 'SENT') {
-                showToast('Application email sent successfully!', 'success');
+                // Simulated sends are labelled as such — never disguised as real mail.
+                if (data.simulated) {
+                    showToast('Email send simulated — no SMTP configured. Nothing was actually mailed.', 'info');
+                } else {
+                    showToast('Application email sent successfully!', 'success');
+                }
             } else if (data && data.status === 'FAILED') {
                 showToast('Email could not be sent: ' + (data.message || 'Unknown error'), 'error');
+            } else if (data && data.status === 'REJECTED') {
+                showToast('Email send rejected: ' + (data.message || 'Not approved for sending.'), 'error');
             } else {
                 showToast('Email send completed: ' + (data.message || data.status), 'info');
             }

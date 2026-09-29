@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
 
@@ -14,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
@@ -26,6 +28,14 @@ class ApplicationEmailControllerTest {
     private final ApplicationEmailController controller =
             new ApplicationEmailController(
                     new com.agentplatform.orchestrator.application.ApplicationEmailService(),
+                    new com.agentplatform.orchestrator.application.ApplicationPreparationService(),
+                    storage);
+
+    // Sender wired with a mocked service so recipient/draft shape can be asserted.
+    private final ApplicationEmailService mockEmailService = mock(ApplicationEmailService.class);
+    private final ApplicationEmailController mockedController =
+            new ApplicationEmailController(
+                    mockEmailService,
                     new com.agentplatform.orchestrator.application.ApplicationPreparationService(),
                     storage);
 
@@ -171,10 +181,10 @@ class ApplicationEmailControllerTest {
     class SuccessfulSendTests {
 
         @Test
-        @DisplayName("approved=true + APPROVED_FOR_APPLICATION → send attempted")
+        @DisplayName("approved=true + APPROVED_FOR_APPLICATION + valid recipient → send attempted")
         void approvedTrue() {
             JobApplication app = storedApprovedApp();
-            var request = new ApplicationEmailController.SendRequest(app.getId(), true);
+            var request = new ApplicationEmailController.SendRequest(app.getId(), true, "hiring@acme.com");
             var result = controller.send(request);
             assertNotNull(result.getBody());
             // With no EmailTools configured, service returns SENT (simulated)
@@ -207,15 +217,58 @@ class ApplicationEmailControllerTest {
     class RecipientValidationTests {
 
         @Test
-        @DisplayName("valid recipient email → service returns SENT (simulated)")
-        void validRecipient() {
-            // The draft now has a valid recipient email (hiring@company.com),
-            // so the email service returns SENT (simulated, no EmailTools configured).
+        @DisplayName("no recipientEmail → FAILED; placeholder never substituted as a send address")
+        void absentRecipientFailsSafely() {
+            // §5.1: without a user-supplied recipient the draft stays REVIEW_REQUIRED and
+            // the service must never send to the placeholder. Replaces the pre-delta
+            // behavior where no recipient still returned SENT via hiring@company.com.
             JobApplication app = storedApprovedApp();
             var request = new ApplicationEmailController.SendRequest(app.getId(), true);
+
             var result = controller.send(request);
+
+            assertEquals(HttpStatus.BAD_REQUEST, result.getStatusCode());
+            assertEquals("FAILED", result.getBody().status());
+            assertTrue(result.getBody().message().contains("Recipient email must be present"),
+                    "no recipient must fail safely, never fall back to the placeholder");
+        }
+
+        // ─── 12.7 DELTA: user-entered recipient replaces the placeholder ─────
+
+        @Test
+        @DisplayName("valid recipientEmail → SENT; service gets the real address, no placeholder warning")
+        void validRecipientOverridesPlaceholder() {
+            JobApplication app = storedApprovedApp();
+            when(mockEmailService.send(any(), eq(true))).thenReturn(ApplicationSendResult.SENT);
+
+            var request = new ApplicationEmailController.SendRequest(app.getId(), true, "alice.hr@acme.com");
+            var result = mockedController.send(request);
+
             assertEquals(HttpStatus.OK, result.getStatusCode());
             assertEquals("SENT", result.getBody().status());
+
+            ArgumentCaptor<ApplicationEmailDraft> captor = ArgumentCaptor.forClass(ApplicationEmailDraft.class);
+            verify(mockEmailService).send(captor.capture(), eq(true));
+            ApplicationEmailDraft sent = captor.getValue();
+            assertEquals("alice.hr@acme.com", sent.recipientEmail());
+            assertEquals(ApplicationDraftStatus.READY_TO_SEND, sent.status());
+            assertFalse(sent.warnings().stream()
+                            .anyMatch(w -> w.contains("Recipient email must be entered or verified")),
+                    "placeholder warning must be dropped when a real recipient is supplied");
+        }
+
+        @Test
+        @DisplayName("recipientEmail present but syntactically invalid → 400; service never invoked")
+        void invalidRecipientRejectedBeforeService() {
+            JobApplication app = storedApprovedApp();
+            var request = new ApplicationEmailController.SendRequest(app.getId(), true, "not-an-email");
+
+            var result = mockedController.send(request);
+
+            assertEquals(HttpStatus.BAD_REQUEST, result.getStatusCode());
+            assertEquals("FAILED", result.getBody().status());
+            assertTrue(result.getBody().message().contains("not syntactically valid"));
+            verifyNoInteractions(mockEmailService);
         }
     }
 

@@ -38,6 +38,11 @@ public class ApplicationEmailService {
         this.emailTools = emailTools;
     }
 
+    /** Shared recipient syntax check, reused by the controller before invoking send. */
+    public static boolean isValidRecipient(String email) {
+        return email != null && EMAIL_PATTERN.matcher(email).matches();
+    }
+
     public ApplicationSendResult send(ApplicationEmailDraft draft, boolean approved) {
         if (!approved) {
             log.info("Email send rejected: explicit approval not given.");
@@ -100,6 +105,6 @@ public class ApplicationEmailService {
 
         log.info("Email validation passed; ready to send (simulated): maskedRecipient={}, subjectChars={}, jobId={}",
                 PiiSanitizer.safeEmail(recipient), PiiSanitizer.safeLength(subject), jobId);
-        return ApplicationSendResult.SENT;
+        return ApplicationSendResult.SENT_SIMULATED;
     }
 }

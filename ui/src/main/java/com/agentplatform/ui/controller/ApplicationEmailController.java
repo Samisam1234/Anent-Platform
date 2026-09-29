@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.constraints.NotNull;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @RestController
@@ -71,13 +73,28 @@ public class ApplicationEmailController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApplicationSendResult.REJECTED);
         }
 
-        // Build draft from stored application
-        ApplicationEmailDraft draft = buildDraftFromApplication(app);
+        // A recipientEmail that is present must be syntactically valid — the send
+        // service is never invoked for a malformed address.
+        String requestedRecipient = request.getRecipientEmail();
+        if (requestedRecipient != null && !requestedRecipient.isBlank()
+                && !ApplicationEmailService.isValidRecipient(requestedRecipient)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApplicationSendResult.failed(
+                            "Recipient email '" + requestedRecipient + "' is not syntactically valid."));
+        }
+
+        // Build draft from stored application; an absent/invalid recipient keeps the
+        // draft in REVIEW_REQUIRED so the placeholder is never substituted as a real
+        // send address.
+        ApplicationEmailDraft draft = buildDraftFromApplication(app, requestedRecipient);
 
         ApplicationSendResult result = emailService.send(draft, true);
 
-        if (ApplicationSendResult.REJECTED.equals(result)
-                || ApplicationSendResult.FAILED.equals(result)) {
+        // Compare by status string: the FAILED/REJECTED constants carry generic
+        // messages while actual results carry the specific reason.
+        String status = result == null ? null : result.status();
+        if (ApplicationSendResult.REJECTED.status().equals(status)
+                || ApplicationSendResult.FAILED.status().equals(status)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(result);
         }
         return ResponseEntity.ok(result);
@@ -85,12 +102,16 @@ public class ApplicationEmailController {
 
     /**
      * Builds an email draft from a stored JobApplication.
+     *
+     * <p>A non-blank, syntactically valid {@code recipientEmail} becomes the real
+     * recipient (draft {@code READY_TO_SEND}, no placeholder warning). When absent,
+     * the draft stays {@code REVIEW_REQUIRED} with the placeholder warning and a
+     * {@code null} recipient — the placeholder is never used as a send address.</p>
      */
-private ApplicationEmailDraft buildDraftFromApplication(JobApplication app) {
-        // Use a default recipient name; email must be provided by user in real scenario
-        // For testing/simulation purposes, we use a placeholder email with valid TLD
+private ApplicationEmailDraft buildDraftFromApplication(JobApplication app, String recipientEmail) {
+        boolean hasRecipient = recipientEmail != null && !recipientEmail.isBlank();
         String recipientName = "Hiring Manager";
-        String recipientEmail = "hiring@company.com"; // Placeholder for simulation
+        String recipient = hasRecipient ? recipientEmail.trim() : null;
 
         String subject = app.getCoverLetter() != null && !app.getCoverLetter().isBlank()
                 ? app.getCoverLetter().split("\n")[0] // First line as subject fallback
@@ -114,22 +135,28 @@ private ApplicationEmailDraft buildDraftFromApplication(JobApplication app) {
         body.append("Sincerely,\n");
         body.append(app.getCandidateId() != null ? "Candidate ID: " + app.getCandidateId() : "Applicant");
 
+        List<String> warnings = new ArrayList<>(List.of(
+                "This application has been approved for submission.",
+                "Review all information before sending."
+        ));
+        ApplicationDraftStatus status = ApplicationDraftStatus.READY_TO_SEND;
+        if (!hasRecipient) {
+            status = ApplicationDraftStatus.REVIEW_REQUIRED;
+            warnings.add("Recipient email must be entered or verified by the user.");
+        }
+
         return new ApplicationEmailDraft(
                 app.getJobId(),
                 app.getCandidateId(),
                 app.getCompany(),
                 app.getJobTitle(),
                 recipientName,
-                recipientEmail,
+                recipient,
                 subject,
                 body.toString(),
                 "DRAFT_ONLY",
-                ApplicationDraftStatus.READY_TO_SEND,
-                java.util.List.of(
-                        "This application has been approved for submission.",
-                        "Review all information before sending.",
-                        "Recipient email must be entered or verified by the user."
-                )
+                status,
+                warnings
         );
     }
 
@@ -141,12 +168,20 @@ private ApplicationEmailDraft buildDraftFromApplication(JobApplication app) {
         @NotNull(message = "Approval flag is required")
         private Boolean approved;
 
+        /** Optional user-verified recipient email; when absent the send stays REVIEW_REQUIRED. */
+        private String recipientEmail;
+
         public SendRequest() {
         }
 
         public SendRequest(Long applicationId, Boolean approved) {
+            this(applicationId, approved, null);
+        }
+
+        public SendRequest(Long applicationId, Boolean approved, String recipientEmail) {
             this.applicationId = applicationId;
             this.approved = approved;
+            this.recipientEmail = recipientEmail;
         }
 
         public Long getApplicationId() {
@@ -163,6 +198,14 @@ private ApplicationEmailDraft buildDraftFromApplication(JobApplication app) {
 
         public void setApproved(Boolean approved) {
             this.approved = approved;
+        }
+
+        public String getRecipientEmail() {
+            return recipientEmail;
+        }
+
+        public void setRecipientEmail(String recipientEmail) {
+            this.recipientEmail = recipientEmail;
         }
     }
 }
