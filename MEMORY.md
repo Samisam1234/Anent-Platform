@@ -14,7 +14,7 @@
 | Phase 12.2 prep | f47562b | 2026-09-20 | Local AI runtime, timeouts, model config |
 | Phase 12.3 | a6eaf5c | 2026-09-20 | Job search flow, live job sources |
 | Phase 12.4 | da933ac | 2026-09-24 | Match Details — Job Details modal visual polish; live browser verified |
-| Phase 12.6 | 92c0942, 055db64, bc457e2 | 2026-09-28 | ATS Resume Tailoring — spec (92c0942), backend + tests (055db64), frontend preview + PDF/DOCX download UI (bc457e2); end-to-end browser verification **pending** |
+| Phase 12.6 | 92c0942, 055db64, bc457e2 | 2026-09-28 | ATS Resume Tailoring — spec (92c0942), backend + tests (055db64), frontend preview + PDF/DOCX download UI (bc457e2); core workflow + PDF/DOCX read-back verified 2026-09-29; D2 page-level overflow at ≤768px deferred to 12.10 |
 
 ---
 

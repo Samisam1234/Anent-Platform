@@ -18,7 +18,7 @@
 | Phase 12.2 | f47562b | **FROZEN** | Resume/Profile frontend reliability |
 | **Phase 12.3** | a6eaf5c | **VERIFIED** | Job search reliability, live sources |
 | **Phase 12.4** | da933ac | **VERIFIED** | Match Details — Job Details modal polish, source URLs |
-| **Phase 12.6** | 92c0942, 055db64, bc457e2 | **IMPLEMENTED** | ATS Resume Tailoring — spec, backend + tests, frontend preview + PDF/DOCX download UI; end-to-end browser verification pending |
+| **Phase 12.6** | 92c0942, 055db64, bc457e2 | **VERIFIED** | ATS Resume Tailoring — spec, backend + tests, frontend preview + PDF/DOCX download UI; core workflow + PDF/DOCX read-back verified; D2 page-level overflow deferred to 12.10 |
 
 ---
 
@@ -56,7 +56,7 @@ Make the browser UI accurately display the profile that the backend produces fro
 | **12.3** | Job search reliability | Profile-driven search, live sources enabled |
 | **12.4** | Match details | Job Details modal polish, source URLs |
 | **12.5** | Career Analysis + Readiness | Career Analysis modal, Readiness modal |
-| **12.6** | ATS Resume Tailoring | **IMPLEMENTED** — Tailored resume preview/download |
+| **12.6** | ATS Resume Tailoring | **VERIFIED** — Tailored resume preview/download; D2 page-level overflow deferred |
 | **12.7** | Application Package | Prepare Application modal, review/approve |
 | **12.8** | Employer Application | "Apply on Employer Site" flow |
 | **12.9** | Application Tracking | Application list, status, history |
@@ -98,7 +98,7 @@ Implementation: `da933ac` ("Phase 12.4 - polish match details UI"). Live browser
 
 ---
 
-## Phase 12.6 — ATS Resume Tailoring (IMPLEMENTED)
+## Phase 12.6 — ATS Resume Tailoring (VERIFIED)
 
 - Tailored resume preview modal (analysis + draft) — `matches.js:buildTailoringPreviewHtml`
 - Download tailored resume (PDF/DOCX) — `POST /api/v1/resume/tailor/pdf` and `/docx`
@@ -107,7 +107,8 @@ Implementation: `da933ac` ("Phase 12.4 - polish match details UI"). Live browser
 - Professional summary — `draft.professionalSummary`
 - Warnings/notes — `draft.warnings`
 - Commits: 92c0942 (spec), 055db64 (backend + tests), bc457e2 (frontend)
-- End-to-end browser verification **pending** (requires uploaded resume + live job match)
+- **Verification (2026-09-29)**: core workflow browser-verified — tailor 200, modal renders analysis + draft at 1440/768/390px, PDF/DOCX downloads 200 with correct filename/MIME, close/reopen clean, 0 console errors, 0 failed requests. Artifact read-back (H) passed: saved `test.pdf` (2,900 B) and `test.docx` (3,902 B) parsed with PDFBox 3 + POI 5.2.5 contain candidate name, tailored summary, ordered skills, and warnings/notes.
+- **D2 (deferred)**: at 768px and 390px the tailoring modal itself fits and its controls remain usable, but the page still has horizontal overflow — `scrollWidth=943` versus client widths 768/390. This is the deferred D2 issue, not a claim of zero page-level overflow. D2 must be addressed before the Phase 12.10 full E2E acceptance.
 
 ---
 

@@ -232,6 +232,11 @@ Both buttons disable during generation (spinner), restore on success/failure. Er
 - No auto-apply, no auto-email, no persistence
 - RFC 7807 errors via `GlobalExceptionHandler` (404 candidate/job, 400 validation, 500 safe generic)
 
+### Verification Status (browser-verified, 2026-09-29)
+- Core workflow browser-verified: `POST /tailor` 200; preview modal renders analysis + draft at 1440/768/390px; PDF/DOCX downloads return 200 with correct `Content-Disposition` filename + MIME; modal close/reopen leaves no stale state; 0 console errors; 0 failed network requests.
+- **H (artifact read-back) passed**: the saved `test.pdf` (2,900 bytes) and `test.docx` (3,902 bytes) were parsed with PDFBox 3 (`Loader.loadPDF` + `PDFTextStripper`) and POI 5.2.5 (`XWPFDocument`); both contain the candidate name, the tailored professional summary, an ordered skills section, and the notes/warnings footer. DOCX skill lines are bullet-prefixed (`• `); the PDF renders the same ordered skills without bullets — both are intentional (see `DocxResumeDocumentGenerator` `BULLET + item`).
+- **Deferred — D2 page-level overflow**: at 768px and 390px the tailoring modal itself fits and its controls remain usable, but the page still has horizontal overflow — `scrollWidth=943` versus client widths 768 and 390. This is the known, deferred D2 issue, not a claim that the page has no overflow. D2 remains open and must be addressed before the Phase 12.10 full E2E acceptance.
+
 ---
 
 ## 8. Resume Upload States (Implemented)

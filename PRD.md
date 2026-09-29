@@ -25,7 +25,7 @@ agent-platform is a local-first AI Career Agent platform that helps users turn a
 | 4b | **Job Details** — official listing URL, source attribution | **IMPLEMENTED** | Job modal shows source URL, never fabricates employer URLs |
 | 5 | **Career Analysis** — readiness score, gaps, recommendations | **BACKEND OK / FRONTEND BROKEN** | Backend works; modal DOM elements missing (§8 INVESTIGATION) |
 | 6 | **Application Readiness** — readiness score, gaps, recommended actions | **IMPLEMENTED** | Backend works; modal opens but DOM issues |
-| 7 | **ATS Resume Tailoring** — reorder/emphasize existing content only | **IMPLEMENTED** | Deterministic; preview modal + PDF/DOCX download; never invents skills/experience; end-to-end browser verification **pending** |
+| 7 | **ATS Resume Tailoring** — reorder/emphasize existing content only | **IMPLEMENTED** | Deterministic; preview modal + PDF/DOCX download; never invents skills/experience; core workflow + PDF/DOCX read-back verified (D2 page-level overflow at ≤768px deferred) |
 | 8 | **Application Preparation** — tailored resume + cover letter + Q&A | **PARTIAL** | Backend prepares; modal DOM missing; content ignores profile |
 | 9 | **Employer Application** — manual via official URL only | **IMPLEMENTED** | "Apply on Employer Site" / "View Job Listing" buttons; no auto-submit |
 | 10 | **Application Tracking** | **PLANNED** | Not yet implemented |
@@ -64,7 +64,7 @@ agent-platform is a local-first AI Career Agent platform that helps users turn a
 | Prepared Application modal wrapper | **PLANNED** | Missing overlay wrapper |
 | Duplicate DOM IDs in advisor modal | **PLANNED** | Four duplicate IDs on wrapper div + inner ul |
 | Live job source reachability | **UNVERIFIED** | Sandbox has no outbound network |
-| End-to-end ATS Resume Tailoring browser verification | **PENDING** | Requires uploaded resume + live job match; not exercised in Commit 2/3 |
+| End-to-end ATS Resume Tailoring browser verification | **DONE** | Core workflow verified (tailor 200, modal render 1440/768/390, PDF/DOCX download 200, close/reopen, 0 console/network errors) + H artifact read-back passed via PDFBox 3 / POI 5.2.5; D2 page-level overflow at 768/390px deferred pending 12.10 |
 
 ---
 
