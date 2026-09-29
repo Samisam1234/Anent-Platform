@@ -911,10 +911,12 @@
                     return;
                 }
 
-                // Hide onboarding, show list
+                // Hide onboarding, show list.
+                // List paint does NOT touch applicationDetailSection here: it starts hidden and is
+                // owned by viewApplication / back / approve. Without this, the matches-page deep link
+                // (?application=<id>&edit=1) races the list fetch and the detail surface disappears.
                 applicationsOnboarding.hidden = true;
                 applicationsListSection.hidden = false;
-                applicationDetailSection.hidden = true;
                 applicationsEmpty.hidden = true;
 
                 // Render cards
@@ -976,6 +978,15 @@
         // Cancel edit button
         if (cancelEditBtn) {
             cancelEditBtn.addEventListener('click', exitEditMode);
+        }
+
+        // Approve application button (detail view). The list cards get their own
+        // handler in renderApplicationCard; without this binding the detail-page
+        // button renders for every generated application but clicks do nothing.
+        if (approveApplicationBtn) {
+            approveApplicationBtn.addEventListener('click', () => {
+                if (currentApplicationId) approveApplication(currentApplicationId);
+            });
         }
 
         // Send email button

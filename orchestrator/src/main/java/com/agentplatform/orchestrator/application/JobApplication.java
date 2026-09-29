@@ -35,26 +35,27 @@ public class JobApplication {
     @Column(name = "application_status", nullable = false)
     private ApplicationStatus applicationStatus;
 
-    @Column(name = "generated_resume_summary")
+    // TEXT (not VARCHAR 255): prepared content routinely exceeds 255 chars.
+    @Column(name = "generated_resume_summary", columnDefinition = "TEXT")
     private String generatedResumeSummary;
 
-    @Column(name = "cover_letter")
+    @Column(name = "cover_letter", columnDefinition = "TEXT")
     private String coverLetter;
 
     // TEXT (not VARCHAR 255): generated answers regularly exceed 255 chars.
     @Column(name = "application_answers", columnDefinition = "TEXT")
     private String applicationAnswers;
 
-    @Column(name = "candidate_strengths")
+    @Column(name = "candidate_strengths", columnDefinition = "TEXT")
     private String candidateStrengths;
 
-    @Column(name = "matching_skills")
+    @Column(name = "matching_skills", columnDefinition = "TEXT")
     private String matchingSkills;
 
-    @Column(name = "missing_skills")
+    @Column(name = "missing_skills", columnDefinition = "TEXT")
     private String missingSkills;
 
-    @Column(name = "resume_highlights")
+    @Column(name = "resume_highlights", columnDefinition = "TEXT")
     private String resumeHighlights;
 
     @Column(name = "match_score")
