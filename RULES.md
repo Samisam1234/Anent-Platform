@@ -1,6 +1,6 @@
 # Rules — agent-platform
 
-> **Status**: CURRENT — non-negotiable engineering constraints as of commit da933ac (Phase 12.4 verified)
+> **Status**: CURRENT — non-negotiable engineering constraints as of commit 0a02e22 (Phase 12.6 verified; Phase 12.7 planned)
 
 ---
 
@@ -49,7 +49,7 @@
 | Phase 10 | — | **FROZEN** | None |
 | Phase 11.1 (MCP) | 0d141d6 | **FROZEN** | Config-only changes (enable/disable, URLs, timeouts) |
 | Phase 12.1 | 553eb76 | **FROZEN** | Evidence-based resume parsing, MCP job search |
-| Phase 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **IMPLEMENTED** | No changes; backend (PDF/DOCX generation, 3 endpoints, tests), frontend (preview modal, download buttons) complete; core workflow + PDF/DOCX read-back browser-verified 2026-09-29; D2 page-level overflow at ≤768px deferred |
+| Phase 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **VERIFIED** | No changes; backend (PDF/DOCX generation, 3 endpoints, tests), frontend (preview modal, download buttons) complete; core workflow + PDF/DOCX read-back browser-verified 2026-09-29; D2 page-level overflow at ≤768px remains deferred to 12.10 (not resolved); live job-source reachability remains UNVERIFIED (PRD Known Gaps) |
 
 **Rule**: Frozen phases are **immutable**. No code changes, refactoring, or "improvements" unless explicitly required by a new phase with approval.
 
@@ -190,7 +190,9 @@
 | 11.1 (MCP) | 0d141d6 | **FROZEN** | Config-only changes allowed |
 | 12.1 | 553eb76 | **FROZEN** | Evidence-based resume, MCP job search |
 | 12.2 prep | f47562b | **CHECKPOINT** | Local AI runtime, timeouts |
+| 12.5 (Career Analysis + Readiness UI) | 6f4b483 | **IMPLEMENTED — verification not recorded** | CSS + markup polish only (career report + advisor breakdown); no spec, no tests, no committed browser-verification evidence |
 | 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **VERIFIED** | Spec, backend + tests, frontend preview + PDF/DOCX download UI; core workflow + PDF/DOCX read-back verified; D2 page-level overflow deferred to 12.10 |
+| 12.7 (Application Package) | — | **PLANNED** | Prepare Application modal/review, edit package, Approve for Application, email with explicit approval — scope defined in PHASE_12.7_SPEC.md |
 
 ---
 

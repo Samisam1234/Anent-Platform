@@ -1,7 +1,7 @@
 # Tasks — agent-platform
 
-> **Status**: CURRENT — roadmap as of commit bc457e2 (Phase 12.6 — ATS Resume Tailoring preview + PDF/DOCX download UI)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.6 implemented**: 92c0942 (spec), 055db64 (backend + tests), bc457e2 (frontend)
+> **Status**: CURRENT — roadmap as of commit 0a02e22 (Phase 12.6 verified; Phase 12.7 planned)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 planned**
 
 ---
 
@@ -18,11 +18,13 @@
 | Phase 12.2 | f47562b | **FROZEN** | Resume/Profile frontend reliability |
 | **Phase 12.3** | a6eaf5c | **VERIFIED** | Job search reliability, live sources |
 | **Phase 12.4** | da933ac | **VERIFIED** | Match Details — Job Details modal polish, source URLs |
+| **Phase 12.5** | 6f4b483 | **IMPLEMENTED — verification not recorded** | Career Analysis + Readiness UI polish — CSS + markup only (career report + advisor breakdown); no spec, no tests, no committed browser-verification evidence |
 | **Phase 12.6** | 92c0942, 055db64, bc457e2 | **VERIFIED** | ATS Resume Tailoring — spec, backend + tests, frontend preview + PDF/DOCX download UI; core workflow + PDF/DOCX read-back verified; D2 page-level overflow deferred to 12.10 |
+| **Phase 12.7** | — | **PLANNED** | Application Package — scope defined in PHASE_12.7_SPEC.md |
 
 ---
 
-## Phase 12.2 — Resume/Profile Frontend Reliability (ACTIVE)
+## Phase 12.2 — Resume/Profile Frontend Reliability (FROZEN)
 
 ### Objective
 Make the browser UI accurately display the profile that the backend produces from the uploaded resume.
@@ -32,17 +34,17 @@ Make the browser UI accurately display the profile that the backend produces fro
 |---------|---------|
 | **Browser automation environment** | Shiplight/Playwright works but Spring Boot devtools causes process exit |
 | **Ollama cold-start/runtime** | First inference ~290s (model loading); subsequent ~2-5s |
-| **Frontend/API issues** | Application Advisor modal DOM missing; Prepared Application modal broken; Career Agent "WAITING" artifact |
+| **Frontend/API issues** | Application Advisor modal DOM missing; Prepared Application modal broken; Career Agent "WAITING" artifact (all historical — advisor/prepare review flows now render via the shared modal shell) |
 
 ### Work Items (In Order)
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
-| 1 | **Fix Application Advisor modal DOM** (`matches.html` + `matches.js`) | **TODO** | Add `advisorReviewJobTitle`/`advisorReviewCompany`; de-duplicate 4 DOM IDs; restore `prepReviewOverlay` |
-| 2 | **Fix Prepared Application modal** (`matches.html` + `matches.js`) | **TODO** | Add `prepReviewOverlay` wrapper; fix `openPreparedReview` guard |
+| 1 | **Fix Application Advisor modal DOM** (`matches.html` + `matches.js`) | **SUPERSEDED** | Advisor modal renders via the shared modal shell; `ApplicationAdvisorResponse` already carries `jobTitle`/`company` |
+| 2 | **Fix Prepared Application modal** (`matches.html` + `matches.js`) | **SUPERSEDED** | Review renders via the shared modal shell; no `prepReviewOverlay` wrapper exists |
 | 3 | **Fix Career Agent "WAITING" artifact** | **TODO** | Relabel or drop static progress list |
-| 4 | **Add `jobTitle`/`company` to `ApplicationAdvisorResponse`** | **TODO** | Populate in `ApplicationAdvisorService.adviseFromDomain` |
-| 5 | **Fix Prepared Application content** | **TODO** | Pass `CandidateProfile` to `JobApplicationPreparationService` |
+| 4 | **Add `jobTitle`/`company` to `ApplicationAdvisorResponse`** | **RESOLVED** | Fields present on the record and rendered by the advisor modal |
+| 5 | **Fix Prepared Application content** | **RESOLVED** | `JobApplicationPreparationService` builds the package from `CandidateProfile` + `Job` (profile-derived) |
 | 6 | **Enable live job sources by default** | **PLANNED** | `job-sources.public-api.enabled: true`; banner logic update |
 | 7 | **Remove free-text keyword fields** | **PLANNED** | Remove `#jobsKeywordsInput` / `#matchesKeywordsInput`; derive from profile |
 | 6 | **Add "Continue to Job Search" CTA** | **PLANNED** | On resume upload success |
@@ -52,10 +54,10 @@ Make the browser UI accurately display the profile that the backend produces fro
 
 | Phase | Milestone | Description |
 |-------|-----------|-------------|
-| **12.2** | Resume/Profile frontend reliability | Current |
-| **12.3** | Job search reliability | Profile-driven search, live sources enabled |
-| **12.4** | Match details | Job Details modal polish, source URLs |
-| **12.5** | Career Analysis + Readiness | Career Analysis modal, Readiness modal |
+| **12.2** | Resume/Profile frontend reliability | **FROZEN** |
+| **12.3** | Job search reliability | **VERIFIED** — profile-driven search, live sources enabled |
+| **12.4** | Match details | **VERIFIED** — Job Details modal polish, source URLs |
+| **12.5** | Career Analysis + Readiness | **IMPLEMENTED — verification not recorded** (6f4b483) |
 | **12.6** | ATS Resume Tailoring | **VERIFIED** — Tailored resume preview/download; D2 page-level overflow deferred |
 | **12.7** | Application Package | Prepare Application modal, review/approve |
 | **12.8** | Employer Application | "Apply on Employer Site" flow |
@@ -90,11 +92,13 @@ Implementation: `da933ac` ("Phase 12.4 - polish match details UI"). Live browser
 
 ---
 
-## Phase 12.5 — Career Analysis + Readiness (PLANNED)
+## Phase 12.5 — Career Analysis + Readiness (IMPLEMENTED — verification not recorded)
 
-- Career Analysis modal (fix DOM, render all sections)
-- Application Readiness modal (readiness score, gaps, actions)
-- Factor score visualization (bars)
+Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI", 2026-09-25). Scope was a visual pass only — `matches.js` (labelled score rows, tone-classed strengths/gaps lists) and `style.css` additions — no backend/logic change.
+
+- Career Analysis modal polish — `.career-report*`, score hero, next-steps list
+- Application Readiness breakdown polish — `.advisor-hero`, `.advisor-breakdown`, `fit-list` tones
+- **Verification status**: No spec file, no test changes, and no committed browser-verification evidence for this commit exist. The changes are present in HEAD and covered indirectly by later phases' browser runs, but Phase 12.5 itself is **not marked VERIFIED**. It remains correctly labeled **IMPLEMENTED — verification not recorded**; do not promote it to VERIFIED without new browser-verification evidence.
 
 ---
 
@@ -113,6 +117,8 @@ Implementation: `da933ac` ("Phase 12.4 - polish match details UI"). Live browser
 ---
 
 ## Phase 12.7 — Application Package (PLANNED)
+
+> Detailed, reviewable specification: **PHASE_12.7_SPEC.md** (created during roadmap reconciliation).
 
 - Prepare Application modal (review tailored resume, cover letter, Q&A)
 - Edit mode for package content
@@ -152,8 +158,8 @@ Implementation: `da933ac` ("Phase 12.4 - polish match details UI"). Live browser
 |---------|----------|------------|
 | Browser automation environment | High | Shiplight works but Spring Boot devtools causes process exit |
 | Ollama cold-start/runtime | High | First inference ~290s; subsequent ~2-5s |
-| Application Advisor modal DOM missing | High | DOM elements missing in HTML |
-| Prepared Application modal broken | High | Missing overlay wrapper |
+| Application Advisor modal DOM missing | High | Historical — superseded by shared modal shell rendering |
+| Prepared Application modal broken | High | Historical — superseded by shared modal shell rendering |
 | Career Agent "WAITING" artifact | Medium | Frontend artifact, not backend bug |
 
 ---
@@ -189,7 +195,16 @@ Implementation: `da933ac` ("Phase 12.4 - polish match details UI"). Live browser
 
 ## Next Immediate Action
 
-**Fix Application Advisor modal DOM** (INVESTIGATION-REPORT §8/§9.1):
+> **STALE / SUPERSEDED**: the items below belonged to the legacy 12.2 investigation
+> (INVESTIGATION-REPORT §8/§9.1). Since then the UI migrated to the single global
+> modal shell (`modalShell.js`) — Application Advisor, Career Analysis, Application
+> Readiness, prepared-application review, and ATS tailoring all render through it, and
+> the dedicated `advisorReviewJobTitle`/`advisorReviewCompany`/`prepReviewOverlay`
+> wrappers no longer exist in `matches.html`. The ApplicationAdvisorResponse already
+> carries `jobTitle`/`company` echo fields. Phase 12.7 (Application Package) supersedes
+> the application-flow items. Keep only for historical reference.
+
+**Legacy action (pre-modal-shell):**
 1. `matches.html` — Add `advisorReviewJobTitle` / `advisorReviewCompany` header elements
 2. De-duplicate 4 advisor DOM IDs (keep on `<ul>`, remove from wrapper `<div>`)
 3. Restore `<div class="prep-review-overlay" id="prepReviewOverlay" hidden>` wrapper

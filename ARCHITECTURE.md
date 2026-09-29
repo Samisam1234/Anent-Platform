@@ -1,7 +1,7 @@
 # Architecture — agent-platform
 
-> **Status**: CURRENT — reflects actual repository state as of commit bc457e2 (Phase 12.6 — ATS Resume Tailoring preview + PDF/DOCX download UI)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.6 implemented**: 92c0942 (spec), 055db64 (backend + tests), bc457e2 (frontend)
+> **Status**: CURRENT — reflects actual repository state as of commit 0a02e22 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 planned)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 planned**
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -201,7 +201,7 @@ POST /api/v1/resume/tailor/docx {candidateId, jobId}
 | Phase 11.1 | 0d141d6 | **FROZEN** |
 | Phase 12.1 | 553eb76 | **FROZEN** |
 | Phase 12.2 prep | f47562b | **CHECKPOINT** |
-| Phase 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **IMPLEMENTED** — backend (document generation, 3 endpoints, controller tests, generator tests) + frontend (preview modal, download buttons) |
+| Phase 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **VERIFIED** — backend (document generation, 3 endpoints, controller tests, generator tests) + frontend (preview modal, download buttons); core workflow + PDF/DOCX read-back verified; D2 page-level overflow deferred to 12.10 |
 
 ---
 

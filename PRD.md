@@ -1,7 +1,7 @@
 # Product Requirements Document — agent-platform
 
-> **Status**: CURRENT — reflects actual implemented product as of commit bc457e2 (Phase 12.6 — ATS Resume Tailoring preview + PDF/DOCX download UI)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.6 implemented**: 92c0942 (spec), 055db64 (backend + tests), bc457e2 (frontend)
+> **Status**: CURRENT — reflects actual implemented product as of commit 0a02e22 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 planned)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 planned**
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -23,10 +23,10 @@ agent-platform is a local-first AI Career Agent platform that helps users turn a
 | 3 | **Job Search** — profile-driven search (skills/location/experience/employmentType) | **IMPLEMENTED** | Profile-driven search; free-text keyword field removed (Phase 12.3) |
 | 4 | **Job Matches** — deterministic scoring, explainable results | **IMPLEMENTED** | Weighted scoring (skills/role/experience/track/location/education) |
 | 4b | **Job Details** — official listing URL, source attribution | **IMPLEMENTED** | Job modal shows source URL, never fabricates employer URLs |
-| 5 | **Career Analysis** — readiness score, gaps, recommendations | **BACKEND OK / FRONTEND BROKEN** | Backend works; modal DOM elements missing (§8 INVESTIGATION) |
-| 6 | **Application Readiness** — readiness score, gaps, recommended actions | **IMPLEMENTED** | Backend works; modal opens but DOM issues |
+| 5 | **Career Analysis** — readiness score, gaps, recommendations | **IMPLEMENTED** | Backend works; renders via the shared modal shell (legacy DOM wrappers removed); Phase 12.5 UI-polish browser verification not recorded |
+| 6 | **Application Readiness** — readiness score, gaps, recommended actions | **IMPLEMENTED** | Backend works; renders via the shared modal shell (advisor breakdown) |
 | 7 | **ATS Resume Tailoring** — reorder/emphasize existing content only | **IMPLEMENTED** | Deterministic; preview modal + PDF/DOCX download; never invents skills/experience; core workflow + PDF/DOCX read-back verified (D2 page-level overflow at ≤768px deferred) |
-| 8 | **Application Preparation** — tailored resume + cover letter + Q&A | **PARTIAL** | Backend prepares; modal DOM missing; content ignores profile |
+| 8 | **Application Preparation** — tailored resume + cover letter + Q&A | **PARTIAL** | Prepare endpoint, profile-derived package generation (`JobApplicationPreparationService`), and review via the shared modal shell exist; remaining Phase 12.7 deltas (Q&A/strengths/recommendation review sections, edit deep-link, email recipient verification) defined in PHASE_12.7_SPEC.md |
 | 9 | **Employer Application** — manual via official URL only | **IMPLEMENTED** | "Apply on Employer Site" / "View Job Listing" buttons; no auto-submit |
 | 10 | **Application Tracking** | **PLANNED** | Not yet implemented |
 
@@ -55,14 +55,13 @@ agent-platform is a local-first AI Career Agent platform that helps users turn a
 |------|--------|---------|
 | Job Search: remove free-text keyword field | ✅ Done (12.3) | Removed; keywords derive from profile skills/roles |
 | Live job sources enabled by default | **PLANNED** | `job-sources.public-api.enabled: false` currently |
-| Career Analysis modal DOM fixes | **PLANNED** | Missing `advisorReviewJobTitle`, `advisorReviewCompany` |
-| Prepared Application modal wrapper | **PLANNED** | Missing `prepReviewOverlay` wrapper |
-| Prepared Application content from profile | **PLANNED** | Currently uses hardcoded Java template |
+| Career Analysis modal DOM fixes | **SUPERSEDED** | Legacy `advisorReviewJobTitle`/`advisorReviewCompany` wrappers removed; Career Analysis renders via the shared modal shell |
+| Prepared Application modal wrapper | **SUPERSEDED** | Obsolete `prepReviewOverlay` wrapper; prepared-application review renders via the shared modal shell |
+| Prepared Application content from profile | **RESOLVED** | Package is profile-derived (`JobApplicationPreparationService` builds from `CandidateProfile` + `Job`); no hardcoded Java template |
 | Free-text keywords on Matches page | **PLANNED** | Should derive from profile |
 | Resume → Job Search CTA | **PLANNED** | No "Continue to Job Search" after profile ready |
 | Career Agent "WAITING" UI artifact | **PLANNED** | Rename/drop placeholder state |
-| Prepared Application modal wrapper | **PLANNED** | Missing overlay wrapper |
-| Duplicate DOM IDs in advisor modal | **PLANNED** | Four duplicate IDs on wrapper div + inner ul |
+| Duplicate DOM IDs in advisor modal | **SUPERSEDED** | Legacy four-duplicate-ID issue on the pre-modal-shell wrapper; advisor modal now renders via the shared modal shell (single body), with `jobTitle`/`company` on `ApplicationAdvisorResponse` |
 | Live job source reachability | **UNVERIFIED** | Sandbox has no outbound network |
 | End-to-end ATS Resume Tailoring browser verification | **DONE** | Core workflow verified (tailor 200, modal render 1440/768/390, PDF/DOCX download 200, close/reopen, 0 console/network errors) + H artifact read-back passed via PDFBox 3 / POI 5.2.5; D2 page-level overflow at 768/390px deferred pending 12.10 |
 

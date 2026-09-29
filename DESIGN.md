@@ -1,7 +1,7 @@
 # Design — agent-platform
 
-> **Status**: CURRENT — reflects actual UX as of commit bc457e2 (Phase 12.6 — ATS Resume Tailoring preview + PDF/DOCX download UI)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.6 implemented**: 92c0942 (spec), 055db64 (backend + tests), bc457e2 (frontend)
+> **Status**: CURRENT — reflects actual UX as of commit 0a02e22 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 planned)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 planned**
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -71,6 +71,8 @@
 | **Missing `prepReviewOverlay` guard** | `matches.js:550` | `openPreparedReview()` silent no-op |
 | **SVG contamination in contact fields** | `resume.js` parsing | Email/phone/location show "svg..." garbage |
 
+> **Note (historical)**: the four modal-wrapping rows above and the "(Broken)" frontend sections below are the frozen Phase 12.2 investigation snapshot (INVESTIGATION-REPORT §8/§9.1). The advisor, career-analysis, and prepared-application review flows now render through the shared modal shell; the legacy `advisorReviewJobTitle`/`advisorReviewCompany`/`prepReviewOverlay` wrappers no longer exist. The SVG-contamination row was fixed in Phase 12.1.
+
 ---
 
 ## 4. Matches Page (Implemented)
@@ -94,7 +96,7 @@
 ### Known Issues
 - "Development Mock Source Active" banner hardcoded default
 - Keywords & Skills filter present (should be removed per PRD)
-- Match Details modal uses non-existent `#advisorReviewJobTitle`/`#advisorReviewCompany`
+- Match Details modal uses non-existent `#advisorReviewJobTitle`/`#advisorReviewCompany` (historical — advisor modal now renders via the shared modal shell)
 
 ---
 
@@ -123,14 +125,14 @@
 }
 ```
 
-### Frontend Rendering (Broken)
+### Frontend Rendering (Historical Phase 12.2 snapshot — superseded by shared modal shell)
 - Missing `advisorReviewJobTitle` / `advisorReviewCompany` header elements
 - Duplicate DOM IDs cause content injection into wrapper `<div>` instead of `<ul>`
 - `matches.js:663` throws on `document.getElementById('advisorReviewJobTitle').textContent`
 
 ---
 
-## 6. Prepared Application Modal (Backend OK / Frontend Broken)
+## 6. Prepared Application Modal (Historical Phase 12.2 snapshot — Backend OK / Frontend Broken as of investigation)
 
 ### Backend Returns
 ```json
@@ -151,7 +153,7 @@
 }
 ```
 
-### Frontend Rendering (Broken)
+### Frontend Rendering (Historical Phase 12.2 snapshot — superseded by shared modal shell)
 - **Missing** `<div class="prep-review-overlay" id="prepReviewOverlay" hidden>` wrapper
 - Modal renders inline at bottom of page, fields show `—`
 - `matches.js:550` `getElementById('prepReviewOverlay')` → null → silent no-op
@@ -292,9 +294,9 @@ Both buttons disable during generation (spinner), restore on success/failure. Er
 | "Continue to Job Search" CTA after profile ready | `resume.html` | **PLANNED** |
 | Remove Keywords & Skills from Job Search | `jobs.html` | **PLANNED** |
 | Remove Keywords & Skills from Matches | `matches.html` | **PLANNED** |
-| Career Analysis modal DOM fixes | `matches.html` + `matches.js` | **PLANNED** |
-| Prepared Application overlay wrapper | `matches.html` | **PLANNED** |
-| Prepared Application content from profile | `matches.js` + backend | **PLANNED** |
+| Career Analysis modal DOM fixes | `matches.html` + `matches.js` | **SUPERSEDED** — renders via the shared modal shell |
+| Prepared Application overlay wrapper | `matches.html` | **SUPERSEDED** — obsolete `prepReviewOverlay`; review renders via the shared modal shell |
+| Prepared Application content from profile | `matches.js` + backend | **RESOLVED** — profile-derived via `JobApplicationPreparationService` |
 | Career Agent "WAITING" relabel | `careerAgent.js` | **PLANNED** |
 | Live job sources enabled by default | `application.yml` + `jobs.js` | **PLANNED** |
 | Resume → Job Search CTA | `resume.html` / `resume.js` | **PLANNED** |
@@ -310,9 +312,9 @@ Both buttons disable during generation (spinner), restore on success/failure. Er
 | "Development Mock Source Active" default banner | `jobs.js` / `matches.js` | **REPLACE** with live-first logic |
 | `#jobsKeywordsInput` in `buildPayload` | `jobs.js` | **REMOVE** |
 | `#matchesKeywordsInput` in payload | `matches.js` | **REMOVE** |
-| Duplicate DOM IDs in advisor modal | `matches.html` | **FIX** (de-duplicate) |
-| Missing `advisorReviewJobTitle`/`Company` | `matches.html` | **ADD** |
-| Missing `prepReviewOverlay` | `matches.html` | **ADD** |
+| Duplicate DOM IDs in advisor modal | `matches.html` | **SUPERSEDED** — shared modal shell (single body) |
+| Missing `advisorReviewJobTitle`/`Company` | `matches.html` | **SUPERSEDED** — modal-shell header renders job/company echo fields |
+| Missing `prepReviewOverlay` | `matches.html` | **SUPERSEDED** — obsolete wrapper; review renders via shared modal shell |
 
 ---
 
