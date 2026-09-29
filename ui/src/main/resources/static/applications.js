@@ -432,7 +432,7 @@
     }
 
     // ─── View application details ─────────────────────────────────────────────
-    function viewApplication(id) {
+    function viewApplication(id, openInEdit) {
         currentApplicationId = id;
         fetch(`${API_ENDPOINT}/${id}`)
             .then(response => {
@@ -533,6 +533,12 @@
                 applicationDetailSection.hidden = false;
                 applicationsOnboarding.hidden = true;
                 applicationsListSection.hidden = true;
+
+                // Prepare-modal edit deep link: applications.html?application=<id>&edit=1
+                // Enter the Applications-page edit surface for that application (only when editing is allowed).
+                if (openInEdit && !isEditing && (isGenerated(app.applicationStatus) || isApproved(app.applicationStatus))) {
+                    enterEditMode();
+                }
             })
             .catch(err => {
                 console.error('Error viewing application:', err);
@@ -540,27 +546,31 @@
             });
     }
 
+    // ─── Status helpers ────────────────────────────────────────────────────────
+    function isGenerated(status) {
+        return status === 'GENERATED' || status === 'DRAFT' || status === 'UNDER_REVIEW';
+    }
+
+    function isApproved(status) {
+        return status === 'APPROVED_FOR_APPLICATION';
+    }
+
     // ─── Update action buttons based on application status ────────────────────
     function updateActionButtons(status) {
-        const isGenerated = status === 'GENERATED' || status === 'DRAFT' || status === 'UNDER_REVIEW';
-        const isApproved = status === 'APPROVED_FOR_APPLICATION';
-        const isRejected = status === 'REJECTED';
-        const isSent = status === 'SENT'; // For future use
-
         // Edit button: allow editing before sending (GENERATED, APPROVED)
         if (editApplicationBtn) {
-            editApplicationBtn.hidden = !isGenerated && !isApproved;
+            editApplicationBtn.hidden = !isGenerated(status) && !isApproved(status);
         }
 
         // Approve button: only show for GENERATED/DRAFT/UNDER_REVIEW
         if (approveApplicationBtn) {
-            approveApplicationBtn.hidden = !isGenerated;
+            approveApplicationBtn.hidden = !isGenerated(status);
             approveApplicationBtn.textContent = 'Approve Application';
         }
 
         // Send Email button: only show for APPROVED_FOR_APPLICATION
         if (sendEmailBtn) {
-            sendEmailBtn.hidden = !isApproved;
+            sendEmailBtn.hidden = !isApproved(status);
         }
     }
 
@@ -572,6 +582,9 @@
         }
 
         isEditing = true;
+        setEditSaving(false);
+        clearFieldError(editProfessionalSummary);
+        clearFieldError(editCoverLetter);
 
         // Hide view mode elements
         document.getElementById('applicationDetailSummary').hidden = true;
@@ -596,6 +609,7 @@
 
     function exitEditMode() {
         isEditing = false;
+        setEditSaving(false);
 
         // Show view mode elements
         document.getElementById('applicationDetailSummary').hidden = false;
@@ -604,6 +618,10 @@
 
         // Hide edit mode section
         if (editModeSection) editModeSection.hidden = true;
+
+        // Hide the edit-mode-only buttons; the status-based buttons are restored below.
+        if (saveEditBtn) saveEditBtn.hidden = true;
+        if (cancelEditBtn) cancelEditBtn.hidden = true;
 
         // Restore button states based on current application status
         fetch(`${API_ENDPOINT}/${currentApplicationId}`)
@@ -621,12 +639,18 @@
 
     function saveEdit() {
         if (!currentApplicationId) return;
+        if (saveEditSaving) return;
+
+        // Validate before persisting — actionable per-field messages, no silent overwrite.
+        if (!validateEditForm()) return;
 
         const updates = {
             coverLetter: editCoverLetter ? editCoverLetter.value : originalData.coverLetter,
             professionalSummary: editProfessionalSummary ? editProfessionalSummary.value : originalData.professionalSummary,
             applicationAnswers: editApplicationAnswers ? editApplicationAnswers.value : originalData.applicationAnswers
         };
+
+        setEditSaving(true);
 
         fetch(`${API_ENDPOINT}/${currentApplicationId}`, {
             method: 'PUT',
@@ -647,13 +671,75 @@
                 professionalSummary: updates.professionalSummary,
                 applicationAnswers: updates.applicationAnswers
             };
-            // Refresh view
+            // Leave edit mode and reload from the server so the saved content is confirmed.
+            exitEditMode();
             viewApplication(currentApplicationId);
         })
         .catch(err => {
             console.error('Error saving application:', err);
             showToast(window.apiError.describe(err, 'Failed to save changes.'), 'error');
+            setEditSaving(false);
         });
+    }
+
+    // ─── Edit form validation ─────────────────────────────────────────────────
+    function validateEditForm() {
+        let valid = true;
+        const summary = editProfessionalSummary ? editProfessionalSummary.value.trim() : '';
+        const coverLetter = editCoverLetter ? editCoverLetter.value.trim() : '';
+
+        clearFieldError(editProfessionalSummary);
+        clearFieldError(editCoverLetter);
+
+        if (!summary) {
+            showFieldError(editProfessionalSummary, 'Professional summary is required.');
+            valid = false;
+        }
+        if (!coverLetter) {
+            showFieldError(editCoverLetter, 'Cover letter is required.');
+            valid = false;
+        }
+        if (!valid) {
+            showToast('Please correct the highlighted fields.', 'error');
+        }
+        return valid;
+    }
+
+    function showFieldError(input, message) {
+        if (!input) return;
+        setFieldError(input, message);
+    }
+
+    function clearFieldError(input) {
+        if (!input) return;
+        setFieldError(input, '');
+    }
+
+    function setFieldError(input, message) {
+        const wrapper = input.closest('.edit-form-group');
+        let errorEl = wrapper ? wrapper.querySelector('.edit-field-error') : null;
+        if (!message) {
+            if (errorEl) errorEl.remove();
+            input.classList.remove('is-invalid');
+            input.removeAttribute('aria-invalid');
+            return;
+        }
+        if (!errorEl) {
+            errorEl = document.createElement('p');
+            errorEl.className = 'edit-field-error';
+            if (wrapper) wrapper.appendChild(errorEl);
+        }
+        errorEl.textContent = message;
+        input.classList.add('is-invalid');
+        input.setAttribute('aria-invalid', 'true');
+    }
+
+    let saveEditSaving = false;
+    function setEditSaving(saving) {
+        saveEditSaving = saving;
+        if (saveEditBtn) saveEditBtn.disabled = saving;
+        if (cancelEditBtn) cancelEditBtn.disabled = saving;
+        if (saveEditBtn) saveEditBtn.textContent = saving ? 'Saving...' : 'Save Changes';
     }
 
     // ─── Send Email ───────────────────────────────────────────────────────────
@@ -830,10 +916,13 @@
         updateProfileBadge();
         loadApplications();
 
-        // Deep link from the Matches page: applications.html?application=<id>
-        const deepLinkId = Number(new URLSearchParams(window.location.search).get('application'));
+        // Deep link from the Matches page: applications.html?application=<id>[&edit=1]
+        // auto-opens the detail and (when edit=1) drops straight into the edit surface.
+        const params = new URLSearchParams(window.location.search);
+        const deepLinkId = Number(params.get('application'));
         if (Number.isFinite(deepLinkId) && deepLinkId > 0 && candidateId != null) {
-            viewApplication(deepLinkId);
+            const openInEdit = params.get('edit') === '1';
+            viewApplication(deepLinkId, openInEdit);
         }
 
         // Copy buttons (delegated)

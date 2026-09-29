@@ -672,8 +672,8 @@ const ADVISOR_API_ENDPOINT = '/api/v1/jobs/advisor';
             </div>`;
 
         const footer = `
-            <span class="modal-hint">Nothing has been submitted. Review, then apply on the employer's own site.</span>
-            ${app.applicationId ? `<a class="btn-secondary" href="applications.html?application=${encodeURIComponent(app.applicationId)}">Review &amp; Edit in Applications</a>` : ''}`;
+            <span class="modal-hint">Nothing has been submitted. Approving the package in Applications is required before any email can go out.</span>
+            ${app.applicationId ? `<a class="btn-secondary" href="applications.html?application=${encodeURIComponent(app.applicationId)}&edit=1">Edit in Applications</a>` : ''}`;
 
         window.modalShell.open({
             kicker: 'Prepared Application',

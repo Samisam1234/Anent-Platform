@@ -480,6 +480,21 @@ a:hover{text-decoration:underline}
     border-color: var(--accent);
 }
 
+.edit-field-error {
+    margin-top: 6px;
+    font-size: .78rem;
+    font-weight: 600;
+    color: var(--danger);
+}
+
+.edit-form-group .form-textarea.is-invalid {
+    border-color: var(--danger);
+}
+
+.edit-form-group .form-textarea.is-invalid:focus {
+    border-color: var(--danger);
+}
+
 .edit-mode-section ~ .application-detail-actions .btn-secondary#editApplicationBtn {
     display: none;
 }
