@@ -1,7 +1,7 @@
 # Product Requirements Document — agent-platform
 
-> **Status**: CURRENT — reflects actual implemented product as of commit 6a9f647 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 COMPLETE AND VERIFIED)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647
+> **Status**: CURRENT — reflects actual implemented product as of commit 8b2e966 (Phase 12.7 COMPLETE AND VERIFIED; Phase 12.8 COMPLETE AND VERIFIED)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **Phase 12.8 verified**: d60f556, c758dca, 8718d5c, 8b2e966
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -27,7 +27,7 @@ agent-platform is a local-first AI Career Agent platform that helps users turn a
 | 6 | **Application Readiness** — readiness score, gaps, recommended actions | **IMPLEMENTED** | Backend works; renders via the shared modal shell (advisor breakdown) |
 | 7 | **ATS Resume Tailoring** — reorder/emphasize existing content only | **IMPLEMENTED** | Deterministic; preview modal + PDF/DOCX download; never invents skills/experience; core workflow + PDF/DOCX read-back verified (D2 page-level overflow at ≤768px deferred) |
 | 8 | **Application Preparation** — tailored resume + cover letter + Q&A | **IMPLEMENTED and VERIFIED** | Prepare endpoint, profile-derived package generation, prepared-review modal (Q&A/strengths/recommendation), Applications-page editing, and email send with a user-entered/confirmed recipient are implemented (Slices 1–3) and verified: full suite 1,216 tests green, browser acceptance A–P 51/51 (2026-09-29); H2 long-text `TEXT` persistence fix + regression test + two `applications.js` regression fixes (deep-link detail-visibility race, missing detail-view approve handler) in commit 6a9f647. No SMTP is configured — email sends are simulated and labelled as such; the approval gate is unchanged |
-| 9 | **Employer Application** — manual via official URL only | **IMPLEMENTED** | "Apply on Employer Site" / "View Job Listing" buttons; no auto-submit |
+| 9 | **Employer Application** — manual via official URL only | **IMPLEMENTED and VERIFIED** | "Apply on Employer Site" / "View Job Listing" buttons; no auto-submit. Phase 12.8 adds the user-triggered **Apply Kit** (review + copy per field, user performs the final paste and submit) for whitelisted fields (name/email/phone/location/headline/summary/skills) from the approved package + stored profile; verified 2026-09-30 — 1,227 tests green, browser acceptance A–Q 67/67. The platform never writes to or submits a page it does not serve |
 | 10 | **Application Tracking** | **PLANNED** | Not yet implemented |
 
 ---
@@ -62,7 +62,7 @@ agent-platform is a local-first AI Career Agent platform that helps users turn a
 | Resume → Job Search CTA | **PLANNED** | No "Continue to Job Search" after profile ready |
 | Career Agent "WAITING" UI artifact | **PLANNED** | Rename/drop placeholder state |
 | Duplicate DOM IDs in advisor modal | **SUPERSEDED** | Legacy four-duplicate-ID issue on the pre-modal-shell wrapper; advisor modal now renders via the shared modal shell (single body), with `jobTitle`/`company` on `ApplicationAdvisorResponse` |
-| Live job source reachability | **UNVERIFIED** | Sandbox has no outbound network |
+| Live job source reachability | **UNVERIFIED** | No outbound network in the offline sandbox. Added evidence from the Phase 12.8 acceptance run (networked workstation): live Arbeitnow/REMOTIVE served real listings — reachability is real — but single-job lookups are flaky (advisor per-request `JobSearchService.findById` intermittently threw `JobNotFoundException`; repro 30 identical advisor POSTs → 14×200 / 16×404). Backend reliability item for the 12.10 gate |
 | SMTP transport for application email | **NOT CONFIGURED** | No SMTP configured; email sends are simulated and labelled in the UI ("Email send simulated — no SMTP configured. Nothing was actually mailed.") |
 | Persisted email-sent flag | **NOT IMPLEMENTED** | No sent flag / `emailSentAt` is persisted — duplicate-send prevention is not a completed capability (the UI has an in-flight guard plus mandatory re-confirmation only); recorded as a limitation |
 | Independent mailbox-ownership verification | **NOT IMPLEMENTED** | The email recipient is user-entered and user-confirmed (manual confirmation of the address); no independent mailbox-ownership verification exists — out of scope |

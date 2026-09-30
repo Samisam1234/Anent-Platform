@@ -1,7 +1,7 @@
 # Architecture — agent-platform
 
-> **Status**: CURRENT — reflects actual repository state as of commit 6a9f647 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 COMPLETE AND VERIFIED)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647
+> **Status**: CURRENT — reflects actual repository state as of commit 8b2e966 (Phase 12.7 COMPLETE AND VERIFIED; Phase 12.8 COMPLETE AND VERIFIED)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **Phase 12.8 verified**: d60f556, c758dca, 8718d5c, 8b2e966
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -191,6 +191,28 @@ POST /api/v1/applications/email/send {applicationId, approved, recipientEmail?}
 - No automatic email sending and no employer-application submission at any point; approval only enables
   the (user-triggered) email send.
 
+### Employer Apply Kit (Assisted Apply — Phase 12.8)
+
+```
+Applications detail (APPROVED_FOR_APPLICATION only) → "Assisted Apply" → shared modalShell Apply Kit
+  → GET /api/v1/candidate/{candidateId}       (read-only, RFC 7807 404; loopback-bound —
+      unauthenticated: trusted single-user local-first prototype only, server.address 127.0.0.1)
+  → package job jobId → GET /api/v1/jobs/{id}  (URL provenance; then jobLink.safeUrl — validated
+      https employer destination or the kit is disabled with the reason + manual fallback)
+  → whitelist mapping (name/email/phone/location/headline/summary/skills) from the stored
+      CandidateProfile + approved JobApplication; every value labeled with its source, editable,
+      never a best-guess; links unsupported (no stored URL fields)
+  → review interstitial (final review + copy-all) → user acknowledgement → open employer tab
+      (same validated URL as the manual link) → per-field copy; user pastes and submits on the
+      employer site — the app never writes to or submits that page
+  → client-side-only marker agentplatform:applyKit:<id> (opened-at, job URL, edited-values
+      snapshot) — NOT a status change, NOT a backend write; Phase 12.9 migration seam
+```
+
+- No automation of employer-page DOM, no auto-submit, no CAPTCHA/MFA, no credentials — assisted
+  **preparation and transfer only**. The Apply Kit lives in `applications.js` (no new static file).
+- Stale package on return → kit blocks with "package changed" + reload (status re-validated).
+
 ---
 
 ## 5. Key Integrations
@@ -234,6 +256,7 @@ POST /api/v1/applications/email/send {applicationId, approved, recipientEmail?}
 | Phase 12.2 prep | f47562b | **CHECKPOINT** |
 | Phase 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **VERIFIED** — backend (document generation, 3 endpoints, controller tests, generator tests) + frontend (preview modal, download buttons); core workflow + PDF/DOCX read-back verified; D2 page-level overflow deferred to 12.10 |
 | Phase 12.7 (Application Package) | 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **VERIFIED** — prepared-review sections, editing flow, recipient-verified email; full suite 1,216 tests green + browser acceptance A–P 51/51 (2026-09-29); H2 long-text `TEXT` persistence fix + regression test + two `applications.js` regression fixes in 6a9f647; D2 page-level overflow + live job-source reachability deferred to 12.10 |
+| Phase 12.8 (Employer Application — Apply Kit) | d60f556, c758dca, 8718d5c, 8b2e966 | **VERIFIED** — user-triggered assisted apply (review + per-field copy; user pastes and submits on the employer site; never writes to a page it does not serve); one read-only `GET /api/v1/candidate/{candidateId}` (loopback-bound); full suite 1,227 tests green + browser acceptance A–Q 67/67 (2026-09-30); D2 page-level overflow + live single-job reachability flakiness deferred to 12.10 |
 
 ---
 

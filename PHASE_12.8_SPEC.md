@@ -1,4 +1,4 @@
-# PHASE 12.8 SPEC STATUS: PLANNED — Slice 0 specification only (not implemented, not active, not verified)
+# PHASE 12.8 SPEC STATUS: COMPLETE AND VERIFIED — Apply Kit implemented and accepted (Slices 1–4, 2026-09-30)
 
 ## FULL SPECIFICATION — Phase 12.8 Employer Application (Assisted Apply)
 
@@ -215,6 +215,18 @@ Checklist (letters kept from the 12.6/12.7 convention):
       is required before the kit hands off to the employer tab; no auto-email.
 - Q. Credential handling = none: no storage, no exposure, no password/CVV/SSN fields offered.
 
+**Accepted — Slice 4 acceptance (2026-09-30, VERIFIED):** full `mvn clean test` — **1,227 tests,
+0 failures, 0 errors, 15 skipped**; browser acceptance — checkpoints **A–Q, 67/67 checks passed**
+(two consecutive green runs; P/Q cross-checks: no auto-submit, no network to the employer origin,
+no credential fields offered). The kit's job and the advisor-path job received route-intercepted
+fixture listings (`applicationUrl` passing `jobLink.safeUrl` so the kit enables; a second
+`REMOTIVE` listing for the prepared-application second app) and the advisor POST on that second app
+was fulfilled with a canned valid `ApplicationAdvisorResponse` — the Application Advisor is a live
+backend feature the kit flow reuses, not part of 12.8 acceptance, so its calls are stubbed in the
+hermetic run. Mock/listing-only jobs drove the decline checks (D). The local
+`sandbox/employer-form.html` style fixture page was used for the deterministic copy→paste round-trip
+(I).
+
 ### 8. Dependencies and deferred gates
 
 - **Prerequisite (EXISTS):** Phase 12.7 approved application package + stored `CandidateProfile`
@@ -227,7 +239,14 @@ Checklist (letters kept from the 12.6/12.7 convention):
 - **D2 page-level mobile overflow (≤768px):** stays a **Phase 12.10** item; it does not block 12.8,
   but the modal-level fit constraint (K–M) still applies to the kit.
 - **Live employer-site / job-source reachability:** remains **UNVERIFIED**; the local fixture does
-  not prove external reachability, and its Phase 12.10 gate is retained.
+  not prove external reachability, and its Phase 12.10 gate is retained. Note added from the 12.8
+  acceptance run (a networked workstation, unlike the offline sandbox): live Arbeitnow (and REMOTIVE
+  through the advisor path) did serve real listings, so network reachability is real, but single-job
+  lookups proved flaky — the advisor's per-request live `JobSearchService.findById` intermittently
+  threw `JobNotFoundException` (reproduced: 30 identical advisor POSTs → 14×200 / 16×404) even
+  though the same `GET /api/v1/jobs/{id}` resolved seconds later. That is a backend reliability
+  finding to pick up at 12.10, not a kit defect. Acceptance remains fixture-based, and real employer
+  sites are never automated.
 - **Phase 12.5 verification:** remains outstanding and is not a 12.8 dependency; it is re-verified
   by the 12.10 full E2E regression.
 - **Phase 12.9 (Application Tracking):** the client-side apply marker (Slice 3) is its migration
@@ -240,10 +259,17 @@ interaction; no credential handling; no fabricated URLs, qualifications, links, 
 frontend framework or JS test framework; no new status transitions (12.9 owns tracking); no SMTP /
 email change; no D2 fix; no job-search/match-scoring change; no storage of external form contents.
 
-### 10. Commits (planned; NONE executed)
+### 10. Commits (executed)
 
-Planned commit subjects, in order: `Phase 12.8 - assisted apply review surface`,
-`Phase 12.8 - whitelisted apply kit values + candidate read endpoint`,
-`Phase 12.8 - final review and manual submission`,
-`Phase 12.8 - sync docs and record acceptance`. Nothing in this spec is committed or implemented;
-Phase 12.8 remains **PLANNED** until Slice 4 acceptance evidence exists.
+- `d60f556` — Phase 12.8 - define assisted employer application workflow (spec)
+- `c758dca` — Phase 12.8 - add assisted apply review surface and eligibility (Slice 1)
+- `8718d5c` — Phase 12.8 - add candidate Apply Kit data with loopback binding (Slice 2, `GET
+  /api/v1/candidate/{candidateId}` + kit whitelist mapping)
+- `8b2e966` — Phase 12.8 - add Apply Kit final review and manual handoff (Slice 3: final-review
+  interstitial, copy-all, acknowledgement, client-side marker, stale-package re-validation)
+
+All four are committed and re-verified in HEAD. Slice 4 (docs sync + acceptance evidence, this
+document) is in the working tree. Acceptance evidence (2026-09-30): full `mvn clean test` →
+**1,227 tests, 0 failures, 0 errors, 15 skipped**; browser acceptance A–Q → **67/67 checks passed**
+(two consecutive green runs). Phase 12.8 is **VERIFIED** — this evidence exists and is recorded
+here; see TASKS.md / MEMORY.md for the per-slice history.

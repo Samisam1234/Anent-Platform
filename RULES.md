@@ -1,6 +1,6 @@
 # Rules — agent-platform
 
-> **Status**: CURRENT — non-negotiable engineering constraints as of commit 6a9f647 (Phase 12.6 verified; Phase 12.7 COMPLETE AND VERIFIED)
+> **Status**: CURRENT — non-negotiable engineering constraints as of commit 8b2e966 (Phase 12.7 COMPLETE AND VERIFIED; Phase 12.8 COMPLETE AND VERIFIED)
 
 ---
 
@@ -18,6 +18,7 @@
 | **Phase 12.4** | da933ac | **VERIFIED** | Match Details — Job Details modal visual polish, source URLs |
 | **Phase 12.6** | 92c0942, 055db64, bc457e2 | **VERIFIED** | ATS Resume Tailoring — spec, backend + tests, frontend preview + PDF/DOCX download UI; core workflow + PDF/DOCX read-back verified; D2 page-level overflow deferred to 12.10 |
 | **Phase 12.7** | 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **VERIFIED** | Application Package — prepared-review sections, editing flow, email recipient verification + simulated-send labelling; full suite 1,216 tests green + browser acceptance A–P 51/51 (2026-09-29); H2 long-text `TEXT` persistence fix + regression test + two `applications.js` regression fixes in 6a9f647. D2 page-level overflow + live job-source reachability deferred to 12.10; SMTP not configured (simulated sends labelled) |
+| **Phase 12.8** | d60f556, c758dca, 8718d5c, 8b2e966 | **VERIFIED** | Employer Application — Apply Kit assisted apply (review surface + eligibility in the shared modal shell; whitelisted profile/package fields + read-only `GET /api/v1/candidate/{candidateId}`; final review + manual handoff + client-side marker); full suite 1,227 tests green + browser acceptance A–Q 67/67 (2026-09-30). Slice 3 non-goals enforced by construction: no employer-page DOM automation, no auto-submit, no CAPTCHA/MFA, no credentials. D2 page-level overflow + measured-live reachability flakiness deferred to 12.10 |
 
 **Rule**: Frozen phases are **immutable**. No code changes, no refactoring, no "improvements" unless explicitly required by a new phase with approval.
 
@@ -53,6 +54,7 @@
 | Phase 12.1 | 553eb76 | **FROZEN** | Evidence-based resume parsing, MCP job search |
 | Phase 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **VERIFIED** | No changes; backend (PDF/DOCX generation, 3 endpoints, tests), frontend (preview modal, download buttons) complete; core workflow + PDF/DOCX read-back browser-verified 2026-09-29; D2 page-level overflow at ≤768px remains deferred to 12.10 (not resolved); live job-source reachability remains UNVERIFIED (PRD Known Gaps) |
 | Phase 12.7 (Application Package) | 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **VERIFIED** | No changes; prepared-review sections, editing flow, recipient-verified email complete; full suite 1,216 tests green + browser acceptance A–P 51/51 verified 2026-09-29; H2 long-text `TEXT` fix + regression test + two `applications.js` regression fixes in 6a9f647; D2 page-level overflow ≤768px + live job-source reachability remain open (Phase 12.10); SMTP not configured (simulated sends labelled) |
+| Phase 12.8 (Employer Application — Apply Kit) | d60f556, c758dca, 8718d5c, 8b2e966 | **VERIFIED** | No changes; Apply Kit assisted apply complete — review surface + eligibility in the shared modal shell; whitelisted profile/package values + read-only `GET /api/v1/candidate/{candidateId}` (loopback-bound); final review + manual handoff + client-side marker + stale-package re-validation. Implemented/reviewed/transferred only — never auto-fills, never submits the employer page, never touches CAPTCHA/MFA/credentials. Full suite 1,227 tests green + browser acceptance A–Q 67/67 verified 2026-09-30. D2 page-level overflow ≤768px + live single-job reachability flakiness (advisor `JobNotFoundException` race, repro 14×200/16×404) remain open (Phase 12.10) |
 
 **Rule**: Frozen phases are **immutable**. No code changes, refactoring, or "improvements" unless explicitly required by a new phase with approval.
 
@@ -196,6 +198,7 @@
 | 12.5 (Career Analysis + Readiness UI) | 6f4b483 | **IMPLEMENTED — verification not recorded** | CSS + markup polish only (career report + advisor breakdown); no spec, no tests, no committed browser-verification evidence |
 | 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **VERIFIED** | Spec, backend + tests, frontend preview + PDF/DOCX download UI; core workflow + PDF/DOCX read-back verified; D2 page-level overflow deferred to 12.10 |
 | 12.7 (Application Package) | 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **VERIFIED** | Prepared-review sections, editing flow, email recipient verification + simulated-send labelling; docs sync (cceccc3); H2 long-text `TEXT` persistence fix + `JobApplicationLongTextFieldsPersistenceTest` regression + two `applications.js` regression fixes (6a9f647). Full suite 1,216 tests, 0 failures / 0 errors / 15 skipped; browser acceptance A–P 51/51 passed (2026-09-29). D2 page-level overflow + live job-source reachability remain open (Phase 12.10 gate); SMTP not configured (simulated sends labelled) |
+| 12.8 (Employer Application — Apply Kit) | d60f556, c758dca, 8718d5c, 8b2e966 | **VERIFIED** | Apply Kit assisted apply — review surface + eligibility (shared modal shell), whitelisted profile/package values + read-only `GET /api/v1/candidate/{candidateId}`, final review + manual handoff + client-side marker. Full suite 1,227 tests, 0 failures / 0 errors / 15 skipped; browser acceptance A–Q 67/67 passed (2026-09-30, two green runs). D2 page-level overflow + live single-job reachability flakiness (advisor `JobNotFoundException` race) open (12.10); no automated filling/submission, no CAPTCHA/MFA, no credentials |
 
 ---
 

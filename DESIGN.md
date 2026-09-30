@@ -1,7 +1,7 @@
 # Design — agent-platform
 
-> **Status**: CURRENT — reflects actual UX as of commit 6a9f647 (Phase 12.6 — ATS Resume Tailoring verified; Phase 12.7 COMPLETE AND VERIFIED)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647
+> **Status**: CURRENT — reflects actual UX as of commit 8b2e966 (Phase 12.7 COMPLETE AND VERIFIED; Phase 12.8 COMPLETE AND VERIFIED)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **Phase 12.8 verified**: d60f556, c758dca, 8718d5c, 8b2e966
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -275,6 +275,39 @@ Flow: prepare → review (shared `modalShell`) → edit via the Applications pag
 - **Slice 3**: 1,002 tests passed, no failures, errors, or skips; controlled browser checks passed using a route-intercepted mock email transport — no real email was sent.
 - **Final acceptance (2026-09-29, VERIFIED)**: full `mvn clean test` — **1,216 tests, 0 failures, 0 errors, 15 skipped**; browser acceptance A–P — **51/51 checks passed**. Includes the H2 long-text persistence fix (six prepared-content fields mapped `TEXT` + `JobApplicationLongTextFieldsPersistenceTest` regression) and two acceptance-discovered `applications.js` regressions fixed — the applications-page deep-link detail-visibility race, and the missing detail-view "Approve Application" button handler (commit `6a9f647`).
 - No automatic email sending or employer application submission at any step. D2 page-level overflow (12.10) + live job-source reachability (UNVERIFIED) remain open; SMTP not configured (simulated sends labelled).
+
+---
+
+## 7d. Employer Apply Kit — Assisted Apply (Implemented — Phase 12.8)
+
+### Overview
+From an `APPROVED_FOR_APPLICATION` package the user opens the **Apply Kit** in the shared `modalShell`: it shows which whitelisted fields it will prepare and their source (stored `CandidateProfile` vs approved `JobApplication`), lets the user edit every value inline, then hands off — the user pastes each value into the employer tab and submits on the employer site themselves. The app never writes to or submits a page it does not serve.
+
+### Entry & eligibility (Applications detail, `applications.js`)
+- "Assisted Apply" control appears in the Applications detail **only** for `APPROVED_FOR_APPLICATION` packages, next to the existing manual "Apply on Employer Site" link.
+- On open: application id must resolve; status must be approved; candidate profile must resolve (`GET /api/v1/candidate/{candidateId}`); the package's job (`GET /api/v1/jobs/{id}`) must resolve, through `jobLink.safeUrl`, to a valid public https employer destination. Mock / listing-only / URL-less jobs disable the kit with the exact `jobLink` reason and the manual "View Job Listing" fallback. Re-validated when the user returns — stale package → block + reload.
+
+### Field whitelist (from spec §4 — no best-guesses)
+| Field | Source | Absent/ambiguous |
+|-------|--------|------------------|
+| Name / Email / Phone | `CandidateProfile` verbatim | omit + note; email validated like the email-send recipient family |
+| Location | profile `location`, else `preferredLocations[0]` | both blank → omit |
+| Headline | `preferredRoles` joined `", "` (resume-evidence-derived) | no roles → omit; never invent a title |
+| Professional summary | package `tailoredProfessionalSummary` | blank/stale → warn + omit |
+| Skills | `CandidateProfile.skills` (canonical, de-dupe, stable order, ≤2,000 chars) | empty → omit |
+| Links | not offered — parser stores no URL fields | documented gap |
+
+Every value is shown with its source label, editable inline, and reset by "Reset kit values" to the server-derived values; edits live only in the current kit session.
+
+### Transfer & marking (`applications.js` apply-kit flow)
+- Final-review interstitial ("values above will not be written or submitted by this app — YOU submit on the employer site"), explicit acknowledgement checkbox enabling the **"Open employer site to apply"** handoff button, and a **"Copy all fields"** action; per-field one-click copy (`navigator.clipboard` with fallback).
+- A **client-side-only** marker `agentplatform:applyKit:<applicationId>` (opened-at, employer URL, edited-values snapshot) is written for UX continuity — NO status change, NO backend write; it is the documented Phase 12.9 migration seam.
+- No automation of the employer-page DOM, no auto-submit, no CAPTCHA/MFA, no credentials, no storage of external form contents.
+
+### Phase 12.8 verification evidence
+- **Slice 2**: `@WebMvcTest` slice coverage for the new `GET /api/v1/candidate/{candidateId}` endpoint (RFC 7807 404 path); full suite 1,216 → 1,227 tests.
+- **Final acceptance (2026-09-30, VERIFIED)**: full `mvn clean test` — **1,227 tests, 0 failures, 0 errors, 15 skipped**; browser acceptance checkpoints **A–Q — 67/67 checks passed** (two consecutive green runs) against route-intercepted fixtures (kit job + advisor-path job with valid `applicationUrl`, canned advisor response on the reused advisor path, mock/listing-only jobs for the decline checks, a fixture page for the copy→paste round-trip). Modal-fit checks K–M passed at 1440/768/390px (kit has no modal-level horizontal overflow).
+- Unchanged deferred gates: D2 page-level overflow ≤768px (12.10); live job-source reachability not claimed — and now observed flaky on networked runs (advisor single-job `JobNotFoundException` race, repro 14×200/16×404; backend reliability item, not a kit defect).
 
 ---
 

@@ -60,7 +60,7 @@ Make the browser UI accurately display the profile that the backend produces fro
 | **12.5** | Career Analysis + Readiness | **IMPLEMENTED — verification not recorded** (6f4b483) |
 | **12.6** | ATS Resume Tailoring | **VERIFIED** — Tailored resume preview/download; D2 page-level overflow deferred |
 | **12.7** | Application Package | **VERIFIED** — review sections, editing, recipient-verified email; full suite 1,216 tests green; browser acceptance 51/51; D2 page-level overflow + live job-source reachability open (12.10 E2E gate) |
-| **12.8** | Employer Application | "Apply on Employer Site" flow — assisted apply, spec: PHASE_12.8_SPEC.md (Slice 0 only) |
+| **12.8** | Employer Application | "Apply on Employer Site" flow — assisted apply (kit) — **VERIFIED** — spec: PHASE_12.8_SPEC.md |
 | **12.9** | Application Tracking | Application list, status, history |
 | **12.10** | Final Shiplight E2E | Full browser E2E regression |
 
@@ -132,9 +132,9 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
 
 ---
 
-## Phase 12.8 — Employer Application (PLANNED — spec only, not implemented)
+## Phase 12.8 — Employer Application (VERIFIED)
 
-> Detailed, reviewable specification: **PHASE_12.8_SPEC.md** (Slice 0, created 2026-09-29).
+> Detailed, reviewable specification: **PHASE_12.8_SPEC.md** (created 2026-09-29, COMPLETE AND VERIFIED 2026-09-30).
 
 - "Apply on Employer Site" flow — **user-triggered, assisted apply**, reconciled with PRD §4:
   the user starts the flow from an approved package, reviews/edits every prepared value, and
@@ -147,6 +147,31 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
 - User review before submit; user alone submits on the employer site; safe decline for
   unsupported forms; client-side-only apply marker as the Phase 12.9 migration seam.
 - No CAPTCHA/MFA bypass, no automation of employer-page DOM, no unattended filling.
+- Commits: `d60f556` (spec), `c758dca` (Slice 1 — review surface + eligibility), `8718d5c`
+  (Slice 2 — whitelist values + `GET /api/v1/candidate/{candidateId}` loopback binding),
+  `8b2e966` (Slice 3 — final review + manual handoff + client-side marker + stale-package
+  re-validation). The Apply Kit lives in `applications.js` (shared `modalShell`); no new static
+  file.
+- **Slice 2 security disposition**: `GET /api/v1/candidate/{candidateId}` is unauthenticated with
+  no per-candidate ownership (sequential, enumerable IDs). Intended only for the trusted
+  single-user local-first prototype — `server.address: 127.0.0.1` restricts remote/LAN access but
+  does not isolate local processes. Networked/multi-user deployment is blocked pending a proper
+  identity/ownership/transport-security design; no partial auth or ID obscurity added.
+- **Verification (2026-09-30, VERIFIED)**: full `mvn clean test` → **1,227 tests, 0 failures,
+  0 errors, 15 skipped**; browser acceptance checkpoints **A–Q → 67/67 checks passed** (two
+  consecutive green runs) against route-intercepted fixtures (kit job + advisor-path job with
+  valid `applicationUrl`, canned advisor response, mock/listing-only jobs for the decline path,
+  local fixture page for the copy→paste round-trip). Suite total rose 1,216 → 1,227 with the
+  Slice 2 `@WebMvcTest` coverage for the new candidate endpoint.
+- **Live job-source reliability finding (new)**: the acceptance run (networked workstation) showed
+  live Arbeitnow/REMOTIVE reachability is real but flaky — the advisor's per-request live
+  `JobSearchService.findById` intermittently threw `JobNotFoundException` (repro: 30 identical
+  advisor POSTs → 14×200/16×404). Backend reliability item for 12.10; not a kit defect; acceptance
+  remains fixture-based and real employer sites are never automated.
+- Unchanged deferred gates: D2 page-level overflow ≤768px → 12.10; live job-source reachability
+  not claimed (UNVERIFIED in sandbox, observed flaky on networked run); SMTP unconfigured
+  (simulated sends labelled); no persisted email-sent flag; no mailbox-ownership verification;
+  Phase 12.5 verification outstanding.
 
 ---
 
