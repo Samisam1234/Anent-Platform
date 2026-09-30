@@ -61,7 +61,7 @@ Make the browser UI accurately display the profile that the backend produces fro
 | **12.6** | ATS Resume Tailoring | **VERIFIED** — Tailored resume preview/download; D2 page-level overflow deferred |
 | **12.7** | Application Package | **VERIFIED** — review sections, editing, recipient-verified email; full suite 1,216 tests green; browser acceptance 51/51; D2 page-level overflow + live job-source reachability open (12.10 E2E gate) |
 | **12.8** | Employer Application | "Apply on Employer Site" flow — assisted apply (kit) — **VERIFIED** — spec: PHASE_12.8_SPEC.md |
-| **12.9** | Application Tracking | Application list, status, history - PLANNED - spec: PHASE_12.9_SPEC.md |
+| **12.9** | Application Tracking | Status-filtered list, status transitions, event timeline, action states — **VERIFIED** — spec: PHASE_12.9_SPEC.md |
 | **12.10** | Final Shiplight E2E | Full browser E2E regression |
 
 ---
@@ -175,13 +175,48 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
 
 ---
 
-## Phase 12.9 — Application Tracking (PLANNED — spec only, not implemented)
+## Phase 12.9 — Application Tracking (VERIFIED)
 
-> Detailed, reviewable specification: **PHASE_12.9_SPEC.md** (Slice 0, created 2026-09-30).
+> Detailed, reviewable specification: **PHASE_12.9_SPEC.md** (Slice 0, created 2026-09-30, COMPLETE AND VERIFIED 2026-09-30).
 
-- Applications page: list, status, filter
-- Application detail view (exists since 12.7; 12.9 adds the event timeline)
-- Status transitions (DRAFT → GENERATED → APPROVED → EMAIL_SENT)
+- Applications page: status-filtered list, per-status badges, and status-filtered counts. The
+  `?status=<ENUM>` filter is served by the existing list endpoint
+  (`GET /api/v1/applications/candidate/{id}?status=`); an unknown status returns RFC 7807 **400**
+  with the valid-status list, and the page defensively resets to All rather than showing an
+  unusable error.
+- Status transitions (Slice 2, `45afa38`): `POST .../{id}/approve`, `.../{id}/reject`,
+  `.../email/send`, `.../handoff`. Approve/reject are idempotent (a repeat call does not rewrite
+  `approvedAt`); approve is legal from DRAFT/GENERATED/UNDER_REVIEW, email-send only from
+  APPROVED_FOR_APPLICATION (with explicit `approved: true`), handoff only after approval and
+  only for absolute `http(s)` URLs. Every illegal transition returns **400** naming the current
+  status. Concurrent edits return **409** (optimistic locking).
+- Application detail view (exists since 12.7) gains the event timeline and status-derived action
+  states (Slice 4, `95da0e9`): rows render **only** from persisted fields (prepared, last updated,
+  approved, email-send attempt with its real-vs-simulated outcome, employer site opened), and
+  terminal states (EMAIL_SENT/REJECTED/ARCHIVED) never offer edit/approve/send actions.
+- **Honesty constraints enforced end-to-end**: the platform never auto-submits, never sends email
+  unattended (an explicit recipient confirm is required), never fabricates a timeline event it
+  cannot observe, and never calls transport acceptance "delivery" — a simulated send is labelled
+  "Email send simulated — no SMTP configured. Nothing was actually mailed." and persists
+  `emailSendResult = SENT_SIMULATED` with the status unchanged.
+- Commits: `f21b09c` (Slice 0 — spec), `45afa38` (Slice 1 — status transitions + employer
+  handoff), `28d49aa` (Slice 2 — status-filtered list), `95da0e9` (Slice 3 — event timeline +
+  status action states).
+- **Verification (2026-09-30, VERIFIED)**: full `mvn clean test` → **1,278 tests, 0 failures,
+  0 errors, 15 skipped** (agent-core 135, logging 14, memory-service 39, tool-service 10,
+  orchestrator 933, ui 132, rag-service 15). Browser acceptance → **10/10 UI checkpoints + 10/10
+  API checkpoints passed** (status transitions incl. idempotency and illegal-transition 400s,
+  email simulated-vs-sent truthfulness, handoff validation, filter counts/scoping/ordering, badges
+  and per-status action visibility, timeline rows, empty/filtered-empty/failure-Retry states,
+  confirm-dialog cancellation, responsive detail + review modal at 1440/768/390). A deterministic
+  7-application / 2-candidate H2 fixture backs the API run.
+- Unchanged deferred gates: D2 page-level overflow ≤768px → 12.10 (page-level overflow measured at
+  51px @768 and 429px @390; the detail surface and review modal themselves fit); live job-source
+  reachability / advisor intermittency not claimed; SMTP unconfigured (simulated sends labelled,
+  never called delivered); opening an employer site is not proof of submission; candidate
+  endpoints unauthenticated and ownership-free (loopback-only, as in 12.8); networked/multi-user
+  deployment still needs a proper identity/ownership/transport-security design; Phase 12.5
+  verification outstanding.
 
 ---
 

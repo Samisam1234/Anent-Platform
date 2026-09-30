@@ -1,6 +1,6 @@
 # Memory — agent-platform
 
-> **Status**: CURRENT — historical context as of commit 8b2e966 (Phase 12.7 COMPLETE AND VERIFIED; Phase 12.8 COMPLETE AND VERIFIED)
+> **Status**: CURRENT — historical context as of commit 95da0e9 (Phase 12.7 COMPLETE AND VERIFIED; Phase 12.8 COMPLETE AND VERIFIED; Phase 12.9 COMPLETE AND VERIFIED)
 > **Purpose**: Historical context, not authority over current rules. See RULES.md for current constraints.
 
 ---
@@ -18,6 +18,7 @@
 | Phase 12.6 | 92c0942, 055db64, bc457e2, 091f7c3, 0a02e22 | 2026-09-28 | ATS Resume Tailoring — spec (92c0942), backend + tests (055db64), frontend preview + PDF/DOCX download UI (bc457e2), docs sync (091f7c3), PDF-determinism/D2 doc follow-up (0a02e22); core workflow + PDF/DOCX read-back verified 2026-09-29; D2 page-level overflow at ≤768px deferred to 12.10 |
 | Phase 12.7 | 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | 2026-09-29 | Application Package — prepared-review sections (9009aae); editing flow (351283e, 999 tests + browser checks); email recipient verification + simulated-send labelling (9275582, 1,002 tests + controlled browser checks with route-intercepted mock email transport, no real email sent); docs sync (cceccc3). **VERIFIED 2026-09-29**: H2 long-text `TEXT` persistence fix + `JobApplicationLongTextFieldsPersistenceTest` + two `applications.js` regression fixes (deep-link detail-visibility race, missing detail-view approve handler) — `6a9f647`; full `mvn clean test` 1,216 tests, 0 failures/0 errors/15 skipped; browser acceptance A–P 51/51 checks passed. D2 page-level overflow ≤768px deferred (12.10); live job-source reachability UNVERIFIED; SMTP not configured (simulated sends labelled) |
 | Phase 12.8 | d60f556, c758dca, 8718d5c, 8b2e966 | 2026-09-30 | Employer Application — Apply Kit assisted apply. Spec (d60f556); Slice 1 review surface + eligibility in the shared modal shell (c758dca); Slice 2 whitelisted kit values + read-only `GET /api/v1/candidate/{candidateId}` with loopback binding + `@WebMvcTest` coverage (8718d5c, suite 1,216→1,227); Slice 3 final review + manual handoff + client-side apply marker + stale-package re-validation (8b2e966). **VERIFIED 2026-09-30**: full `mvn clean test` 1,227 tests, 0 failures/0 errors/15 skipped; browser acceptance checkpoints A–Q 67/67 checks passed (two consecutive green runs) against route-intercepted fixtures (kit job + advisor-path job with valid `applicationUrl`, canned advisor response, mock/listing-only decline paths, fixture page copy→paste round-trip). Kit lives in `applications.js`; no new static file. New finding: live single-job lookups are flaky on networked runs (advisor `JobNotFoundException` race, repro 14×200/16×404) — backend reliability item for 12.10, not a kit defect. Deferred gates unchanged: D2 page-level overflow ≤768px (12.10), live reachability not claimed, SMTP not configured, no sent-flag, no mailbox-ownership verification, Phase 12.5 verification outstanding |
+| Phase 12.9 | f21b09c, 45afa38, 28d49aa, 95da0e9 | 2026-09-30 | Application Tracking. Spec (f21b09c); Slice 1 status transitions + employer handoff (`45afa38` — approve/reject idempotent, email-send requires approval + explicit `approved:true`, handoff requires approval and an absolute http(s) URL, illegal transitions 400, optimistic-lock 409); Slice 2 status-filtered list (`28d49aa` — `?status=<ENUM>` on `GET /api/v1/applications/candidate/{id}`, unknown status 400 + defensive reset to All); Slice 3 event timeline + per-status action states (`95da0e9` — timeline rows only from persisted fields; terminal states offer no edit/approve/send). **VERIFIED 2026-09-30**: full `mvn clean test` 1,278 tests, 0 failures/0 errors/15 skipped (agent-core 135, logging 14, memory-service 39, tool-service 10, orchestrator 933, ui 132, rag-service 15); browser acceptance 10/10 API checkpoints + 10/10 UI checkpoints against a deterministic 7-application/2-candidate H2 fixture. `ApplicationEmailService` has a no-arg ctor, so the live wiring has `emailTools = null` and every send returns `SENT_SIMULATED` deterministically (status unchanged, `emailSendResult` persisted) — a real `SENT` is only reachable in unit tests with the tools-wired ctor. 409 evidence is hermetic: `GlobalExceptionHandlerTest.optimisticLockMapsTo409Conflict`. Deferred gates unchanged: D2 page-level overflow ≤768px (51px @768, 429px @390; detail surface + review modal fit) → 12.10, live job-source reachability/advisor intermittency, SMTP unconfigured, employer-site opening is not proof of submission, candidate endpoints unauthenticated/ownership-free (loopback-only), networked deployment deferred, Phase 12.5 verification outstanding |
 
 ---
 
@@ -118,7 +119,10 @@
 
 > Per-module rows above are the pre-12.6 snapshot (sums to ~1,085); the Phase 12.7 final
 > acceptance run (2026-09-29) is **1,216 tests, 0 failures, 0 errors, 15 skipped**; the Phase 12.8
-> final acceptance run (2026-09-30) is **1,227 tests, 0 failures, 0 errors, 15 skipped**.
+> final acceptance run (2026-09-30) is **1,227 tests, 0 failures, 0 errors, 15 skipped**; the
+> Phase 12.9 final acceptance run (2026-09-30) is **1,278 tests, 0 failures, 0 errors, 15
+> skipped** — agent-core 135, logging 14, memory-service 39 (9 skipped), tool-service 10,
+> orchestrator 933, ui 132, rag-service 15 (6 skipped).
 
 ---
 
@@ -152,14 +156,15 @@
 ## 11. Verified Test Results (Invariant)
 
 ```
-mvn clean test → BUILD SUCCESS (Phase 12.8 final acceptance, 2026-09-30)
-Total tests: 1,227
+mvn clean test → BUILD SUCCESS (Phase 12.9 final acceptance, 2026-09-30)
+Total tests: 1,278
 Failures: 0
 Errors: 0
 Skipped: 15 (pgvector/Testcontainers)
+Browser acceptance: 10/10 API checkpoints + 10/10 UI checkpoints passed
 ```
 
-Prior verified run — Phase 12.7 final acceptance (2026-09-29): 1,216 tests, 0 failures, 0 errors, 15 skipped.
+Prior verified runs — Phase 12.8 final acceptance (2026-09-30): 1,227 tests, 0 failures, 0 errors, 15 skipped. Phase 12.7 final acceptance (2026-09-29): 1,216 tests, 0 failures, 0 errors, 15 skipped.
 
 ```
 git diff --check → Clean (CRLF warnings only)

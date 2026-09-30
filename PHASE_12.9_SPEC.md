@@ -1,4 +1,4 @@
-# PHASE 12.9 SPEC STATUS: PLANNED — Slice 0 specification only (not implemented, not active, not verified)
+# PHASE 12.9 SPEC STATUS: COMPLETE AND VERIFIED — implemented and accepted 2026-09-30 (see §11 verification record)
 
 ## FULL SPECIFICATION — Phase 12.9 Application Tracking
 
@@ -259,7 +259,8 @@ no change to prepare/update contracts.
 ### 10. Implementation slices
 
 Each slice is independently implementable, testable, reviewable, and commit-able. Convention
-follows 12.6–12.8 (spec first, docs-sync last).
+follows 12.6–12.8 (spec first, docs-sync last). **All five slices are executed**; Slices 1 and 2
+shipped as a single commit (`45afa38`), and the executed mapping is recorded in §14.
 
 **Slice 1 — Status model, transition matrix, truthful email outcome tracking.**
 - Changes: `ApplicationStatus` (+`EMAIL_SENT`); `JobApplication` (+`emailSendAttemptedAt`,
@@ -330,6 +331,58 @@ follows 12.6–12.8 (spec first, docs-sync last).
   employer-site automation, no network required**. Checkpoints cover filter/badges/timeline/
   action-state/handoff/wording per §9-§10.
 
+#### Verification record (2026-09-30 — Phase 12.9 COMPLETE AND VERIFIED)
+
+- **Phase gate**: full `mvn clean test` → **BUILD SUCCESS — 1,278 tests, 0 failures, 0 errors,
+  15 skipped** (agent-core 135, logging 14, memory-service 39 with 9 skipped, tool-service 10,
+  orchestrator 933, ui 132, rag-service 15 with 6 skipped; the 15 skips are the pgvector
+  profile-gated and `RagServiceTest` cases carried from earlier phases).
+- **Browser acceptance, API axis — 10/10 checkpoints passed** against a deterministic fixture
+  (7 applications over 2 candidates, seeded through the H2 console): baseline ordering
+  (`updatedAt` DESC, id DESC tie-break), all status filters + unknown-status 400 naming every
+  valid status, candidate scoping, approve (valid, idempotent — a repeat with a 1.2 s pause does not
+  rewrite `approvedAt` — from `UNDER_REVIEW`, and 400 from `REJECTED`/`EMAIL_SENT`/`ARCHIVED`),
+  reject (idempotent, 400 from terminals, and 200 from `APPROVED_FOR_APPLICATION`), email send
+  (simulated 200, repeat allowed while unapproved, already-`EMAIL_SENT` 400, unapproved 400,
+  missing-approval-flag 400), persisted truthfulness (status stays `APPROVED_FOR_APPLICATION` with
+  `emailSendResult = SENT_SIMULATED`), handoff (first write, overwrite, 400 for a relative URL and
+  for `ftp`, 400 when not approved), and final ordering.
+- **Browser acceptance, UI axis — 10/10 checkpoints passed**: list order + per-status badges +
+  card actions; per-status detail timeline and action visibility via deep links (EMAIL_SENT,
+  REJECTED-with-simulated-email-and-handoff, ARCHIVED, APPROVED-with-handoff, APPROVED clean);
+  filter counts, filtered-empty + Show all, invalid-filter fallback toast; candidate scoping; valid
+  approve through the shared confirm dialog (`#msTitle` = "Approve for manual submission" →
+  disabled "Approved" chip → success toast); first-run empty state; responsive detail + review
+  modal at 1440/768/390; reload preserving the deep-linked detail; a route-aborted load showing
+  "Could not load applications." + Retry that recovers; and a copy scan proving every "submitted"
+  mention in the served `applications.js` is a negation with no "delivered" claim anywhere.
+- **Cancellation** (supplementary, `slice5-cancel-qa.mjs` — 1/1): opening "Send Email" on an
+  approved application shows the recipient confirm dialog (`#msTitle` = "Send application email",
+  required recipient input, "Send email" accept); cancelling closes the overlay with no error
+  toast and leaves the row untouched (`status`, `emailSendAttemptedAt`, `emailSendResult` all
+  identical before/after) — no send is attempted on cancel. Zero console errors in that run.
+- **Preparation** was not re-driven live in this slice: the deterministic 12.9 fixture contains
+  `job_applications` rows without backing `candidate_profiles` rows, and `prepare` correctly
+  requires a stored profile, so a live call returns 404 `CandidateProfileNotFoundException`.
+  Preparation is therefore evidenced by the hermetic orchestrator suite (933 tests) and the
+  Phase 12.7 acceptance, while package **retrieval** (list + single detail) is verified live here.
+- **Optimistic lock 409** is covered hermetically by
+  `GlobalExceptionHandlerTest.optimisticLockMapsTo409Conflict` (mapping
+  `ObjectOptimisticLockingFailureException` → RFC 7807 409); a live two-tab race was not
+  manufactured for acceptance.
+- **Real-vs-simulated email**: live sends deterministically return `SENT_SIMULATED` because
+  `ApplicationEmailService` is constructed without the email tools (`emailTools == null`); the real
+  `SENT` path is exercised by the hermetic email unit tests. Acceptance observed the simulated
+  path end-to-end and asserted it is labelled and persisted, never described as delivery.
+- **Two console errors were intentional**: the 400 from the injected stale status filter and the
+  aborted request used to exercise the Retry path. No other console or network errors occurred.
+- **Deferred gates unchanged** (§12): D2 page-level overflow re-measured on the Applications page
+  (51px @768, 429px @390; the detail surface and review modal fit at all three widths) — still a
+  12.10 item; live job-source reachability / advisor intermittency not claimed; SMTP unconfigured;
+  employer-site opening is never proof of submission; candidate endpoints unauthenticated and
+  ownership-free (loopback-only); networked/multi-user deployment still blocked; Phase 12.5
+  verification outstanding.
+
 ### 12. Security and deferred gates (preserved — not resolved by this spec)
 
 - **Loopback-only**: `GET /api/v1/candidate/{candidateId}` and all application endpoints remain
@@ -360,15 +413,17 @@ pagination; no `/archive` or PATCH-status endpoint; no removal of reserved enum 
 no live job-source changes; no change to 404 semantics; no collection of browsing information
 beyond the single validated handoff URL + timestamp.
 
-### 14. Commits (planned; NONE executed)
+### 14. Commits (as executed)
 
-Planned commit subjects, in order:
-- `Phase 12.9 - application tracking specification` (Slice 0)
-- `Phase 12.9 - status transition model and email outcome tracking` (Slice 1)
-- `Phase 12.9 - record employer handoff events` (Slice 2)
-- `Phase 12.9 - status-filtered application list` (Slice 3)
-- `Phase 12.9 - application tracking UI and timeline` (Slice 4)
-- `Phase 12.9 - sync docs and record acceptance` (Slice 5)
+Actual commit subjects, in order:
+- `f21b09c` — `Phase 12.9 - add application tracking specification` (Slice 0)
+- `45afa38` — `Phase 12.9 - add status transitions and employer handoff` (Slices 1–2 merged:
+  transition matrix, email-outcome persistence, handoff recording)
+- `28d49aa` — `Phase 12.9 - add status-filtered application list` (Slice 3)
+- `95da0e9` — `Phase 12.9 - add application timeline and status action states` (Slice 4)
 
-Nothing in this spec is committed or implemented; Phase 12.9 remains **PLANNED** until Slice 5
-acceptance evidence exists.
+Slice 5 (documentation sync + acceptance record) is committed as
+`Phase 12.9 - documentation sync and acceptance evidence`; it changes documentation only, with no
+source or test edits.
+
+Phase 12.9 is **COMPLETE AND VERIFIED** as of 2026-09-30 on the evidence recorded in §11.

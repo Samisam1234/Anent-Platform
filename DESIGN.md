@@ -1,7 +1,7 @@
 # Design — agent-platform
 
-> **Status**: CURRENT — reflects actual UX as of commit 8b2e966 (Phase 12.7 COMPLETE AND VERIFIED; Phase 12.8 COMPLETE AND VERIFIED)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **Phase 12.8 verified**: d60f556, c758dca, 8718d5c, 8b2e966
+> **Status**: CURRENT — reflects actual UX as of commit 95da0e9 (Phase 12.7 COMPLETE AND VERIFIED; Phase 12.8 COMPLETE AND VERIFIED; Phase 12.9 COMPLETE AND VERIFIED)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **Phase 12.8 verified**: d60f556, c758dca, 8718d5c, 8b2e966 | **Phase 12.9 verified**: f21b09c, 45afa38, 28d49aa, 95da0e9
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -311,6 +311,62 @@ Every value is shown with its source label, editable inline, and reset by "Reset
 
 ---
 
+## 7e. Application Tracking (Implemented — Phase 12.9)
+
+### List surface (`applications.html` / `applications.js`)
+- Each card carries a **status badge** derived from the persisted status: `Prepared` (grey-green),
+  `Approved for application` (green), `Not pursuing` (red), `Archived` (muted), `Email sent` (blue).
+  The badge `title` states the honest meaning of that status, e.g. *"Package email sent (reported by
+  email service); employer submission not confirmed."*
+- A **status filter** (`select#applicationsStatusFilter`) is populated from the same label map (so
+  `EMAIL_SENT` is offered with its own colour) and drives both the list and the count line.
+  Filtered-to-zero shows the **filtered empty state** — "No applications with this status." + "Show
+  all" — which is visually distinct from the first-run empty state "No applications prepared yet."
+  and from the failure state "Could not load applications." + "Retry". A stale/unknown filter value
+  (the select can only offer known values, so this is defensive) resets to All and toasts
+  "Unknown status filter — showing all applications."
+- List order is server-owned (`updatedAt` DESC, id DESC tie-break); the UI never re-sorts.
+
+### Action visibility (cards and detail share one rule)
+| Status | Edit | Approve | Assisted Apply | Send email |
+|--------|------|---------|----------------|------------|
+| `DRAFT` / `GENERATED` / `UNDER_REVIEW` | ✅ | ✅ (confirm dialog) | — | — |
+| `APPROVED_FOR_APPLICATION` | ✅ | — (disabled "Approved" chip) | ✅ | ✅ |
+| `EMAIL_SENT` / `REJECTED` / `ARCHIVED` | — | — | — | — |
+
+Approve always goes through the shared `modalShell` confirm dialog ("Approve for manual
+submission", with the warning that the platform never submits on the user's behalf) — never a
+native `confirm()`. A send is preceded by the recipient confirm dialog, so email is never
+unattended.
+
+### Detail event timeline (`#applicationDetailTimeline`)
+Rows exist **only** where a persisted field is non-null, in chronological order: `Prepared`
+(createdAt) → `Last updated` (only when it differs from createdAt) → `Approved for application`
+(approvedAt) → `Email send attempt` (emailSendAttemptedAt, with the real-vs-simulated outcome) →
+`Employer site opened` (employerOpenedAt/employerUrl, always suffixed "— submission not confirmed
+by this platform"). A simulated send reads "Email send simulated — no SMTP configured. Nothing was
+actually mailed."; transport acceptance is never called delivery, and no row implies a submission
+the platform cannot observe.
+
+### Phase 12.9 verification evidence
+- **Final acceptance (2026-09-30, VERIFIED)**: full `mvn clean test` — **1,278 tests, 0 failures,
+  0 errors, 15 skipped**; browser acceptance — **10/10 API checkpoints** (transitions, idempotency,
+  illegal-transition 400s, email truthfulness, handoff validation, filter counts/scoping/ordering)
+  and **10/10 UI checkpoints** (order, badges, card actions, per-status timeline + action states via
+  deep links, filter counts, filtered-empty + Show all, invalid-filter fallback, candidate scoping,
+  approve via confirm dialog, first-run empty state, responsive detail + review modal at
+  1440/768/390, reload/deep-link persistence, failure → Retry → recovery, honest-copy scan) against
+  a deterministic 7-application / 2-candidate H2 fixture.
+- Unchanged deferred gates: D2 **page-level** overflow at ≤768px (12.10) — re-measured on this page
+  at 51px @768 and 429px @390, while the detail surface and the review modal both fit at all three
+  widths; live job-source reachability / advisor intermittency not claimed; SMTP unconfigured
+  (simulated sends labelled, never called delivered); opening an employer site is not proof of
+  submission; candidate endpoints remain unauthenticated and ownership-free (loopback-only, as in
+  12.8); networked/multi-user deployment still needs an identity/ownership/transport-security
+  design; Phase 12.5 verification outstanding.
+
+---
+
 ## 8. Resume Upload States (Implemented)
 
 | State | Visual |
@@ -337,6 +393,12 @@ Every value is shown with its source label, editable inline, and reset by "Reset
 | **Button Tailor Download** | `.tailor-download-btn` | PDF/DOCX download in tailoring modal |
 | **Button Source Listing** | `.btn-source-listing` | View Job Listing |
 | **Button Apply External** | `.btn-apply-external` | Apply on Employer Site |
+| **Button View** | `.btn-view`, `.application-view-btn` | Review a prepared application (card + card QA) |
+| **Application Card** | `.application-card`, `.application-card-job-title`, `.application-card-status` | Prepared-application list card with its status badge |
+| **Status Badge** | `.badge-generated`, `.badge-approved`, `.badge-rejected`, `.badge-archived`, `.badge-email-sent` | Per-status badge colour on cards and detail |
+| **Status Filter** | `#applicationsStatusFilter`, `.filter-option-*` | Per-status filtering of the prepared list |
+| **Empty State** | `#applicationsEmpty`, `#applicationsEmptyMessage`, `#applicationsShowAllBtn`, `#applicationsRetryBtn` | First-run empty / filtered empty (+ Show all) / load failure (+ Retry) |
+| **Event Timeline** | `#applicationDetailTimeline`, `.application-timeline-item/-label/-detail/-when` | Persisted-field-only event timeline on the detail surface |
 | **Skill Tag** | `.skill-tag` + variants | Skills display |
 | **Match Score Strip** | `.match-score-strip` | Score bar + badge |
 | **Match Card** | `.match-card` | Job match display |

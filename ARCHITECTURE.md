@@ -1,7 +1,7 @@
 # Architecture — agent-platform
 
-> **Status**: CURRENT — reflects actual repository state as of commit 8b2e966 (Phase 12.7 COMPLETE AND VERIFIED; Phase 12.8 COMPLETE AND VERIFIED)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **Phase 12.8 verified**: d60f556, c758dca, 8718d5c, 8b2e966
+> **Status**: CURRENT — reflects actual repository state as of commit 95da0e9 (Phase 12.7 COMPLETE AND VERIFIED; Phase 12.8 COMPLETE AND VERIFIED; Phase 12.9 COMPLETE AND VERIFIED)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **Phase 12.8 verified**: d60f556, c758dca, 8718d5c, 8b2e966 | **Phase 12.9 verified**: f21b09c, 45afa38, 28d49aa, 95da0e9
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -213,6 +213,39 @@ Applications detail (APPROVED_FOR_APPLICATION only) → "Assisted Apply" → sha
   **preparation and transfer only**. The Apply Kit lives in `applications.js` (no new static file).
 - Stale package on return → kit blocks with "package changed" + reload (status re-validated).
 
+### Application Tracking (Phase 12.9)
+
+```
+GET  /api/v1/applications/candidate/{id}[?status=<ENUM>]   → ordered list (updatedAt DESC, id DESC tie-break)
+      status filter is server-validated: unknown value → RFC 7807 400 naming every valid status;
+      the page's select only offers known values, so a 400 is defensive → reset to All + info toast
+POST /api/v1/applications/{id}/approve    GENERATED|UNDER_REVIEW → APPROVED_FOR_APPLICATION
+POST /api/v1/applications/{id}/reject     GENERATED|UNDER_REVIEW|APPROVED_FOR_APPLICATION → REJECTED
+POST /api/v1/applications/email/send      APPROVED_FOR_APPLICATION + approved:true (explicit user confirm)
+      → persists emailSendAttemptedAt + emailSendResult (SENT | SENT_SIMULATED); status → EMAIL_SENT
+POST /api/v1/applications/{id}/handoff    APPROVED_FOR_APPLICATION + absolute http(s) URL
+      → persists employerOpenedAt + employerUrl (an OPENING only, never a submission)
+```
+
+- `ApplicationStorageService` owns every transition. Approve/reject are **idempotent** (a repeat
+  call returns the entity unchanged and never rewrites `approvedAt`); any other source status —
+  including the terminal `REJECTED` / `ARCHIVED` / `EMAIL_SENT` — throws `IllegalArgumentException`
+  surfaced as RFC 7807 400. `@Version` optimistic locking maps a concurrent edit to **409** via
+  `GlobalExceptionHandler`.
+- `ApplicationEmailService` has a no-arg constructor, so the live wiring holds `emailTools = null`
+  and every send returns `SENT_SIMULATED` deterministically; a real `SENT` requires the
+  tools-wired constructor and is therefore only exercised by unit tests. Simulated is never
+  presented as delivered.
+- Frontend (`applications.js`, no new static file): status badge per card, filter + filtered
+  counts, filtered-empty "Show all" state, retryable "Could not load applications." failure state,
+  and a detail timeline built **only** from non-null persisted fields (prepared / last updated /
+  approved / email-send attempt with its real-vs-simulated outcome / employer site opened). Action
+  visibility is derived from status on both cards and detail (edit: GENERATED+APPROVED; approve:
+  GENERATED; assisted apply + send email: APPROVED; terminal statuses expose none), and the approve
+  action is confirmed in the shared `modalShell` — never a native dialog.
+- The 12.8 client-side `agentplatform:applyKit:<id>` marker is not a status; the 12.9 handoff
+  endpoint is the server-side record of the employer-site opening.
+
 ---
 
 ## 5. Key Integrations
@@ -257,6 +290,7 @@ Applications detail (APPROVED_FOR_APPLICATION only) → "Assisted Apply" → sha
 | Phase 12.6 (ATS Tailoring) | 92c0942, 055db64, bc457e2 | **VERIFIED** — backend (document generation, 3 endpoints, controller tests, generator tests) + frontend (preview modal, download buttons); core workflow + PDF/DOCX read-back verified; D2 page-level overflow deferred to 12.10 |
 | Phase 12.7 (Application Package) | 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **VERIFIED** — prepared-review sections, editing flow, recipient-verified email; full suite 1,216 tests green + browser acceptance A–P 51/51 (2026-09-29); H2 long-text `TEXT` persistence fix + regression test + two `applications.js` regression fixes in 6a9f647; D2 page-level overflow + live job-source reachability deferred to 12.10 |
 | Phase 12.8 (Employer Application — Apply Kit) | d60f556, c758dca, 8718d5c, 8b2e966 | **VERIFIED** — user-triggered assisted apply (review + per-field copy; user pastes and submits on the employer site; never writes to a page it does not serve); one read-only `GET /api/v1/candidate/{candidateId}` (loopback-bound); full suite 1,227 tests green + browser acceptance A–Q 67/67 (2026-09-30); D2 page-level overflow + live single-job reachability flakiness deferred to 12.10 |
+| Phase 12.9 (Application Tracking) | f21b09c, 45afa38, 28d49aa, 95da0e9 | **VERIFIED** — status-filtered list, server-enforced idempotent transitions + approval-gated email send + handoff recording, persisted-field-only event timeline, per-status action visibility; full suite 1,278 tests green + browser acceptance 10/10 API + 10/10 UI (2026-09-30); no auto-submit, no unattended email, no fabricated timeline row, no "delivered" claim; D2 page-level overflow + live reachability/advisor intermittency + unconfigured SMTP + ownership-free candidate endpoints deferred to 12.10 |
 
 ---
 
