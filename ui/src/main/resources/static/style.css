@@ -142,7 +142,21 @@ a:hover{text-decoration:underline}
 .application-detail-strengths li::before{content:"✓ ";color:var(--success)}
 .application-detail-gaps li::before{content:"⚠ ";color:var(--warning)}
 .application-detail-recommendation{font-family:var(--font-mono);font-size:.85rem;padding:8px 14px;background:var(--bg-input);border-radius:var(--radius);display:inline-block}
-.application-detail-actions{display:flex;gap:12px;padding:20px 24px;border-top:1px solid var(--border)}
+.application-detail-actions{display:flex;flex-wrap:wrap;gap:12px;padding:20px 24px;border-top:1px solid var(--border)}
+
+/* ── Detail Timeline (Phase 12.9, Slice 4) ── */
+.application-timeline{list-style:none;padding:0;margin:0}
+.application-timeline-item{position:relative;display:flex;gap:14px;padding:0 0 18px 0}
+.application-timeline-item:not(:last-child){border-left:2px solid var(--border);margin-left:5px;padding-left:14px}
+.application-timeline-item:not(:last-child)::before{content:"";position:absolute;left:-5px;top:14px;width:12px;height:12px;border-radius:50%;background:var(--accent);border:2px solid var(--bg-card)}
+.application-timeline-item:last-child{margin-left:6px;padding-left:14px;border-left:2px solid transparent}
+.application-timeline-item:last-child::before{content:"";position:absolute;left:-4px;top:14px;width:12px;height:12px;border-radius:50%;background:var(--border-light);border:2px solid var(--bg-card)}
+.application-timeline-body{min-width:0;flex:1}
+.application-timeline-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.application-timeline-label{font-weight:600;font-size:.9rem;color:var(--text-primary)}
+.application-timeline-when{font-size:.75rem;color:var(--text-muted);font-family:var(--font-mono)}
+.application-timeline-detail{font-size:.82rem;color:var(--text-secondary);margin-top:2px;line-height:1.5;overflow-wrap:anywhere}
+.application-timeline-detail a{color:var(--accent);word-break:break-all}
 
 /* ── Matches Page ── */
 .matches-candidate-panel{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px;text-align:center}

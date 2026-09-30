@@ -196,7 +196,13 @@
         const job = application.jobTitle || 'Unknown Role';
         const company = application.company || 'Unknown Company';
         const location = application.location || 'Not Specified';
-        const isApproved = statusKey === 'APPROVED_FOR_APPLICATION';
+
+        // Card approval action follows the same eligibility as the detail view:
+        // offered only from DRAFT/GENERATED/UNDER_REVIEW (shared isGenerated helper);
+        // a disabled "Approved" chip marks an already-approved package; terminal
+        // statuses (EMAIL_SENT/REJECTED/ARCHIVED) never offer the action.
+        const approvalEligible = isGenerated(statusKey);
+        const approvedStatus = isApproved(statusKey);
 
         card.innerHTML = `
             <div class="application-card-header">
@@ -228,8 +234,11 @@
 
             <div class="application-card-footer">
                 <button class="btn-view application-view-btn" data-id="${esc(application.id)}">Review</button>
-                <button class="btn-apply application-approve-btn" data-id="${esc(application.id)}" ${isApproved ? 'disabled' : ''}>
-                    ${isApproved ? 'Approved' : 'Approve for application'}</button>
+                ${approvalEligible
+                    ? `<button class="btn-apply application-approve-btn" data-id="${esc(application.id)}">Approve for application</button>`
+                    : approvedStatus
+                        ? `<button class="btn-apply application-approve-btn" data-id="${esc(application.id)}" disabled>Approved</button>`
+                        : ''}
             </div>
         `;
 
@@ -238,13 +247,15 @@
         viewBtn.addEventListener('click', () => openReviewModal(application.id));
 
         const approveBtn = card.querySelector('.application-approve-btn');
-        approveBtn.addEventListener('click', () => {
-            if (isApproved) {
-                showToast('This application has already been approved.', 'info');
-                return;
-            }
-            approveApplication(application.id);
-        });
+        if (approveBtn) {
+            approveBtn.addEventListener('click', () => {
+                if (approvedStatus) {
+                    showToast('This application has already been approved.', 'info');
+                    return;
+                }
+                approveApplication(application.id);
+            });
+        }
 
         attachExternalApplicationLink(card, application);
         return card;
@@ -987,6 +998,9 @@
                     ? humanizeStatus(recommendation)
                     : 'No advisor result recorded for this application.';
 
+                // Timeline rows come from persisted events only (Phase 12.9, Slice 4).
+                renderApplicationTimeline(app);
+
                 // Update action buttons based on status
                 updateActionButtons(app.applicationStatus);
 
@@ -1040,6 +1054,62 @@
         if (sendEmailBtn) {
             sendEmailBtn.hidden = !isApproved(status);
         }
+    }
+
+    // ─── Detail timeline (Phase 12.9, Slice 4) ─────────────────────────────────
+    // Renders ONLY row types the platform can observe from non-null persisted
+    // fields — preparation (createdAt), last edit (updatedAt when it differs),
+    // approval (approvedAt), the accepted email-send attempt with its real-vs-
+    // simulated outcome (emailSendAttemptedAt/emailSendResult), and the employer
+    // site opening recorded on kit handoff (employerOpenedAt/employerUrl). Absent
+    // timestamps produce no row; nothing here implies a submission — this platform
+    // cannot observe one, so no row may claim it.
+    function renderApplicationTimeline(app) {
+        const section = document.getElementById('applicationDetailTimelineSection');
+        const list = document.getElementById('applicationDetailTimeline');
+        if (!section || !list) return;
+
+        const at = value => new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+        const rows = [];
+
+        if (app.createdAt) {
+            rows.push({ label: 'Prepared', when: at(app.createdAt), detail: '' });
+        }
+        if (app.updatedAt && (!app.createdAt || new Date(app.updatedAt).getTime() !== new Date(app.createdAt).getTime())) {
+            rows.push({ label: 'Last updated', when: at(app.updatedAt), detail: '' });
+        }
+        if (app.approvedAt) {
+            rows.push({ label: 'Approved for application', when: at(app.approvedAt), detail: '' });
+        }
+        if (app.emailSendAttemptedAt) {
+            // §5 mandatory wording: transport acceptance is never called delivery.
+            const result = app.emailSendResult === 'SENT_SIMULATED'
+                ? 'Email send simulated — no SMTP configured. Nothing was actually mailed.'
+                : (app.emailSendResult === 'SENT'
+                    ? 'Email send reported by email service'
+                    : 'Email send attempt recorded');
+            rows.push({ label: 'Email send attempt', when: at(app.emailSendAttemptedAt), detail: result });
+        }
+        if (app.employerOpenedAt) {
+            // Opening is observed; submission on that page is not. Mandatory §9 suffix.
+            const link = app.employerUrl
+                ? `<a href="${esc(app.employerUrl)}" target="_blank" rel="noopener noreferrer">${esc(app.employerUrl)}</a> `
+                : '';
+            rows.push({ label: 'Employer site opened', when: at(app.employerOpenedAt), detail: `${link}— submission not confirmed by this platform` });
+        }
+
+        list.innerHTML = rows.map(row => `
+            <li class="application-timeline-item">
+                <span class="application-timeline-dot" aria-hidden="true"></span>
+                <div class="application-timeline-body">
+                    <div class="application-timeline-head">
+                        <span class="application-timeline-label">${esc(row.label)}</span>
+                        <time class="application-timeline-when">${esc(row.when)}</time>
+                    </div>
+                    ${row.detail ? `<div class="application-timeline-detail">${row.detail}</div>` : ''}
+                </div>
+            </li>`).join('');
+        section.hidden = rows.length === 0;
     }
 
     // ─── Edit mode ───────────────────────────────────────────────────────────
