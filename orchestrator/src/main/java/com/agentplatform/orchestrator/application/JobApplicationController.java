@@ -138,11 +138,15 @@ public class JobApplicationController {
      * Retrieves all applications prepared for a candidate.
      *
      * @param candidateId the candidate's ID
-     * @return list of JobApplication entities
+     * @param status      optional status filter (enum name, case-insensitive);
+     *                    absent/blank returns all
+     * @return list of JobApplication entities, ordered updatedAt DESC, id DESC
      */
     @GetMapping("/candidate/{candidateId}")
-    public ResponseEntity<List<JobApplication>> getApplicationsByCandidate(@PathVariable Long candidateId) {
-        List<JobApplication> apps = storageService.findByCandidateId(candidateId);
+    public ResponseEntity<List<JobApplication>> getApplicationsByCandidate(
+            @PathVariable Long candidateId,
+            @RequestParam(name = "status", required = false) String status) {
+        List<JobApplication> apps = storageService.findByCandidateId(candidateId, status);
         return ResponseEntity.ok(apps);
     }
 

@@ -6,7 +6,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -48,14 +50,35 @@ public class ApplicationStorageService {
     }
 
     /**
-     * Retrieves all applications for a candidate.
+     * Retrieves applications for a candidate, optionally filtered by status.
+     *
+     * <p>Phase 12.9 list contract: absent/blank {@code status} returns all of the
+     * candidate's applications; a known status name (case-insensitive) filters to it;
+     * anything else throws {@link IllegalArgumentException} (RFC 7807 400 — a filter
+     * is never silently treated as "all"). Results are deterministically ordered
+     * {@code updatedAt DESC, id DESC}. Scoping is always by the given candidate — a
+     * status filter can never expose another candidate's records.</p>
      *
      * @param candidateId the candidate ID
-     * @return list of applications for the candidate
+     * @param status the status name to filter by, or null/blank for all
+     * @return the matching applications, newest-update first
      */
     @Transactional(readOnly = true)
-    public List<JobApplication> findByCandidateId(Long candidateId) {
-        return repository.findByCandidateId(candidateId);
+    public List<JobApplication> findByCandidateId(Long candidateId, String status) {
+        if (status == null || status.isBlank()) {
+            return repository.findByCandidateIdOrderByUpdatedAtDescIdDesc(candidateId);
+        }
+        ApplicationStatus parsed = parseStatus(status);
+        return repository.findByCandidateIdAndApplicationStatusOrderByUpdatedAtDescIdDesc(candidateId, parsed);
+    }
+
+    private ApplicationStatus parseStatus(String status) {
+        try {
+            return ApplicationStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException(
+                    "Unknown application status '" + status + "'. Valid statuses: " + Arrays.toString(ApplicationStatus.values()) + ".");
+        }
     }
 
     /**

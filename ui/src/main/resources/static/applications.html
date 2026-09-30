@@ -80,13 +80,23 @@
                 <section class="applications-list-section" id="applicationsListSection" hidden>
                     <div class="applications-toolbar">
                         <h2 class="applications-toolbar-title">Prepared Applications</h2>
+                        <div class="filters-row applications-toolbar-filters">
+                            <div class="filter-col">
+                                <label for="applicationsStatusFilter" class="filter-label">Status</label>
+                                <select id="applicationsStatusFilter" class="form-select" title="Filter applications by their current status">
+                                    <option value="">All Applications</option>
+                                </select>
+                            </div>
+                        </div>
                         <span class="applications-toolbar-count" id="applicationsCount">0</span>
                     </div>
 
                     <div class="applications-cards-grid" id="applicationsCardsGrid"></div>
 
                     <div class="applications-empty" id="applicationsEmpty" hidden>
-                        <p class="empty-message">No applications prepared yet.</p>
+                        <p class="empty-message" id="applicationsEmptyMessage">No applications prepared yet.</p>
+                        <button class="btn-secondary" id="applicationsShowAllBtn" hidden>Show all applications</button>
+                        <button class="btn-secondary" id="applicationsRetryBtn" hidden>Retry</button>
                     </div>
                 </section>
 

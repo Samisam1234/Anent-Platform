@@ -85,7 +85,7 @@ class JobApplicationControllerTest {
         savedApp.setCompany("Test Company");
         savedApp.setMatchScore(88);
         savedApp.setMatchingSkills("Java, Spring Boot");
-        when(jobApplicationRepository.findByCandidateId(1L)).thenReturn(List.of(savedApp));
+        when(jobApplicationRepository.findByCandidateIdOrderByUpdatedAtDescIdDesc(1L)).thenReturn(List.of(savedApp));
 
         // Act
         var response = controller.prepareApplication(request);
@@ -101,7 +101,7 @@ class JobApplicationControllerTest {
                 eq("Hyderabad"), eq("Focus on Java"), eq(false));
 
         // The prepared application was persisted and is retrievable by candidate.
-        var stored = controller.getApplicationsByCandidate(1L);
+        var stored = controller.getApplicationsByCandidate(1L, null);
         assertNotNull(stored.getBody());
         assertEquals(1, stored.getBody().size());
         var saved = stored.getBody().get(0);
@@ -110,7 +110,7 @@ class JobApplicationControllerTest {
         assertEquals("Java, Spring Boot", saved.getMatchingSkills());
         
         // Verify the mock repository was called
-        verify(jobApplicationRepository).findByCandidateId(1L);
+        verify(jobApplicationRepository).findByCandidateIdOrderByUpdatedAtDescIdDesc(1L);
     }
 
     // ─── 2. Get application by ID ──────────────────────────
@@ -159,10 +159,10 @@ class JobApplicationControllerTest {
         app2.setId(2L);
         app2.setCandidateId(1L);
 
-        when(jobApplicationRepository.findByCandidateId(1L)).thenReturn(List.of(app1, app2));
+        when(jobApplicationRepository.findByCandidateIdOrderByUpdatedAtDescIdDesc(1L)).thenReturn(List.of(app1, app2));
 
         // Act
-        var response = controller.getApplicationsByCandidate(1L);
+        var response = controller.getApplicationsByCandidate(1L, null);
 
         // Assert
         assertNotNull(response);
@@ -170,7 +170,50 @@ class JobApplicationControllerTest {
         var body = response.getBody();
         assertNotNull(body);
         assertEquals(2, body.size());
-        verify(jobApplicationRepository).findByCandidateId(1L);
+        verify(jobApplicationRepository).findByCandidateIdOrderByUpdatedAtDescIdDesc(1L);
+    }
+
+    @Test
+    @DisplayName("Get applications by candidate with a status filter uses the filtered, ordered finder")
+    void getApplicationsByCandidate_withStatusFiltersByStatus() {
+        // Arrange
+        var app = new JobApplication();
+        app.setId(1L);
+        app.setCandidateId(1L);
+        app.setApplicationStatus(ApplicationStatus.GENERATED);
+        when(jobApplicationRepository.findByCandidateIdAndApplicationStatusOrderByUpdatedAtDescIdDesc(
+                1L, ApplicationStatus.GENERATED)).thenReturn(List.of(app));
+
+        // Act — case-insensitive status name, like the UI sends it
+        var response = controller.getApplicationsByCandidate(1L, "generated");
+
+        // Assert
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCodeValue());
+        assertNotNull(response.getBody());
+        assertEquals(1, response.getBody().size());
+        assertEquals(ApplicationStatus.GENERATED, response.getBody().get(0).getApplicationStatus());
+        verify(jobApplicationRepository).findByCandidateIdAndApplicationStatusOrderByUpdatedAtDescIdDesc(
+                1L, ApplicationStatus.GENERATED);
+    }
+
+    @Test
+    @DisplayName("Get applications by candidate with an unknown status throws IllegalArgumentException (400)")
+    void getApplicationsByCandidate_unknownStatus_shouldThrowIllegalArgument() {
+        assertThrows(IllegalArgumentException.class,
+                () -> controller.getApplicationsByCandidate(1L, "NOT-A-STATUS"));
+    }
+
+    @Test
+    @DisplayName("Get applications by candidate with a blank status returns all applications")
+    void getApplicationsByCandidate_blankStatus_shouldReturnAll() {
+        when(jobApplicationRepository.findByCandidateIdOrderByUpdatedAtDescIdDesc(1L)).thenReturn(List.of());
+
+        var response = controller.getApplicationsByCandidate(1L, " ");
+
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCodeValue());
+        verify(jobApplicationRepository).findByCandidateIdOrderByUpdatedAtDescIdDesc(1L);
     }
 
     // ─── 4. Update application ─────────────────────────────

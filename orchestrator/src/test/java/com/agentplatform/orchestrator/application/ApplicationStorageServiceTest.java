@@ -152,7 +152,7 @@ class ApplicationStorageServiceTest {
     class FindByCandidateIdTests {
 
         @Test
-        @DisplayName("findByCandidateId() returns all applications for candidate")
+        @DisplayName("findByCandidateId() with no status returns all applications for candidate")
         void findByCandidateIdReturnsMatches() {
             JobApplication app1 = newApp();
             app1.setId(1L);
@@ -163,24 +163,60 @@ class ApplicationStorageServiceTest {
             app3.setApplicationStatus(ApplicationStatus.GENERATED);
             app3.setId(3L);
 
-            when(repository.findByCandidateId(1L)).thenReturn(List.of(app1, app2));
-            when(repository.findByCandidateId(2L)).thenReturn(List.of(app3));
+            when(repository.findByCandidateIdOrderByUpdatedAtDescIdDesc(1L)).thenReturn(List.of(app1, app2));
+            when(repository.findByCandidateIdOrderByUpdatedAtDescIdDesc(2L)).thenReturn(List.of(app3));
 
-            List<JobApplication> apps = storage.findByCandidateId(1L);
+            List<JobApplication> apps = storage.findByCandidateId(1L, null);
 
             assertEquals(2, apps.size());
             assertTrue(apps.stream().allMatch(a -> a.getCandidateId().equals(1L)));
-            verify(repository).findByCandidateId(1L);
+            verify(repository).findByCandidateIdOrderByUpdatedAtDescIdDesc(1L);
+        }
+
+        @Test
+        @DisplayName("findByCandidateId() with blank status returns all applications")
+        void findByCandidateIdBlankStatusReturnsAll() {
+            when(repository.findByCandidateIdOrderByUpdatedAtDescIdDesc(1L)).thenReturn(List.of(newApp()));
+
+            List<JobApplication> apps = storage.findByCandidateId(1L, "   ");
+
+            assertEquals(1, apps.size());
+            verify(repository).findByCandidateIdOrderByUpdatedAtDescIdDesc(1L);
+        }
+
+        @Test
+        @DisplayName("findByCandidateId() with a known status filters to that status (case-insensitive)")
+        void findByCandidateIdWithStatusFilters() {
+            JobApplication app1 = newApp();
+            app1.setApplicationStatus(ApplicationStatus.GENERATED);
+            when(repository.findByCandidateIdAndApplicationStatusOrderByUpdatedAtDescIdDesc(1L, ApplicationStatus.GENERATED))
+                    .thenReturn(List.of(app1));
+
+            List<JobApplication> apps = storage.findByCandidateId(1L, "  generated ");
+
+            assertEquals(1, apps.size());
+            assertEquals(ApplicationStatus.GENERATED, apps.get(0).getApplicationStatus());
+            verify(repository).findByCandidateIdAndApplicationStatusOrderByUpdatedAtDescIdDesc(1L, ApplicationStatus.GENERATED);
+        }
+
+        @Test
+        @DisplayName("findByCandidateId() with an unknown status throws IllegalArgumentException")
+        void findByCandidateIdUnknownStatusThrows() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> storage.findByCandidateId(1L, "SENT-BY-GHOST"));
+
+            assertTrue(ex.getMessage().contains("Unknown application status 'SENT-BY-GHOST'"));
+            verifyNoInteractions(repository);
         }
 
         @Test
         @DisplayName("findByCandidateId() returns empty list for unknown candidate")
         void findByCandidateIdUnknown() {
-            when(repository.findByCandidateId(999L)).thenReturn(List.of());
+            when(repository.findByCandidateIdOrderByUpdatedAtDescIdDesc(999L)).thenReturn(List.of());
 
-            List<JobApplication> apps = storage.findByCandidateId(999L);
+            List<JobApplication> apps = storage.findByCandidateId(999L, null);
             assertTrue(apps.isEmpty());
-            verify(repository).findByCandidateId(999L);
+            verify(repository).findByCandidateIdOrderByUpdatedAtDescIdDesc(999L);
         }
     }
 

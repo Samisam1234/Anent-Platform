@@ -13,6 +13,10 @@
     const applicationsCardsGrid = document.getElementById('applicationsCardsGrid');
     const applicationsEmpty = document.getElementById('applicationsEmpty');
     const applicationsCount = document.getElementById('applicationsCount');
+    const applicationsStatusFilterEl = document.getElementById('applicationsStatusFilter');
+    const applicationsEmptyMessage = document.getElementById('applicationsEmptyMessage');
+    const applicationsShowAllBtn = document.getElementById('applicationsShowAllBtn');
+    const applicationsRetryBtn = document.getElementById('applicationsRetryBtn');
     const applicationDetailSection = document.getElementById('applicationDetailSection');
     const applicationDetailTitle = document.getElementById('applicationDetailTitle');
     const applicationDetailStatus = document.getElementById('applicationDetailStatus');
@@ -64,7 +68,8 @@
         UNDER_REVIEW: { label: 'Ready for review', cls: 'under-review', hint: 'Waiting for your review before approval.' },
         APPROVED_FOR_APPLICATION: { label: 'Approved for application', cls: 'approved', hint: 'You approved this package. Apply on the employer site to send it.' },
         REJECTED: { label: 'Not pursuing', cls: 'rejected', hint: 'You decided not to pursue this application.' },
-        ARCHIVED: { label: 'Archived', cls: 'archived', hint: 'Archived.' }
+        ARCHIVED: { label: 'Archived', cls: 'archived', hint: 'Archived.' },
+        EMAIL_SENT: { label: 'Email sent', cls: 'email-sent', hint: 'Package email sent (reported by email service); employer submission not confirmed.' }
     };
 
     // Cache of resolved job listings so a list of applications for the same role does
@@ -82,6 +87,10 @@
     let currentApplicationId = null;
     let isEditing = false;
     let originalData = {}; // Store original data for cancel
+
+    // Active status filter for the applications list (?status=...). Empty string = All
+    // Applications. Not persisted to localStorage: the list always starts unfiltered.
+    let applicationsStatusFilter = '';
 
     // Active Apply Kit session (Phase 12.8, Slice 3): one kit at a time. Holds the
     // resolved application/job/destination plus the edited values, so the prepare →
@@ -1330,6 +1339,12 @@
     }
 
     // ─── Load applications for current candidate ──────────────────────────────
+    // Phase 12.9: an optional status filter (select#applicationsStatusFilter) is
+    // sent as ?status=<ENUM_NAME>; absent/blank returns all applications. The select
+    // only ever offers known statuses, so a 400 here is defensive (stale value) —
+    // reset to All and reload instead of surfacing an unusable error.
+    class InvalidStatusFilterError extends Error {}
+
     function loadApplications() {
         if (candidateId == null) {
             // Show onboarding state
@@ -1340,58 +1355,119 @@
             return;
         }
 
-        fetch(`${API_ENDPOINT}/candidate/${candidateId}`)
+        if (applicationsStatusFilterEl) applicationsStatusFilterEl.disabled = true;
+
+        const query = applicationsStatusFilter ? `?status=${encodeURIComponent(applicationsStatusFilter)}` : '';
+        fetch(`${API_ENDPOINT}/candidate/${candidateId}${query}`)
             .then(response => {
+                if (response.status === 400) {
+                    throw new InvalidStatusFilterError();
+                }
+                if (response.status === 404) {
+                    // No applications yet
+                    return [];
+                }
                 if (!response.ok) {
-                    if (response.status === 404) {
-                        // No applications yet
-                        applicationsOnboarding.hidden = false;
-                        applicationsListSection.hidden = true;
-                        applicationDetailSection.hidden = true;
-                        applicationsEmpty.hidden = false;
-                        applicationsCount.textContent = '0';
-                        return;
-                    }
                     throw new Error(`Failed to fetch applications: ${response.status}`);
                 }
                 return response.json();
             })
-            .then(data => {
-                if (!data || data.length === 0) {
-                    applicationsOnboarding.hidden = false;
-                    applicationsListSection.hidden = true;
-                    applicationDetailSection.hidden = true;
-                    applicationsEmpty.hidden = false;
-                    applicationsCount.textContent = '0';
-                    return;
-                }
-
-                // Hide onboarding, show list.
-                // List paint does NOT touch applicationDetailSection here: it starts hidden and is
-                // owned by viewApplication / back / approve. Without this, the matches-page deep link
-                // (?application=<id>&edit=1) races the list fetch and the detail surface disappears.
-                applicationsOnboarding.hidden = true;
-                applicationsListSection.hidden = false;
-                applicationsEmpty.hidden = true;
-
-                // Render cards
-                applicationsCardsGrid.innerHTML = '';
-                data.forEach(app => {
-                    const card = renderApplicationCard(app);
-                    applicationsCardsGrid.appendChild(card);
-                });
-
-                applicationsCount.textContent = data.length;
-            })
+            .then(data => renderApplicationList(data || []))
             .catch(err => {
+                if (err instanceof InvalidStatusFilterError) {
+                    applicationsStatusFilter = '';
+                    if (applicationsStatusFilterEl) applicationsStatusFilterEl.value = '';
+                    showToast('Unknown status filter — showing all applications.', 'info');
+                    return loadApplications();
+                }
+                if (applicationsStatusFilterEl) applicationsStatusFilterEl.disabled = false;
                 console.error('Error loading applications:', err);
                 showToast(window.apiError.describe(err, 'Failed to load applications.'), 'error');
-                applicationsOnboarding.hidden = false;
-                applicationsListSection.hidden = true;
-                applicationDetailSection.hidden = true;
-                applicationsEmpty.hidden = false;
-                applicationsCount.textContent = '0';
+                renderApplicationList(null);
             });
+    }
+
+    // Paints list, empty and failure states. null data = request failure (keeps the
+    // toolbar, shows a Retryable empty state). The data-present branch does NOT touch
+    // applicationDetailSection, preserving the matches-page deep link (?application=...):
+    // that surface is owned by viewApplication / back / approve.
+    function renderApplicationList(data) {
+        if (applicationsStatusFilterEl) applicationsStatusFilterEl.disabled = false;
+
+        if (data === null) {
+            applicationsOnboarding.hidden = true;
+            applicationsListSection.hidden = false;
+            applicationDetailSection.hidden = true;
+            applicationsEmptyMessage.textContent = 'Could not load applications.';
+            applicationsShowAllBtn.hidden = true;
+            applicationsRetryBtn.hidden = false;
+            applicationsEmpty.hidden = false;
+            applicationsCardsGrid.innerHTML = '';
+            applicationsCount.textContent = '0';
+            return;
+        }
+
+        if (data.length === 0) {
+            applicationsOnboarding.hidden = true;
+            applicationsListSection.hidden = false;
+            applicationDetailSection.hidden = true;
+            applicationsCardsGrid.innerHTML = '';
+            applicationsCount.textContent = '0';
+            if (applicationsStatusFilter) {
+                applicationsEmptyMessage.textContent = 'No applications with this status.';
+                applicationsShowAllBtn.hidden = false;
+                applicationsRetryBtn.hidden = true;
+            } else {
+                applicationsEmptyMessage.textContent = 'No applications prepared yet.';
+                applicationsShowAllBtn.hidden = true;
+                applicationsRetryBtn.hidden = true;
+            }
+            applicationsEmpty.hidden = false;
+            return;
+        }
+
+        applicationsOnboarding.hidden = true;
+        applicationsListSection.hidden = false;
+        applicationsEmpty.hidden = true;
+
+        // Render cards
+        applicationsCardsGrid.innerHTML = '';
+        data.forEach(app => {
+            const card = renderApplicationCard(app);
+            applicationsCardsGrid.appendChild(card);
+        });
+
+        applicationsCount.textContent = data.length;
+    }
+
+    // Populates the status filter options from STATUS_LABELS (so every known status —
+    // including EMAIL_SENT — is offered with its badge colour) and wires the change
+    // handler plus the show-all/retry empty-state actions.
+    function initStatusFilter() {
+        if (!applicationsStatusFilterEl) return;
+        Object.entries(STATUS_LABELS).forEach(([statusKey, s]) => {
+            const opt = document.createElement('option');
+            opt.value = statusKey;
+            opt.textContent = s.label;
+            opt.title = s.hint;
+            opt.className = `filter-option filter-option-${s.cls}`;
+            applicationsStatusFilterEl.appendChild(opt);
+        });
+        applicationsStatusFilterEl.addEventListener('change', () => {
+            applicationsStatusFilter = applicationsStatusFilterEl.value;
+            applicationDetailSection.hidden = true;
+            loadApplications();
+        });
+        if (applicationsShowAllBtn) {
+            applicationsShowAllBtn.addEventListener('click', () => {
+                applicationsStatusFilter = '';
+                applicationsStatusFilterEl.value = '';
+                loadApplications();
+            });
+        }
+        if (applicationsRetryBtn) {
+            applicationsRetryBtn.addEventListener('click', loadApplications);
+        }
     }
 
     // ─── Initialize ────────────────────────────────────────────────────────────
@@ -1401,6 +1477,7 @@
         candidateName = localStorage.getItem(LS_CANDIDATE_NAME);
 
         updateProfileBadge();
+        initStatusFilter();
         loadApplications();
 
         // Deep link from the Matches page: applications.html?application=<id>[&edit=1]
