@@ -220,6 +220,7 @@ class JobApplicationControllerTest {
         var app = new JobApplication();
         app.setId(1L);
         app.setCandidateId(1L);
+        app.setApplicationStatus(ApplicationStatus.GENERATED);
         when(jobApplicationRepository.findById(1L)).thenReturn(Optional.of(app));
         when(jobApplicationRepository.save(app)).thenReturn(app);
 
@@ -233,6 +234,22 @@ class JobApplicationControllerTest {
         assertNotNull(response.getBody().getApprovedAt());
         verify(jobApplicationRepository).findById(1L);
         verify(jobApplicationRepository).save(app);
+    }
+
+    @Test
+    @DisplayName("Approve application from a terminal status → 400 via IllegalArgumentException")
+    void approveApplication_terminalStatus_shouldThrowIllegalArgument() {
+        // Arrange
+        var app = new JobApplication();
+        app.setId(1L);
+        app.setCandidateId(1L);
+        app.setApplicationStatus(ApplicationStatus.REJECTED);
+        when(jobApplicationRepository.findById(1L)).thenReturn(Optional.of(app));
+
+        // Act & Assert: the controller lets the storage-service guard propagate;
+        // GlobalExceptionHandler surfaces it as RFC 7807 400.
+        assertThrows(IllegalArgumentException.class, () -> controller.approveApplication(1L));
+        verify(jobApplicationRepository, never()).save(any());
     }
 
     @Test
@@ -269,13 +286,92 @@ class JobApplicationControllerTest {
         verify(jobApplicationRepository).save(app);
     }
 
-    @Test
-    @DisplayName("Reject application returns 404 when not found")
-    void rejectApplication_notFound_shouldReturn404() {
-        // Act
-        var response = controller.rejectApplication(999L);
+@Test
+        @DisplayName("Reject application returns 404 when not found")
+        void rejectApplication_notFound_shouldReturn404() {
+            // Act
+            var response = controller.rejectApplication(999L);
 
-        // Assert
+            // Assert
+            assertEquals(404, response.getStatusCodeValue());
+        }
+
+        @Test
+        @DisplayName("Reject application from EMAIL_SENT terminal status → 400 via IllegalArgumentException")
+        void rejectApplication_terminalStatus_shouldThrowIllegalArgument() {
+            // Arrange
+            var app = new JobApplication();
+            app.setId(1L);
+            app.setCandidateId(1L);
+            app.setApplicationStatus(ApplicationStatus.EMAIL_SENT);
+            when(jobApplicationRepository.findById(1L)).thenReturn(Optional.of(app));
+
+            // Act & Assert: storage-service guard propagates to GlobalExceptionHandler (RFC 7807 400).
+            assertThrows(IllegalArgumentException.class, () -> controller.rejectApplication(1L));
+            verify(jobApplicationRepository, never()).save(any());
+        }
+
+    // ─── 7. Employer handoff ─────────────────────────────
+
+    @Test
+    @DisplayName("Record handoff persists the event with no status change")
+    void recordHandoff_shouldPersistEvent() {
+        var app = new JobApplication();
+        app.setId(1L);
+        app.setCandidateId(1L);
+        app.setApplicationStatus(ApplicationStatus.APPROVED_FOR_APPLICATION);
+        app.setApprovedAt(java.time.LocalDateTime.now().minusDays(1));
+        when(jobApplicationRepository.findById(1L)).thenReturn(Optional.of(app));
+        when(jobApplicationRepository.save(app)).thenReturn(app);
+
+        var request = new JobApplicationController.HandoffRequest();
+        request.setUrl("https://careers.example.com/apply");
+
+        var response = controller.recordHandoff(1L, request);
+
+        assertEquals(200, response.getStatusCodeValue());
+        assertNotNull(response.getBody());
+        assertEquals(ApplicationStatus.APPROVED_FOR_APPLICATION, response.getBody().getApplicationStatus());
+        assertEquals("https://careers.example.com/apply", response.getBody().getEmployerUrl());
+        assertNotNull(response.getBody().getEmployerOpenedAt());
+        verify(jobApplicationRepository).findById(1L);
+        verify(jobApplicationRepository).save(app);
+    }
+
+    @Test
+    @DisplayName("Record handoff returns 404 when application not found")
+    void recordHandoff_notFound_shouldReturn404() {
+        var request = new JobApplicationController.HandoffRequest();
+        request.setUrl("https://careers.example.com/apply");
+
+        var response = controller.recordHandoff(999L, request);
+
         assertEquals(404, response.getStatusCodeValue());
+    }
+
+    @Test
+    @DisplayName("Record handoff for a non-approved application → 400 via IllegalArgumentException")
+    void recordHandoff_notApproved_shouldThrowIllegalArgument() {
+        var app = new JobApplication();
+        app.setId(1L);
+        app.setCandidateId(1L);
+        app.setApplicationStatus(ApplicationStatus.GENERATED);
+        when(jobApplicationRepository.findById(1L)).thenReturn(Optional.of(app));
+
+        var request = new JobApplicationController.HandoffRequest();
+        request.setUrl("https://careers.example.com/apply");
+
+        assertThrows(IllegalArgumentException.class, () -> controller.recordHandoff(1L, request));
+        verify(jobApplicationRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Record handoff with a blank URL → 400 via IllegalArgumentException")
+    void recordHandoff_blankUrl_shouldThrowIllegalArgument() {
+        var request = new JobApplicationController.HandoffRequest();
+        request.setUrl("   ");
+
+        assertThrows(IllegalArgumentException.class, () -> controller.recordHandoff(1L, request));
+        verify(jobApplicationRepository, never()).findById(any());
     }
 }

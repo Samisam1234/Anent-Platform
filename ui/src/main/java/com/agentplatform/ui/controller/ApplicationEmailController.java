@@ -61,6 +61,14 @@ public class ApplicationEmailController {
 
         JobApplication app = appOpt.get();
 
+        // Terminal EMAIL_SENT: the package email was already sent via a real transport;
+        // no transport invocation is repeated.
+        if (app.getApplicationStatus() == ApplicationStatus.EMAIL_SENT) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApplicationSendResult.failed(
+                            "Email already sent for application " + request.getApplicationId() + "."));
+        }
+
         // Check if application is approved for sending
         if (app.getApplicationStatus() != ApplicationStatus.APPROVED_FOR_APPLICATION) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -96,6 +104,17 @@ public class ApplicationEmailController {
         if (ApplicationSendResult.REJECTED.status().equals(status)
                 || ApplicationSendResult.FAILED.status().equals(status)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(result);
+        }
+
+        // Accepted send (result SENT — real or simulated): persist the outcome and,
+        // for a real send, transition to EMAIL_SENT. Transport runs before this,
+        // persistence after; a crash between them loses only this record (see
+        // ApplicationStorageService.recordEmailSendOutcome) — never reported as delivery.
+        Optional<JobApplication> updated = storageService.recordEmailSendOutcome(
+                request.getApplicationId(), result.simulated());
+        if (updated.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApplicationSendResult.failed("Application not found: " + request.getApplicationId()));
         }
         return ResponseEntity.ok(result);
     }

@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
@@ -287,6 +288,98 @@ class ApplicationEmailControllerTest {
             assertNotNull(result.getBody());
             // The result message should not contain stack trace text.
             assertTrue(result.getBody().message().length() < 500);
+        }
+    }
+
+    // ─── 10. Outcome persistence + terminal EMAIL_SENT (Phase 12.9) ─────────
+
+    @Nested
+    @DisplayName("Email-outcome persistence and terminal EMAIL_SENT")
+    class EmailOutcomePersistenceTests {
+
+        @Test
+        @DisplayName("real SENT → outcome persisted + status EMAIL_SENT + 200")
+        void realSendPersistsOutcomeAndTransitions() {
+            JobApplication app = storedApprovedApp();
+            when(mockEmailService.send(any(), eq(true))).thenReturn(ApplicationSendResult.SENT);
+
+            var request = new ApplicationEmailController.SendRequest(app.getId(), true, "hiring@acme.com");
+            var result = mockedController.send(request);
+
+            assertEquals(HttpStatus.OK, result.getStatusCode());
+            assertEquals("SENT", result.getBody().status());
+
+            JobApplication stored = storage.findById(app.getId()).orElseThrow();
+            assertEquals(ApplicationStatus.EMAIL_SENT, stored.getApplicationStatus());
+            assertEquals("SENT", stored.getEmailSendResult());
+            assertNotNull(stored.getEmailSendAttemptedAt());
+        }
+
+        @Test
+        @DisplayName("simulated SENT → persisted as SENT_SIMULATED, status stays APPROVED, 200")
+        void simulatedSendPersistsWithoutTransition() {
+            JobApplication app = storedApprovedApp();
+            when(mockEmailService.send(any(), eq(true))).thenReturn(ApplicationSendResult.SENT_SIMULATED);
+
+            var request = new ApplicationEmailController.SendRequest(app.getId(), true, "hiring@acme.com");
+            var result = mockedController.send(request);
+
+            assertEquals(HttpStatus.OK, result.getStatusCode());
+
+            JobApplication stored = storage.findById(app.getId()).orElseThrow();
+            assertEquals(ApplicationStatus.APPROVED_FOR_APPLICATION, stored.getApplicationStatus());
+            assertEquals("SENT_SIMULATED", stored.getEmailSendResult());
+            assertNotNull(stored.getEmailSendAttemptedAt());
+        }
+
+        @Test
+        @DisplayName("FAILED send → 400, nothing persisted")
+        void failedSendPersistsNothing() {
+            JobApplication app = storedApprovedApp();
+            when(mockEmailService.send(any(), eq(true)))
+                    .thenReturn(ApplicationSendResult.failed("transport down"));
+
+            var request = new ApplicationEmailController.SendRequest(app.getId(), true, "hiring@acme.com");
+            var result = mockedController.send(request);
+
+            assertEquals(HttpStatus.BAD_REQUEST, result.getStatusCode());
+
+            JobApplication stored = storage.findById(app.getId()).orElseThrow();
+            assertEquals(ApplicationStatus.APPROVED_FOR_APPLICATION, stored.getApplicationStatus());
+            assertNull(stored.getEmailSendResult());
+            assertNull(stored.getEmailSendAttemptedAt());
+        }
+
+        @Test
+        @DisplayName("REJECTED send → 400, nothing persisted")
+        void rejectedSendPersistsNothing() {
+            JobApplication app = storedApprovedApp();
+            when(mockEmailService.send(any(), eq(true))).thenReturn(ApplicationSendResult.REJECTED);
+
+            var request = new ApplicationEmailController.SendRequest(app.getId(), true, "hiring@acme.com");
+            var result = mockedController.send(request);
+
+            assertEquals(HttpStatus.BAD_REQUEST, result.getStatusCode());
+
+            JobApplication stored = storage.findById(app.getId()).orElseThrow();
+            assertEquals(ApplicationStatus.APPROVED_FOR_APPLICATION, stored.getApplicationStatus());
+            assertNull(stored.getEmailSendResult());
+            assertNull(stored.getEmailSendAttemptedAt());
+        }
+
+        @Test
+        @DisplayName("EMAIL_SENT application → 400 'already sent'; transport never invoked")
+        void alreadySentRejectedBeforeTransport() {
+            JobApplication app = storedApprovedApp();
+            storage.recordEmailSendOutcome(app.getId(), false);
+
+            var request = new ApplicationEmailController.SendRequest(app.getId(), true, "hiring@acme.com");
+            var result = mockedController.send(request);
+
+            assertEquals(HttpStatus.BAD_REQUEST, result.getStatusCode());
+            assertEquals("FAILED", result.getBody().status());
+            assertTrue(result.getBody().message().contains("already sent"));
+            verifyNoInteractions(mockEmailService);
         }
     }
 

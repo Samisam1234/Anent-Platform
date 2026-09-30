@@ -206,6 +206,50 @@ public class JobApplicationController {
     }
 
     /**
+     * Records the employer-site handoff event (Phase 12.9, Slice 2).
+     * <p>
+     * The client already validated the URL via {@code jobLink.safeUrl}; the server
+     * sanity-checks it again and persists {@code employerOpenedAt} + {@code employerUrl}
+     * with no status change and no submission claim.
+     *
+     * @param applicationId the application ID
+     * @param request       body containing the employer URL ({@code url})
+     * @return updated JobApplication (status unchanged), or empty-body 404
+     */
+    @PostMapping("/{applicationId}/handoff")
+    public ResponseEntity<JobApplication> recordHandoff(
+            @PathVariable Long applicationId,
+            @RequestBody JobApplicationController.HandoffRequest request) {
+        if (request == null || request.getUrl() == null || request.getUrl().isBlank()) {
+            throw new IllegalArgumentException("A valid employer URL is required to record a handoff.");
+        }
+        Optional<JobApplication> updated = storageService.recordHandoff(applicationId, request.getUrl());
+        if (updated.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        log.info("Employer handoff recorded for application {}", applicationId);
+        return ResponseEntity.ok(updated.get());
+    }
+
+    /**
+     * Request payload for recording an employer handoff.
+     */
+    public static class HandoffRequest {
+        private String url;
+
+        public HandoffRequest() {
+        }
+
+        public String getUrl() {
+            return url;
+        }
+
+        public void setUrl(String url) {
+            this.url = url;
+        }
+    }
+
+    /**
      * Request payload for preparing an application.
      */
     public static class ApplicationPrepareRequest {

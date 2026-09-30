@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -45,6 +46,26 @@ public class GlobalExceptionHandler {
         );
         problem.setTitle("AI Model Unavailable");
         problem.setType(URI.create("https://agentplatform.local/errors/model-unavailable"));
+        return problem;
+    }
+
+    /**
+     * A stale concurrent write on a @Version-guarded entity (approve/update/send).
+     *
+     * <p>Returns HTTP 409 Conflict so the client can reload and retry instead of
+     * silently losing the concurrent change.</p>
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ProblemDetail handleOptimisticLock(ObjectOptimisticLockingFailureException ex) {
+        log.warn("Concurrent modification: status={}, type={}, detail={}",
+                HttpStatus.CONFLICT.value(),
+                "https://agentplatform.local/errors/conflict", ex.getClass().getSimpleName());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "This application was changed concurrently. Please reload and retry."
+        );
+        problem.setTitle("Conflict");
+        problem.setType(URI.create("https://agentplatform.local/errors/conflict"));
         return problem;
     }
 

@@ -13,7 +13,8 @@ public enum ApplicationStatus {
     UNDER_REVIEW("UNDER_REVIEW"),
     APPROVED_FOR_APPLICATION("APPROVED_FOR_APPLICATION"),
     REJECTED("REJECTED"),
-    ARCHIVED("ARCHIVED");
+    ARCHIVED("ARCHIVED"),
+    EMAIL_SENT("EMAIL_SENT");
 
     private final String status;
 

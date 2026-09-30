@@ -507,31 +507,13 @@
         }
     }
 
-    // ─── Apply Kit final review + handoff (Phase 12.8, Slice 3) ─────────────────
+    // ─── Apply Kit final review + handoff (Phase 12.8, Slice 3; 12.9 records the open) ──
     function kitInputValues() {
         const map = {};
         document.querySelectorAll('[data-kit-field]').forEach((el) => {
             map[el.getAttribute('data-kit-field')] = (el.value || '').trim();
         });
         return map;
-    }
-
-    function writeKitMarker(app, patch) {
-        try {
-            const key = 'agentplatform:applyKit:' + app.id;
-            let previous = {};
-            try { previous = JSON.parse(localStorage.getItem(key)) || {}; } catch (e) { /* ignore */ }
-            const marker = Object.assign({
-                applicationId: app.id,
-                openedAt: new Date().toISOString(),
-                jobUrl: null,
-                values: {}
-            }, previous, patch, { applicationId: app.id });
-            localStorage.setItem(key, JSON.stringify(marker));
-            return marker;
-        } catch (e) {
-            return null; // marker is a client-side aid only — never a submission record
-        }
     }
 
     function revalidateKitPackage(s) {
@@ -688,10 +670,18 @@
             showToast('Confirm you have reviewed the values first.', 'info');
             return;
         }
-        writeKitMarker(s.app, {
-            reviewedAt: new Date().toISOString(),
-            employerOpenedAt: new Date().toISOString(),
-            values: s.currentValues || {}
+        // Phase 12.9: the server now records this opening (employerOpenedAt + validated
+        // URL). Best-effort, fire-and-forget — a failure must never block the user from
+        // applying, so the tab opens regardless and we only surface a non-blocking toast.
+        const url = (s.target && s.target.url) || null;
+        fetch(`${API_ENDPOINT}/${s.app.id}/handoff`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        }).then(response => {
+            if (!response.ok) throw new Error(String(response.status));
+        }).catch(() => {
+            showToast('Could not record this opening on the server.', 'error');
         });
         window.open(s.target.url, '_blank');
     }
@@ -835,10 +825,6 @@
             state = 'eligible';
             subtitle = `${status.label} · prepared ${preparedOn} · not submitted`;
             kitSession = { app, job, target, fields: buildKitFields(app, candidate), currentValues: {} };
-            writeKitMarker(app, {
-                jobUrl: target.url,
-                values: Object.fromEntries(kitSession.fields.map(f => [f.key, f.value || '']))
-            });
             body = prepareKitBodyHtml();
             footer = prepareKitFooterHtml();
         }
