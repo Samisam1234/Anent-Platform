@@ -83,6 +83,11 @@
     let isEditing = false;
     let originalData = {}; // Store original data for cancel
 
+    // Active Apply Kit session (Phase 12.8, Slice 3): one kit at a time. Holds the
+    // resolved application/job/destination plus the edited values, so the prepare →
+    // final review → employer handoff steps all read the same snapshot.
+    let kitSession = null; // { app, job, target, fields, currentValues, acknowledged }
+
     // ─── Status Badge ─────────────────────────────────────────────────────────
     function updateProfileBadge() {
         if (candidateId) {
@@ -463,11 +468,12 @@
         ];
     }
 
-    function kitFieldRow(field) {
+    function kitFieldRow(field, value) {
+        const v = (value !== undefined ? value : field.value) || '';
         const control = field.type === 'textarea'
-            ? `<textarea data-kit-field="${field.key}" data-kit-server="${esc(field.value || '')}" maxlength="${field.maxlength}" rows="3" placeholder="Type the value the employer form needs">${esc(field.value || '')}</textarea>`
-            : `<input data-kit-field="${field.key}" data-kit-server="${esc(field.value || '')}" maxlength="${field.maxlength}" type="text" value="${esc(field.value || '')}" placeholder="Type the value the employer form needs">`;
-        const absentNote = field.value ? '' : `<p class="apply-kit-absent">${esc(field.absent)}</p>`;
+            ? `<textarea data-kit-field="${field.key}" data-kit-server="${esc(field.value || '')}" maxlength="${field.maxlength}" rows="3" placeholder="Type the value the employer form needs">${esc(v)}</textarea>`
+            : `<input data-kit-field="${field.key}" data-kit-server="${esc(field.value || '')}" maxlength="${field.maxlength}" type="text" value="${esc(v)}" placeholder="Type the value the employer form needs">`;
+        const absentNote = v ? '' : `<p class="apply-kit-absent">${esc(field.absent)}</p>`;
         return `
             <div class="apply-kit-field">
                 <div class="apply-kit-field-head">
@@ -487,10 +493,11 @@
             showToast('Nothing to copy yet — type a value first.', 'info');
             return;
         }
+        const restore = (btn && btn.getAttribute('data-restore-label')) || 'Copy';
         const done = () => {
             if (btn) {
                 btn.textContent = 'Copied ✓';
-                setTimeout(() => { btn.textContent = 'Copy'; }, 1600);
+                setTimeout(() => { btn.textContent = restore; }, 1600);
             }
         };
         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -500,6 +507,197 @@
         }
     }
 
+    // ─── Apply Kit final review + handoff (Phase 12.8, Slice 3) ─────────────────
+    function kitInputValues() {
+        const map = {};
+        document.querySelectorAll('[data-kit-field]').forEach((el) => {
+            map[el.getAttribute('data-kit-field')] = (el.value || '').trim();
+        });
+        return map;
+    }
+
+    function writeKitMarker(app, patch) {
+        try {
+            const key = 'agentplatform:applyKit:' + app.id;
+            let previous = {};
+            try { previous = JSON.parse(localStorage.getItem(key)) || {}; } catch (e) { /* ignore */ }
+            const marker = Object.assign({
+                applicationId: app.id,
+                openedAt: new Date().toISOString(),
+                jobUrl: null,
+                values: {}
+            }, previous, patch, { applicationId: app.id });
+            localStorage.setItem(key, JSON.stringify(marker));
+            return marker;
+        } catch (e) {
+            return null; // marker is a client-side aid only — never a submission record
+        }
+    }
+
+    function revalidateKitPackage(s) {
+        return fetch(`${API_ENDPOINT}/${s.app.id}`)
+            .then(response => (response.ok ? response.json() : null))
+            .then(fresh => {
+                if (!fresh) return { stale: true, reason: 'This application is no longer available.' };
+                const changed =
+                    String(fresh.applicationStatus || 'DRAFT') !== String(s.app.applicationStatus || 'DRAFT') ||
+                    String(fresh.updatedAt || '') !== String(s.app.updatedAt || '') ||
+                    String(fresh.generatedResumeSummary || '') !== String(s.app.generatedResumeSummary || '');
+                if (changed || !isApproved(fresh.applicationStatus)) {
+                    return { stale: true, reason: 'This application package changed after you prepared it — the values below may be out of date.' };
+                }
+                return { stale: false };
+            });
+    }
+
+    function prepareKitBodyHtml() {
+        const { app, target, fields } = kitSession;
+        const current = kitSession.currentValues || {};
+        const value = (f) => (f.key in current ? current[f.key] : f.value);
+        return `
+            <div class="apply-kit" data-apply-state="eligible">
+                <div class="prep-summary">
+                    <span class="summary-chip">Job ID: ${esc(app.jobId || '—')}</span>
+                    <span class="summary-chip">Company: ${esc(app.company || '—')}</span>
+                    <span class="summary-chip">Location: ${esc(app.location || 'Not specified')}</span>
+                    <span class="summary-chip">Skill coverage: ${app.matchScore != null ? esc(app.matchScore) + '/100' : 'not calculated'}</span>
+                </div>
+                <div class="apply-kit-destination" title="The employer application URL exactly as the job source supplied it">
+                    <span class="external-badge">Assisted Apply — review only</span>
+                    <code class="apply-kit-url" data-apply-url="${esc(target.url)}">${esc(target.url)}</code>
+                    <span class="external-note">From ${esc(target.source || 'the job source')} · never edited, guessed or rewritten.</span>
+                </div>
+                ${block('What the Apply Kit prepares', `
+                    <p class="modal-description">Review, edit and copy each value. Every field states its source — your resume profile or your prepared application for this role. Links (GitHub/LinkedIn) are not offered: the resume parser stores none, so nothing is invented.</p>
+                    <div class="apply-kit-fields">${fields.map((f) => kitFieldRow(f, value(f))).join('')}</div>
+                    <div class="apply-kit-toolbar">
+                        <button type="button" class="btn-secondary" id="applyKitResetBtn" title="Restores the server-derived values from your profile and application">Reset kit values</button>
+                        <button type="button" class="btn-primary" id="applyKitReviewBtn">Review &amp; hand off</button>
+                    </div>
+                    <p class="apply-kit-note">Values are copied and applied by you on the employer site. This screen never fills a form, writes to the employer page, or submits anything.</p>`)}
+                ${block('Where you apply', `
+                    <p class="modal-description">Open the employer site, review the prepared values there, and submit yourself. The platform never writes to or submits a page outside this app, and it never applies on your behalf.</p>`)}
+            </div>`;
+    }
+
+    function prepareKitFooterHtml() {
+        const { target } = kitSession;
+        return `
+            <span class="modal-hint">You submit on the employer site — the platform never does.</span>
+            ${kitCloseBtn}
+            <a class="btn-primary btn-apply-external" href="${esc(target.url)}" target="_blank" rel="noopener noreferrer"
+               title="Opens the employer's own application page in a new tab — you review and submit there yourself">Open employer site to apply</a>`;
+    }
+
+    function renderKitPrepareFromSession() {
+        window.modalShell.setBody(prepareKitBodyHtml());
+        window.modalShell.setFooter(prepareKitFooterHtml());
+    }
+
+    function renderKitReview() {
+        const { target, fields } = kitSession;
+        const current = kitSession.currentValues || {};
+        const rows = fields.map((f) => {
+            const v = (f.key in current ? current[f.key] : f.value) || '';
+            return `<div class="apply-kit-review-row">
+                <span class="apply-kit-review-label">${esc(f.label)}</span>
+                ${v
+                    ? `<code class="apply-kit-review-value">${esc(v)}</code>`
+                    : '<span class="apply-kit-review-missing">not provided</span>'}
+            </div>`;
+        }).join('');
+        window.modalShell.setBody(`
+            <div class="apply-kit" data-apply-state="eligible" data-kit-mode="review">
+                <div class="apply-kit-review">
+                    <div class="apply-kit-review-disclaimer">These values will not be written or submitted by this app — you copy them, paste them and submit yourself on the employer site.</div>
+                    <div class="apply-kit-review-list">${rows}</div>
+                    <div class="apply-kit-review-actions">
+                        <button type="button" class="btn-primary" id="applyKitCopyAllBtn" data-restore-label="Copy all fields">Copy all fields</button>
+                    </div>
+                    <label class="apply-kit-ack">
+                        <input type="checkbox" id="applyKitAck">
+                        <span>I have reviewed the values above and will copy and submit them myself on the employer site.</span>
+                    </label>
+                    <p class="apply-kit-note">Assisted Apply only prepares and copies values. It never fills a form, writes to the employer page, submits anything, or sends email.</p>
+                </div>
+            </div>`);
+        window.modalShell.setFooter(`
+            <span class="modal-hint">You submit on the employer site — the platform never does.</span>
+            <button type="button" class="btn-secondary" id="applyKitBackBtn">Back to editing</button>
+            ${kitCloseBtn}
+            <button type="button" class="btn-primary btn-handoff" id="applyKitHandoffBtn" disabled title="Enabled after you confirm you have reviewed the values">Open employer site to apply</button>`);
+    }
+
+    function renderKitStale(reason) {
+        window.modalShell.setBody(`
+            <div class="apply-kit" data-apply-state="blocked-stale">
+                <div class="apply-kit-state">
+                    <div class="apply-kit-state-title">Package changed</div>
+                    <p>${esc(reason)} Re-open Assisted Apply to load the latest values.</p>
+                </div>
+            </div>`);
+        window.modalShell.setFooter(`
+            ${kitCloseBtn}
+            <button type="button" class="btn-primary" id="applyKitReloadBtn">Reload package</button>`);
+    }
+
+    function enterKitReview() {
+        const s = kitSession;
+        if (!s) return;
+        s.currentValues = kitInputValues();
+        revalidateKitPackage(s)
+            .then(res => {
+                if (!kitSession) return; // closed while revalidating
+                if (res.stale) {
+                    renderKitStale(res.reason);
+                    return;
+                }
+                renderKitReview();
+            })
+            .catch(() => renderKitReview()); // a local-first tool must not trap the user on a network hiccup; the values are already in the dialog
+    }
+
+    function resetKitValues() {
+        document.querySelectorAll('[data-kit-field]').forEach(el => {
+            el.value = el.getAttribute('data-kit-server') || '';
+        });
+        if (kitSession) kitSession.currentValues = {};
+        showToast('Kit values reset to the values from your profile and application.', 'info');
+    }
+
+    function copyAllKitValues(btn) {
+        const s = kitSession;
+        if (!s) return;
+        const current = s.currentValues || {};
+        const lines = s.fields
+            .map(f => ({ label: f.label, value: (f.key in current ? current[f.key] : f.value) || '' }))
+            .filter(row => row.value)
+            .map(row => `${row.label}: ${row.value}`);
+        if (!lines.length) {
+            showToast('Nothing to copy yet — type a value first.', 'info');
+            return;
+        }
+        copyKitText(lines.join('\n'), btn);
+    }
+
+    function kitHandoff() {
+        const s = kitSession;
+        if (!s) return;
+        const ack = document.getElementById('applyKitAck');
+        if (!ack || !ack.checked) {
+            showToast('Confirm you have reviewed the values first.', 'info');
+            return;
+        }
+        writeKitMarker(s.app, {
+            reviewedAt: new Date().toISOString(),
+            employerOpenedAt: new Date().toISOString(),
+            values: s.currentValues || {}
+        });
+        window.open(s.target.url, '_blank');
+    }
+
+    const kitCloseBtn = '<button type="button" class="btn-secondary" data-apply-close>Close</button>';
+
     document.addEventListener('click', (e) => {
         const copyBtn = e.target.closest('[data-copy-kit-field]');
         if (copyBtn) {
@@ -508,13 +706,33 @@
             if (input) copyKitText((input.value || '').trim(), copyBtn);
             return;
         }
-        if (e.target.closest('#applyKitResetBtn')) {
-            document.querySelectorAll('[data-kit-field]').forEach(el => {
-                el.value = el.getAttribute('data-kit-server') || '';
-            });
-            showToast('Kit values reset to the values from your profile and application.', 'info');
+        if (e.target.closest('#applyKitResetBtn')) { resetKitValues(); return; }
+        if (e.target.closest('#applyKitReviewBtn')) { enterKitReview(); return; }
+        if (e.target.closest('#applyKitBackBtn')) { renderKitPrepareFromSession(); return; }
+        if (e.target.closest('#applyKitCopyAllBtn')) { copyAllKitValues(e.target.closest('#applyKitCopyAllBtn')); return; }
+        if (e.target.closest('#applyKitHandoffBtn')) { kitHandoff(); return; }
+        if (e.target.closest('#applyKitReloadBtn')) {
+            const freshId = kitSession && kitSession.app ? kitSession.app.id : null;
+            kitSession = null;
+            if (freshId) {
+                window.modalShell.close();
+                openApplyKit(freshId);
+            }
         }
     });
+
+    document.addEventListener('change', (e) => {
+        if (e.target && e.target.id === 'applyKitAck') {
+            const handoff = document.getElementById('applyKitHandoffBtn');
+            if (handoff) handoff.disabled = !e.target.checked;
+        }
+    });
+
+    const block = (title, html) => `
+        <div class="modal-job-section">
+            <h4 class="modal-section-title">${esc(title)}</h4>
+            ${html}
+        </div>`;
 
     /**
      * Assisted Apply — review surface (Phase 12.8, Slice 1).
@@ -568,12 +786,6 @@
             ? new Date(app.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
             : 'not recorded';
 
-        const block = (title, html) => `
-            <div class="modal-job-section">
-                <h4 class="modal-section-title">${esc(title)}</h4>
-                ${html}
-            </div>`;
-        const closeBtn = '<button type="button" class="btn-secondary" data-apply-close>Close</button>';
         const fallbackNote = 'The manual link above remains available while this screen is blocked.';
 
         let state, body, footer, subtitle;
@@ -591,7 +803,7 @@
                     </div>
                     <p class="agent-note">${fallbackNote}</p>
                 </div>`;
-            footer = closeBtn;
+            footer = kitCloseBtn;
         } else if (!job || !job.id) {
             state = 'blocked-resolve';
             subtitle = `${status.label} · prepared ${preparedOn} · not submitted`;
@@ -603,7 +815,7 @@
                     </div>
                     <p class="agent-note">${fallbackNote}</p>
                 </div>`;
-            footer = closeBtn;
+            footer = kitCloseBtn;
         } else if (target.kind !== 'employer') {
             state = 'blocked-resolve';
             subtitle = `${status.label} · prepared ${preparedOn} · not submitted`;
@@ -618,40 +830,17 @@
                     </div>
                     <p class="agent-note">${fallbackNote}</p>
                 </div>`;
-            footer = closeBtn;
+            footer = kitCloseBtn;
         } else {
             state = 'eligible';
             subtitle = `${status.label} · prepared ${preparedOn} · not submitted`;
-            body = `
-                <div class="apply-kit" data-apply-state="${state}">
-                    <div class="prep-summary">
-                        <span class="summary-chip">Job ID: ${esc(app.jobId || '—')}</span>
-                        <span class="summary-chip">Company: ${esc(app.company || '—')}</span>
-                        <span class="summary-chip">Location: ${esc(app.location || 'Not specified')}</span>
-                        <span class="summary-chip">Skill coverage: ${app.matchScore != null ? esc(app.matchScore) + '/100' : 'not calculated'}</span>
-                    </div>
-
-                    <div class="apply-kit-destination" title="The employer application URL exactly as the job source supplied it">
-                        <span class="external-badge">Assisted Apply — review only</span>
-                        <code class="apply-kit-url" data-apply-url="${esc(target.url)}">${esc(target.url)}</code>
-                        <span class="external-note">From ${esc(target.source || 'the job source')} · never edited, guessed or rewritten.</span>
-                    </div>
-
-                    ${block('What the Apply Kit prepares', `
-                        <p class="modal-description">Review, edit and copy each value. Every field states its source — your resume profile or your prepared application for this role. Links (GitHub/LinkedIn) are not offered: the resume parser stores none, so nothing is invented.</p>
-                        <div class="apply-kit-fields">${buildKitFields(app, candidate).map(kitFieldRow).join('')}</div>
-                        <div class="apply-kit-toolbar">
-                            <button type="button" class="btn-secondary" id="applyKitResetBtn">Reset kit values</button>
-                        </div>
-                        <p class="apply-kit-note">Values are copied one at a time and applied by you on the employer site. This screen never fills a form, writes to the employer page, or submits anything.</p>`)}
-                    ${block('Where you apply', `
-                        <p class="modal-description">Open the employer site, review the prepared values there, and submit yourself. The platform never writes to or submits a page outside this app, and it never applies on your behalf.</p>`)}
-                </div>`;
-            footer = `
-                <span class="modal-hint">You submit on the employer site — the platform never does.</span>
-                ${closeBtn}
-                <a class="btn-primary btn-apply-external" href="${esc(target.url)}" target="_blank" rel="noopener noreferrer"
-                   title="Opens the employer's own application page in a new tab — you review and submit there yourself">Open employer site to apply</a>`;
+            kitSession = { app, job, target, fields: buildKitFields(app, candidate), currentValues: {} };
+            writeKitMarker(app, {
+                jobUrl: target.url,
+                values: Object.fromEntries(kitSession.fields.map(f => [f.key, f.value || '']))
+            });
+            body = prepareKitBodyHtml();
+            footer = prepareKitFooterHtml();
         }
 
         window.modalShell.open({
