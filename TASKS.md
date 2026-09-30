@@ -61,7 +61,7 @@ Make the browser UI accurately display the profile that the backend produces fro
 | **12.6** | ATS Resume Tailoring | **VERIFIED** — Tailored resume preview/download; D2 page-level overflow deferred |
 | **12.7** | Application Package | **VERIFIED** — review sections, editing, recipient-verified email; full suite 1,216 tests green; browser acceptance 51/51; D2 page-level overflow + live job-source reachability open (12.10 E2E gate) |
 | **12.8** | Employer Application | "Apply on Employer Site" flow — assisted apply (kit) — **VERIFIED** — spec: PHASE_12.8_SPEC.md |
-| **12.9** | Application Tracking | Application list, status, history |
+| **12.9** | Application Tracking | Application list, status, history - PLANNED - spec: PHASE_12.9_SPEC.md |
 | **12.10** | Final Shiplight E2E | Full browser E2E regression |
 
 ---
@@ -175,11 +175,13 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
 
 ---
 
-## Phase 12.9 — Application Tracking (PLANNED)
+## Phase 12.9 — Application Tracking (PLANNED — spec only, not implemented)
+
+> Detailed, reviewable specification: **PHASE_12.9_SPEC.md** (Slice 0, created 2026-09-30).
 
 - Applications page: list, status, filter
-- Application detail view
-- Status transitions (DRAFT → GENERATED → APPROVED → SENT)
+- Application detail view (exists since 12.7; 12.9 adds the event timeline)
+- Status transitions (DRAFT → GENERATED → APPROVED → EMAIL_SENT)
 
 ---
 
