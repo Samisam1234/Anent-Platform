@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class ResumeParserService {
     private static final Logger log = LoggerFactory.getLogger(ResumeParserService.class);
-    private static final int MIN_TEXT_LENGTH = 50;
+
 
     public String extractText(byte[] pdfBytes) {
         if (pdfBytes == null || pdfBytes.length == 0) {

@@ -85,12 +85,6 @@
                 <artifactId>langchain4j-ollama</artifactId>
                 <version>${langchain4j.ollama.version}</version>
             </dependency>
-            <!-- LangChain4j Ollama Spring Boot Starter (1.0.0-beta5) -->
-            <dependency>
-                <groupId>dev.langchain4j</groupId>
-                <artifactId>langchain4j-ollama-spring-boot-starter</artifactId>
-                <version>${langchain4j.ollama.version}</version>
-            </dependency>
             <!-- LangChain4j Google AI Gemini integration (1.0.0-beta5) -->
             <dependency>
                 <groupId>dev.langchain4j</groupId>

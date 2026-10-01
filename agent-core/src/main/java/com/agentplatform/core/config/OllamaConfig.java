@@ -37,7 +37,7 @@ public class OllamaConfig {
     private static final Logger log = LoggerFactory.getLogger(OllamaConfig.class);
 
     /** Connection timeout for Ollama requests. Generous for local hardware. */
-    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
+
 
     /** Read timeout — local models on modest hardware can be slow to respond. */
     private static final Duration READ_TIMEOUT = Duration.ofMinutes(3);
