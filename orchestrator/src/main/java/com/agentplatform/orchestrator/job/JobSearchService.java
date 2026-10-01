@@ -48,6 +48,25 @@ public class JobSearchService {
     private final CareerTrackEngine careerTrackEngine;
 
     /**
+     * Exact job-id lookup cache, populated from the listings this service actually
+     * returned.
+     *
+     * <p>Sources are queried with the caller's keywords, so a listing that came out of a
+     * keyword search cannot in general be re-fetched by id alone: an aggregator or MCP
+     * source that requires a query term has nothing to match against. Caching the exact
+     * records that were returned makes {@link #findById(String)} resolve the job the user
+     * just saw, including its {@code applicationUrl}, without a second network round trip
+     * and without inventing a query the user never typed.</p>
+     *
+     * <p>The cache is <b>process-local and in-memory</b>: it holds no credentials and no
+     * fabricated data — only immutable {@link Job} records exactly as a source published
+     * them — and it is empty again after a restart. A cold cache falls back to the
+     * existing per-source lookup, so behaviour degrades to what it was before rather than
+     * to a wrong answer.</p>
+     */
+    private final JobIdCache idCache = new JobIdCache();
+
+    /**
      * Test/standalone constructor: no candidate persistence, so profile-driven keyword
      * derivation is skipped and searches behave exactly as before.
      */
@@ -106,6 +125,13 @@ public class JobSearchService {
         if (id == null || id.isBlank()) {
             return Optional.empty();
         }
+        // A hit here is a listing this service already returned under exactly this id, so
+        // the match is by identity, never by similarity: a different job is never returned
+        // for the requested id.
+        Job cached = idCache.get(id);
+        if (cached != null) {
+            return Optional.of(cached);
+        }
         for (JobSource source : jobSources) {
             try {
                 if (!source.isAvailable()) {
@@ -117,6 +143,7 @@ public class JobSearchService {
                 }
                 Optional<Job> match = jobs.stream().filter(job -> job != null && id.equals(job.id())).findFirst();
                 if (match.isPresent()) {
+                    idCache.put(match.get());
                     return match;
                 }
             } catch (Exception ex) {
@@ -249,6 +276,13 @@ public class JobSearchService {
 
         int limit = request.limit() != null && request.limit() > 0 ? request.limit() : 20;
         List<Job> limitedResults = filtered.stream().limit(limit).toList();
+
+        // Cache exactly what the caller is about to see. Populating from the final list —
+        // after normalization, dedup and filtering — means findById() hands back the same
+        // record the UI was shown, with the same id and the same applicationUrl a source
+        // published (dedup keeps the first record's id and merges in a URL a later record
+        // supplied, so caching earlier would cache a listing the user never received).
+        idCache.putAll(limitedResults);
 
         long durationMs = System.currentTimeMillis() - startTime;
         String combinedSourceName = String.join(", ", sourceNames);

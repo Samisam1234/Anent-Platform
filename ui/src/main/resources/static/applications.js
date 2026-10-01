@@ -405,6 +405,9 @@
                         ? `<p class="modal-description">${esc(humanizeStatus(app.recommendation))}</p>`
                         : `<p class="modal-empty-line">No advisor result recorded for this application.</p>`)}
 
+                ${applicationTimeline.section(app)}
+                ${applicationActions.section(app)}
+
                 <p class="agent-note">This package is prepared for your review. The platform has not submitted it and cannot submit it — you apply on the employer's own site.</p>`,
             footer: `
                 <span class="modal-hint">Nothing has been submitted.</span>
@@ -858,7 +861,25 @@
         });
     }
 
+    // Single delegated handler for the visible review modal's actions. Each control
+    // only names the application it belongs to and delegates to the existing handler:
+    // the Apply Kit takes over the shared shell, and the email send keeps
+    // sendEmail()'s contract (confirm the recipient, one POST, then re-render).
     document.addEventListener('click', (e) => {
+        const reviewEmail = e.target.closest('[data-review-email]');
+        if (reviewEmail) {
+            const emailId = Number(reviewEmail.getAttribute('data-review-email'));
+            if (emailId) sendEmail(emailId, reviewEmail, () => openReviewModal(emailId));
+            return;
+        }
+
+        const reviewApply = e.target.closest('[data-review-apply]');
+        if (reviewApply) {
+            const applyId = Number(reviewApply.getAttribute('data-review-apply'));
+            if (applyId) openApplyKit(applyId);
+            return;
+        }
+
         const btn = e.target.closest('[data-edit-application]');
         if (!btn) return;
         const id = Number(btn.getAttribute('data-edit-application'));
@@ -998,9 +1019,6 @@
                     ? humanizeStatus(recommendation)
                     : 'No advisor result recorded for this application.';
 
-                // Timeline rows come from persisted events only (Phase 12.9, Slice 4).
-                renderApplicationTimeline(app);
-
                 // Update action buttons based on status
                 updateActionButtons(app.applicationStatus);
 
@@ -1056,63 +1074,15 @@
         }
     }
 
-    // ─── Detail timeline (Phase 12.9, Slice 4) ─────────────────────────────────
-    // Renders ONLY row types the platform can observe from non-null persisted
-    // fields — preparation (createdAt), last edit (updatedAt when it differs),
-    // approval (approvedAt), the accepted email-send attempt with its real-vs-
-    // simulated outcome (emailSendAttemptedAt/emailSendResult), and the employer
-    // site opening recorded on kit handoff (employerOpenedAt/employerUrl). Absent
-    // timestamps produce no row; nothing here implies a submission — this platform
-    // cannot observe one, so no row may claim it.
-    function renderApplicationTimeline(app) {
-        const section = document.getElementById('applicationDetailTimelineSection');
-        const list = document.getElementById('applicationDetailTimeline');
-        if (!section || !list) return;
-
-        const at = value => new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-        const rows = [];
-
-        if (app.createdAt) {
-            rows.push({ label: 'Prepared', when: at(app.createdAt), detail: '' });
-        }
-        if (app.updatedAt && (!app.createdAt || new Date(app.updatedAt).getTime() !== new Date(app.createdAt).getTime())) {
-            rows.push({ label: 'Last updated', when: at(app.updatedAt), detail: '' });
-        }
-        if (app.approvedAt) {
-            rows.push({ label: 'Approved for application', when: at(app.approvedAt), detail: '' });
-        }
-        if (app.emailSendAttemptedAt) {
-            // §5 mandatory wording: transport acceptance is never called delivery.
-            const result = app.emailSendResult === 'SENT_SIMULATED'
-                ? 'Email send simulated — no SMTP configured. Nothing was actually mailed.'
-                : (app.emailSendResult === 'SENT'
-                    ? 'Email send reported by email service'
-                    : 'Email send attempt recorded');
-            rows.push({ label: 'Email send attempt', when: at(app.emailSendAttemptedAt), detail: result });
-        }
-        if (app.employerOpenedAt) {
-            // Opening is observed; submission on that page is not. Mandatory §9 suffix.
-            const link = app.employerUrl
-                ? `<a href="${esc(app.employerUrl)}" target="_blank" rel="noopener noreferrer">${esc(app.employerUrl)}</a> `
-                : '';
-            rows.push({ label: 'Employer site opened', when: at(app.employerOpenedAt), detail: `${link}— submission not confirmed by this platform` });
-        }
-
-        list.innerHTML = rows.map(row => `
-            <li class="application-timeline-item">
-                <span class="application-timeline-dot" aria-hidden="true"></span>
-                <div class="application-timeline-body">
-                    <div class="application-timeline-head">
-                        <span class="application-timeline-label">${esc(row.label)}</span>
-                        <time class="application-timeline-when">${esc(row.when)}</time>
-                    </div>
-                    ${row.detail ? `<div class="application-timeline-detail">${row.detail}</div>` : ''}
-                </div>
-            </li>`).join('');
-        section.hidden = rows.length === 0;
-    }
+    // ─── Detail timeline ───────────────────────────────────────────────────────
+    // The rows and their markup live in applicationTimeline.js, rendered by
+    // renderReviewModal() into the shared modal that users actually see. The previous
+    // copy here wrote into #applicationDetailTimelineSection, which only exists in the
+    // legacy inline detail surface that the modal replaced — so the timeline was
+    // built from real events and then painted nowhere.
 
     // ─── Edit mode ───────────────────────────────────────────────────────────
+
     function enterEditMode() {
         if (!currentApplicationId) {
             showToast('No application selected.', 'error');
@@ -1282,8 +1252,24 @@
     }
 
     // ─── Send Email ───────────────────────────────────────────────────────────
-    async function sendEmail() {
-        if (!currentApplicationId) {
+    /**
+     * The one email-send path, shared by the legacy inline detail section and the
+     * visible review modal.
+     *
+     * The modal passes the application id, the control that started the action (so the
+     * pending state guards the control the user can actually see) and a refresh
+     * callback: the shared confirmation dialog renders through the same modal shell, so
+     * it replaces whatever the caller was showing and the caller must be rendered again
+     * afterwards — including when the user cancels. Called with no arguments the legacy
+     * behaviour is unchanged.
+     *
+     * The send is always user-initiated: this is only ever reached from a click, the
+     * recipient is confirmed in the dialog first, and the outcome wording keeps a
+     * simulated attempt labelled as simulated.
+     */
+    async function sendEmail(appId, triggerBtn, refresh) {
+        const targetId = appId || currentApplicationId;
+        if (!targetId) {
             showToast('No application selected.', 'error');
             return;
         }
@@ -1308,21 +1294,26 @@
                     : 'Enter a valid email address (e.g. name@example.com).'
             }
         });
+        if (typeof refresh === 'function') refresh();
         if (recipient === false) {
             return;
         }
 
-        const sendBtn = sendEmailBtn;
-        if (sendBtn) {
-            sendBtn.disabled = true;
-            sendBtn.textContent = 'Sending...';
+        // Re-queried after the refresh above: the modal re-rendered, so the node that
+        // was clicked may be gone. Disabled + relabelled for the whole request so the
+        // same send cannot be triggered twice while it is in flight.
+        const btn = emailControl(triggerBtn);
+        const restingLabel = btn ? btn.textContent : 'Send Email';
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
         }
 
         fetch(EMAIL_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                applicationId: currentApplicationId,
+                applicationId: targetId,
                 approved: true,
                 recipientEmail: recipient
             })
@@ -1354,19 +1345,27 @@
             } else {
                 showToast('Email send completed: ' + (data.message || data.status), 'info');
             }
-            // Refresh the application to get updated status
-            viewApplication(currentApplicationId);
+            // Refresh so the persisted outcome (timeline row, status) is what is shown.
+            if (typeof refresh === 'function') refresh();
+            else viewApplication(currentApplicationId);
         })
         .catch(err => {
             console.error('Error sending email:', err);
             showToast(window.apiError.describe(err, 'Failed to send email.'), 'error');
         })
         .finally(() => {
-            if (sendBtn) {
-                sendBtn.disabled = false;
-                sendBtn.textContent = 'Send Email';
+            const live = emailControl(triggerBtn);
+            if (live) {
+                live.disabled = false;
+                live.textContent = restingLabel;
             }
         });
+    }
+
+    /** The live email control: the clicked one when still attached, else the visible one. */
+    function emailControl(preferred) {
+        if (preferred && preferred.isConnected) return preferred;
+        return document.querySelector('[data-review-email]') || sendEmailBtn;
     }
 
     // ─── Approve application ──────────────────────────────────────────────────

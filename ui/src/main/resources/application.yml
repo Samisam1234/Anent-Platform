@@ -194,11 +194,16 @@ job-sources:
     max-pages: 1
   mock:
     enabled: false
+  # openings-mcp: an MCP server exposing job-board and employer career tools.
+  # apply-url-detail-limit follows a search summary with a detail call — the only place
+  # the server publishes apply_url. 0 = off, because the search summary already carries
+  # the employer's own career-posting URL for the first-party tools below.
   openings-mcp:
-    enabled: false
+    enabled: true
     base-url: http://localhost:9000/
     timeout-seconds: 15
     country-code: IND
+    apply-url-detail-limit: 0
     include-google: true
     include-amazon: true
     include-apple: true

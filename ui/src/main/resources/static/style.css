@@ -56,6 +56,24 @@ a:hover{text-decoration:underline}
 .model-badge{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:var(--radius);background:var(--bg-card);border:1px solid var(--border);font-family:var(--font-mono);font-size:.75rem;color:var(--text-secondary)}
 .badge-icon{width:14px;height:14px;color:var(--accent)}
 
+/* D2: below 768px the header's two clusters (490px nav + up to 585px actions) no longer
+   fit on one line, which pushed documentElement.scrollWidth past the viewport on every
+   page. Let the header wrap and each cluster wrap internally instead of clipping the
+   page with overflow-x. ponytail: flex-wrap only, no per-page overrides. */
+@media (max-width:768px){
+  .app-header{flex-wrap:wrap;gap:8px 12px;padding:12px 16px}
+  .header-nav,.header-actions{flex-wrap:wrap;min-width:0}
+  .header-actions{margin-left:auto}
+  .model-selector{max-width:100%;min-width:0}
+  .applications-toolbar{flex-wrap:wrap;gap:10px 12px}
+  .applications-toolbar-filters{margin-right:0}
+}
+@media (max-width:480px){
+  .nav-link{padding:8px 10px;font-size:.8125rem}
+  .status-badge{padding:6px 10px}
+  .header-actions{gap:8px}
+}
+
 /* ── Main Content ── */
 .applications-main,.matches-main,.custom-main{flex:1;padding:24px;max-width:1280px;margin:0 auto;width:100%}
 .applications-container,.matches-container,.custom-container{display:flex;flex-direction:column;gap:24px}
@@ -1135,3 +1153,22 @@ body.modal-open{overflow:hidden}
 .advisor-breakdown{display:flex;flex-direction:column;gap:10px}
 .advisor-breakdown .fit-row{grid-template-columns:150px minmax(0,1fr) 46px;gap:12px}
 .advisor-breakdown .fit-bar,.advisor-breakdown .fit-bar-fill{height:8px;border-radius:4px}
+/* --- D1: active-query summary chips must not force horizontal page overflow ---
+   "Skills from resume: <name>" and the profile/job-id chips were nowrap, so on a
+   390px phone one chip measured 337px wide and pushed the page to 433px. These rules
+   live at the end of this file on purpose: the base .summary-chip / .results-header
+   rules are declared above and equal-specificity rules only win by source order.
+   ponytail: wrap + break, never overflow-x. */
+@media (max-width:768px){
+  .results-header{flex-wrap:wrap;gap:6px 12px}
+  .active-query-summary{min-width:0;max-width:100%}
+}
+@media (max-width:480px){
+  .summary-chip{white-space:normal;overflow-wrap:anywhere;max-width:100%}
+}
+/* Application timeline inside the shared modal: the dot ring must match the modal
+   surface (--bg-secondary), not the card surface the legacy inline section used. */
+.ms-body .application-timeline-item::before{border-color:var(--bg-secondary)}
+/* Review modal action row (Phase 12.10, F4): the two next-step actions wrap
+   instead of forcing horizontal overflow on narrow viewports. */
+.review-action-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}

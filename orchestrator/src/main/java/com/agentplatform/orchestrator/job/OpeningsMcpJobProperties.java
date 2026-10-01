@@ -9,6 +9,7 @@ public class OpeningsMcpJobProperties {
     private String baseUrl = "http://localhost:9000/";
     private int timeoutSeconds = 20;
     private String countryCode = "IND";
+    private int applyUrlDetailLimit = 0;
     private boolean includeGoogle = true;
     private boolean includeAmazon = true;
     private boolean includeApple = true;
@@ -44,6 +45,20 @@ public class OpeningsMcpJobProperties {
 
     public void setCountryCode(String countryCode) {
         this.countryCode = countryCode;
+    }
+
+    /**
+     * How many listings per search may be followed up with a detail call to the MCP server.
+     * Zero (the default) disables it: the search summaries already carry the employer's
+     * career-posting URL for the first-party tools, and a detail call per listing would
+     * multiply latency and upstream load for a link the posting page already offers.
+     */
+    public int getApplyUrlDetailLimit() {
+        return applyUrlDetailLimit;
+    }
+
+    public void setApplyUrlDetailLimit(int applyUrlDetailLimit) {
+        this.applyUrlDetailLimit = applyUrlDetailLimit;
     }
 
     public boolean isIncludeGoogle() {
