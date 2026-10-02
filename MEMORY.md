@@ -23,7 +23,8 @@
 | Cleanup Batch 1 | 7fb6e18 | 2026-10-02 | Confirmed dead code removed; advisor score rendering fixed with regression tests |
 | Cleanup Batch 2 | 620749c | 2026-10-02 | Repository hygiene — one tracked root `.gitignore`, modernize hook scripts tracked, runtime logs ignored |
 | Cleanup Batch 3 | 00079a9 | 2026-10-02 | Maven dependency/config manifest cleanup; dependency tree remained version/scope-identical; `mvn test` 1,301 tests (15 skipped) + 24 JS tests green |
-| Cleanup Batch 4 | *(uncommitted)* | — | Documentation consistency across the nine project documents (docs only, no source/config changes) |
+| Cleanup Batch 4 | b45bb4c | 2026-10-02 | Documentation consistency across the nine project documents (docs only, no source/config changes) |
+| Cleanup Batch 5 | *(uncommitted)* | — | Synthetic resume fixture (generator + pinned parse test) replaces the personal CV; 17 browser E2E scripts moved from `ui/target/` to tracked `scripts/e2e/` with `os.tmpdir()` output and `E2E_*` overrides; `playwright` declared directly, unused `patchright` removed. Verified: 1,304 Java + 24 JS tests green, real-browser `e2e:browser` B1–B8 all PASS |
 
 ---
 
@@ -101,7 +102,7 @@
 | `mvn clean test` | **Must pass**: Failures=0, Errors=0 |
 | `git diff --check` | Clean (CRLF warnings OK on Windows) |
 | No test weakening | Never weaken, delete, or skip tests |
-| Browser verification | Shiplight/Playwright required for frontend flows |
+| Browser verification | Shiplight/Playwright required for frontend flows — scripts live in `scripts/e2e/` (`npm run e2e:*`), not in `ui/target/` |
 | No commit without verification | Tests + browser check required |
 
 ---
@@ -118,10 +119,10 @@ Latest verified run — Cleanup Batch 3 (`00079a9`, `mvn test`):
 | logging | 14 | 0 | 0 | 0 |
 | memory-service | 39 | 0 | 0 | 9 |
 | tool-service | 10 | 0 | 0 | 0 |
-| orchestrator | 956 | 0 | 0 | 0 |
+| orchestrator | 959 | 0 | 0 | 0 |
 | ui | 132 | 0 | 0 | 0 |
 | rag-service | 15 | 0 | 0 | 6 |
-| **TOTAL (Java)** | **1,301** | **0** | **0** | **15** |
+| **TOTAL (Java)** | **1,304** | **0** | **0** | **15** |
 | **JavaScript** (`node --test`) | **24** | **0** | — | **0** |
 
 > The 15 skipped tests are the Testcontainers PostgreSQL/pgvector tests (9 in memory-service, 6 in
@@ -145,17 +146,25 @@ Latest verified run — Cleanup Batch 3 (`00079a9`, `mvn test`):
 | Cold-start comment | `resume.js` | Document timeout rationale |
 | `.gitignore` | `.gitignore` | Added `node_modules/` (module-level ignores later removed in Batch 2) |
 | Test cleanup | — | Removed `Samiuddin_IT_B.Tech.docx`, `TestResumeExtractor.java`, `runtime-*.log` |
+| Batch 5 — synthetic fixture | `orchestrator/.../SampleResumeFixture.java`, `SampleResumeFixtureTest.java`, `orchestrator/src/test/resources/fixtures/sample-resume.docx` | The personal CV above was still tracked in Git despite that earlier note. Replaced by an entirely fictional fixture (Jordan Sample); `SampleResumeFixture` regenerates it, `SampleResumeFixtureTest` pins the parse (888 chars, 11 skills, 5 experience, 1 education/project/certification, 11 evidence rows). Verified over real HTTP and in the real browser |
+| Batch 5 — E2E scripts | `scripts/e2e/` (17 scripts + README), `package.json` | Browser scripts were authored inside `ui/target/`, so `mvn clean` destroyed them. Moved to `scripts/e2e/` with `os.tmpdir()` output, the synthetic fixture as the default upload, and `E2E_*` env overrides. `playwright` is now a declared dependency; unused `patchright` removed |
 
 ---
 
 ## 9. Verified Test Results (Invariant)
 
 ```
-mvn test → BUILD SUCCESS (Cleanup Batch 3, 00079a9)
-Total tests: 1,301 (0 failures, 0 errors)
+mvn test → BUILD SUCCESS (Cleanup Batch 5; 1,304 = Batch 3's 1,301 + 3 SampleResumeFixtureTest)
+Total tests: 1,304 (0 failures, 0 errors)
 Skipped: 15 (Testcontainers PostgreSQL/pgvector — Docker unavailable)
-JavaScript: node --test → 24/24 passed
+JavaScript: npm run test:js → 24/24 passed
+Browser: npm run e2e:browser → B1–B8 all PASS (real UI, real backend, synthetic fixture)
 ```
+
+Note: `PersistentConversationStoreTest.tearDown` can throw
+`TransientObjectException` when its `deleteAll()`/`flush()` ordering lands badly — a pre-existing
+flake, unrelated to the fixture or script work. It passed 3/3 in isolation and the full suite is
+green; do not "fix" it by weakening the test.
 
 Prior verified runs — Phase 12.9 (2026-09-30): 1,278 tests, 0 failures, 0 errors, 15 skipped;
 browser acceptance 10/10 API + 10/10 UI. Phase 12.8 (2026-09-30): 1,227 tests; Phase 12.7

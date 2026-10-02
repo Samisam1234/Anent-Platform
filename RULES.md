@@ -58,6 +58,8 @@
 | Cleanup Batch 1 (dead code) | 7fb6e18 | **COMPLETE** | Confirmed dead code removed; advisor score rendering fixed with regression tests |
 | Cleanup Batch 2 (repository hygiene) | 620749c | **COMPLETE** | Single root `.gitignore`, tracked modernize scripts, runtime logs ignored |
 | Cleanup Batch 3 (Maven dependencies/config) | 00079a9 | **COMPLETE** | Dependency tree version/scope-identical after manifest cleanup; 1,301 Java + 24 JS tests green |
+| Cleanup Batch 4 (documentation consistency) | b45bb4c | **COMPLETE** | Nine project documents reconciled against source and verified evidence |
+| Cleanup Batch 5 (fixture + E2E scripts) | *(uncommitted)* | **IN PROGRESS** | Synthetic DOCX fixture replaces the personal CV; E2E scripts tracked in scripts/e2e/; `playwright` declared directly, unused `patchright` removed |
 
 **Rule**: Frozen phases are **immutable**. No code changes, refactoring, or "improvements" unless explicitly required by a new phase with approval.
 
@@ -105,7 +107,7 @@
 | **Gemini Timeout** | 60s read timeout (remote cloud API). Do not remove. |
 | **Maven Verification** | `mvn clean test` → **Failures: 0, Errors: 0** required before commit. |
 | **Browser Verification** | Shiplight/Playwright verification required for frontend user-flow completion. |
-| **Current Totals** | 1,301 Java tests (15 skipped Testcontainers PostgreSQL/pgvector tests) and 24 JS tests in `ui/src/test/js` (`node --test`). |
+| **Current Totals** | 1,304 Java tests (15 skipped Testcontainers PostgreSQL/pgvector tests) and 24 JS tests in `ui/src/test/js` (`node --test`). |
 | **No Test Weakening** | Do not weaken, delete, or skip tests. |
 | **Git Diff Check** | `git diff --check` must pass (only CRLF warnings allowed). |
 | **No Commit Until Verified** | Only commit after browser verification + tests pass. |
@@ -197,6 +199,8 @@
 | Cleanup Batch 1 (dead code) | 7fb6e18 | **COMPLETE** | Confirmed dead code removed; advisor score rendering fixed with regression tests |
 | Cleanup Batch 2 (repository hygiene) | 620749c | **COMPLETE** | Single root `.gitignore`, tracked modernize scripts, runtime logs ignored |
 | Cleanup Batch 3 (Maven dependencies/config) | 00079a9 | **COMPLETE** | Dependency tree version/scope-identical after manifest cleanup; 1,301 Java + 24 JS tests green |
+| Cleanup Batch 4 (documentation consistency) | b45bb4c | **COMPLETE** | Nine project documents reconciled against source and verified evidence |
+| Cleanup Batch 5 (fixture + E2E scripts) | *(uncommitted)* | **IN PROGRESS** | Synthetic DOCX fixture replaces the personal CV; E2E scripts tracked in scripts/e2e/; `playwright` declared directly, unused `patchright` removed |
 
 ---
 

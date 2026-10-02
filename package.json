@@ -4,7 +4,15 @@
   "description": "",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "test:js": "node --test ui/src/test/js/applicationActions.test.mjs ui/src/test/js/applicationAdvisor.test.mjs ui/src/test/js/applicationTimeline.test.mjs"
+    "test:js": "node --test ui/src/test/js/applicationActions.test.mjs ui/src/test/js/applicationAdvisor.test.mjs ui/src/test/js/applicationTimeline.test.mjs",
+    "e2e:browser": "node scripts/e2e/e2e-browser.mjs",
+    "e2e:mcp-handoff": "node scripts/e2e/phase11-mcp-handoff.mjs",
+    "e2e:pdf-upload": "node scripts/e2e/ui-pdf-upload.mjs",
+    "e2e:resume-diag": "node scripts/e2e/e2e-resume-diag.mjs",
+    "e2e:widths": "node scripts/e2e/e14.mjs",
+    "e2e:transitions": "node scripts/e2e/ui-transitions.mjs",
+    "e2e:timeline": "node scripts/e2e/f5-timeline.mjs",
+    "e2e:apps-detail": "node scripts/e2e/e2e-apps-detail.mjs"
   },
   "repository": {
     "type": "git",
@@ -20,6 +28,6 @@
   "homepage": "https://github.com/Samisam1234/Anent-Platform#readme",
   "dependencies": {
     "@playwright/test": "^1.63.0",
-    "patchright": "^1.63.0"
+    "playwright": "^1.63.0"
   }
 }

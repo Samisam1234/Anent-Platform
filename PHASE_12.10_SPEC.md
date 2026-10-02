@@ -157,7 +157,7 @@ interactions. Statuses are PASS / FAIL / BLOCKED / NOT RUN — none of the latte
 | # | Status | Evidence (live) |
 |---|---|---|
 | E1 runtime | **PASS** | six pages 200, `/api/v1/ai/status` 200, `/style.css` carries the D2 rule |
-| E2 resume upload | **PASS** | real DOCX `Samiuddin_IT_B.Tech.docx` → 200, `candidateId` persisted, `aiModelUsed=false` + honest "built-in resume parser" notice; UI shows profile (name/email/phone/location, 21 skills, software+hardware split, education, projects) and the same notice |
+| E2 resume upload | **PASS** | real DOCX `Samiuddin_IT_B.Tech.docx` → 200, `candidateId` persisted, `aiModelUsed=false` + honest "built-in resume parser" notice; UI shows profile (name/email/phone/location, 21 skills, software+hardware split, education, projects) and the same notice. *Re-verified in Cleanup Batch 5 with the synthetic fixture* `orchestrator/src/test/resources/fixtures/sample-resume.docx` (the personal CV has since been removed from the tree): 200 over HTTP and through `/resume.html`, `candidateId` persisted, same honest notice, 11 skills + 5 experience + education/projects/certification |
 | E3 profile | **PASS** | `GET /api/v1/candidate/{id}` 200 with the extracted fields; nothing invented (no fabricated experience: `experience: []` stays empty because the source resume has none) |
 | E4 job search | **PASS** | `POST /api/v1/jobs/search` → 10 jobs, `source: ARBEITNOW`; UI renders cards + "Live Job Source Active … (ARBEITNOW, REMOTIVE)" banner; later run 298 results |
 | E5 job details | **PASS** | `GET /api/v1/jobs/{id}` 200 with `source: ARBEITNOW`; UI modal shows the truthful disclaimer "listing page on ARBEITNOW, not a direct employer application link" |
@@ -216,7 +216,9 @@ counted as passed without its own evidence (§7.7):
 
 Exact reproduction (live, real profile, real jobs, no interception):
 
-1. Start the app; upload `Samiuddin_IT_B.Tech.docx` on `/resume.html` (stored candidate exists).
+1. Start the app; upload a resume on `/resume.html` (stored candidate exists). The original run used
+   `Samiuddin_IT_B.Tech.docx`, which is no longer in the tree — use the synthetic fixture
+   `orchestrator/src/test/resources/fixtures/sample-resume.docx` (Cleanup Batch 5).
 2. Open `/jobs.html` at viewport width **390** and run a search (profile-driven, so the active-query
    summary is rendered).
 3. `document.documentElement.scrollWidth = 421`, `clientWidth = 390` → **31 px page-level overflow**.
@@ -411,6 +413,8 @@ Running the three that were required surfaced two real defects:
   `Name: Mahfuza Tabassum` line does not become the profile name; the profile is `name: "Candidate"`,
   while `email`, `education` and all six skills extract correctly with `STRONG` evidence. The DOCX
   path extracted the real name, so the deterministic parser's name heuristic is weaker for PDFs.
+  *(Cleanup Batch 5 replaced that name inside `scripts/e2e/ui-pdf-upload.mjs` with the synthetic
+  `Jordan Sample`; the behaviour above is unchanged — the fallback still yields `name: "Candidate"`.)*
 
 These three were not fixed in the D1/F5 task: F4/F5 were JS/HTML changes outside the CSS-only D1 scope,
 and F6 sits in the parser. F4 and F5 are now fixed and verified live (above). **F6 was not fixed
@@ -528,7 +532,7 @@ the tool's own returned posting URL is on that tool's employer allowlist.
 
 #### 7.8.2 Live proof of the handoff checkpoint
 
-Journey (`ui/target/phase11-mcp-handoff.mjs`, real Chromium, no route interception, no fixtures, live
+Journey (`scripts/e2e/phase11-mcp-handoff.mjs`, real Chromium, no route interception, no fixtures, live
 Spring on `127.0.0.1:8080` + real MCP on `127.0.0.1:9000`):
 
 | check | evidence |
@@ -554,7 +558,7 @@ orchestrator 956, rag-service 15 (6 skipped), tool-service 10, ui 132), plus
 `OPENINGS_MCP(39)`, and the response contains only `ARBEITNOW: 4` + `REMOTIVE: 3`
 (`raw=376, afterDedup=376, afterFilter=7`). This was traced stage by stage against **real** MCP
 payloads fetched read-only with the exact arguments the provider sends
-(`ui/target/diag-mcp-stages2.mjs`; artifacts in `%LOCALAPPDATA%\Temp\opencode\diag2\`). The replay
+(`scripts/e2e/diag-mcp-stages2.mjs`; artifacts in `%LOCALAPPDATA%\Temp\opencode\diag2\`). The replay
 reproduces the provider's 39 rows exactly (amazon 10 + apple 6 + google 20 + meta 3) and applies
 `JobSearchService`'s stages in order:
 

@@ -1,8 +1,8 @@
 # Tasks — agent-platform
 
-> **Status**: CURRENT — roadmap as of commit 00079a9 (Phase 12.10 COMPLETE AND VERIFIED; Cleanup Batches 1–3 complete; Batch 4 documentation consistency in progress, uncommitted)
+> **Status**: CURRENT — roadmap as of commit b45bb4c (Phase 12.10 COMPLETE AND VERIFIED; Cleanup Batches 1–4 complete; Batch 5 fixture/E2E-script cleanup in progress, uncommitted)
 > **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 92c0942, 055db64, bc457e2, 091f7c3, 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **Phase 12.8 verified**: d60f556, c758dca, 8718d5c, 8b2e966 | **Phase 12.9 verified**: f21b09c, 45afa38, 28d49aa, 95da0e9 | **Phase 12.10 verified**: 1ba94cc
-> **Cleanup Batch 1**: 7fb6e18 | **Batch 2**: 620749c | **Batch 3**: 00079a9
+> **Cleanup Batch 1**: 7fb6e18 | **Batch 2**: 620749c | **Batch 3**: 00079a9 | **Batch 4**: b45bb4c | **Batch 5**: *(uncommitted)*
 
 ---
 
@@ -28,8 +28,8 @@
 | **Cleanup Batch 1** | 7fb6e18 | **COMPLETE** | Confirmed dead code removed; advisor score rendering fixed with regression tests |
 | **Cleanup Batch 2** | 620749c | **COMPLETE** | Repository hygiene — single root `.gitignore`, tracked modernize scripts, runtime logs ignored |
 | **Cleanup Batch 3** | 00079a9 | **COMPLETE** | Maven dependency/config manifest cleanup; dependency tree version/scope-identical; 1,301 Java + 24 JS tests green |
-| **Cleanup Batch 4** | *(uncommitted)* | **IN PROGRESS** | Documentation consistency across the nine project documents — source-verified only, no source/config changes |
-| **Cleanup Batch 5** | — | **PENDING** | Not started; scope not yet defined |
+| **Cleanup Batch 4** | b45bb4c | **COMPLETE** | Documentation consistency across the nine project documents — source-verified only, no source/config changes |
+| **Cleanup Batch 5** | *(uncommitted)* | **IN PROGRESS** | Personal CV fixture replaced by a synthetic generated one; browser E2E scripts tracked in `scripts/e2e/` instead of `ui/target/`; `playwright` declared directly and unused `patchright` removed. Verified: 1,304 Java + 24 JS tests green, `e2e:browser` B1–B8 all PASS |
 
 ---
 
@@ -74,8 +74,8 @@ Make the browser UI accurately display the profile that the backend produces fro
 | **12.9** | Application Tracking | Status-filtered list, status transitions, event timeline, action states — **VERIFIED** — spec: PHASE_12.9_SPEC.md |
 | **12.10** | Final Shiplight E2E | **VERIFIED** — full browser E2E regression; D2 overflow resolved; live reachability confirmed (`live: true` from ARBEITNOW/REMOTIVE/OPENINGS-MCP); handoff recorded as an opening only |
 | **B1–B3** | Cleanup Batches 1–3 | **COMPLETE** — dead code, repository hygiene, Maven dependency/config manifests |
-| **B4** | Cleanup Batch 4 (documentation consistency) | **IN PROGRESS** — nine project documents reconciled against source and verified evidence; uncommitted |
-| **B5** | Cleanup Batch 5 | **PENDING** — not started |
+| **B4** | Cleanup Batch 4 (documentation consistency) | **COMPLETE** — nine project documents reconciled against source and verified evidence; committed `b45bb4c` |
+| **B5** | Cleanup Batch 5 (fixture + E2E scripts) | **IN PROGRESS** — synthetic DOCX fixture with generator + regression test, `scripts/e2e/` tracked (17 scripts + README), `playwright` direct, `patchright` removed; all verification green, uncommitted |
 
 ---
 
@@ -324,8 +324,8 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
 5. `ApplicationAdvisorResponse` — Add `jobTitle`/`company` fields
 6. `ApplicationAdvisorService.adviseFromDomain` — Populate from `Job`
 
-**Current next action:** Cleanup Batch 4 (documentation consistency) is in progress and uncommitted.
-Cleanup Batch 5 has not been started or scoped.
+**Current next action:** Cleanup Batch 5 (synthetic resume fixture + tracked E2E scripts) is implemented
+and verified but uncommitted — review the diff, then commit. Phase 12.5 verification remains outstanding.
 
 ---
 
