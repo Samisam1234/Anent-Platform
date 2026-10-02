@@ -1,7 +1,8 @@
 # Design — agent-platform
 
-> **Status**: CURRENT — reflects actual UX as of commit 95da0e9 (Phase 12.7 COMPLETE AND VERIFIED; Phase 12.8 COMPLETE AND VERIFIED; Phase 12.9 COMPLETE AND VERIFIED)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **Phase 12.8 verified**: d60f556, c758dca, 8718d5c, 8b2e966 | **Phase 12.9 verified**: f21b09c, 45afa38, 28d49aa, 95da0e9
+> **Status**: CURRENT — reflects actual UX as of commit 00079a9 (Phase 12.10 COMPLETE AND VERIFIED; Cleanup Batches 1–3 complete)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 92c0942, 055db64, bc457e2, 091f7c3, 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **Phase 12.8 verified**: d60f556, c758dca, 8718d5c, 8b2e966 | **Phase 12.9 verified**: f21b09c, 45afa38, 28d49aa, 95da0e9 | **Phase 12.10 verified**: 1ba94cc
+> **Cleanup Batch 1**: 7fb6e18 | **Batch 2**: 620749c | **Batch 3**: 00079a9
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -41,13 +42,13 @@
 | **Success** | Result banner (green/amber), profile sections, "View My Matches" CTA |
 | **Error** | Alert banner with title, message, actionable hints; retry button |
 
-**Timeout Handling**: Client 630s, Server 600s. First-run cold start ~290s. Page shows "up to 10 minutes" notice.
+**Timeout Handling**: Client watchdog 300s (`CLIENT_TIMEOUT_MS = 300000` in `resume.js`, `AbortController`), server-side AI deadline `ollama.reasoning-timeout` = 300s (`OllamaChatModelFactory` falls back to 2 minutes when the property is unset). First-run cold start on CPU is the slow path.
 
 **Issues**: None (resume flow works)
 
 ---
 
-## 3. Profile Display (Implemented — with UI Bugs)
+## 4. Profile Display (Implemented — with UI Bugs)
 
 ### Rendered Sections (in order)
 1. **Header** — Name, contact row (email/phone/location icons), Profile ID badge
@@ -75,7 +76,7 @@
 
 ---
 
-## 4. Matches Page (Implemented)
+## 5. Matches Page (Implemented)
 
 ### Layout
 - **Candidate Banner** — Name, "Matching as [Name]" or "No profile"
@@ -94,13 +95,13 @@
 - **Actions** — "Match Details", "Career Analysis", "Tailor Resume", "Prepare Application" (score≥60), "View Job Listing"/"Apply on Employer Site"
 
 ### Known Issues
-- "Development Mock Source Active" banner hardcoded default
-- Keywords & Skills filter present (should be removed per PRD)
-- Match Details modal uses non-existent `#advisorReviewJobTitle`/`#advisorReviewCompany` (historical — advisor modal now renders via the shared modal shell)
+- None outstanding on the Matches page. The banner is live-first (`Live Job Source Active` / `Live Source Returned No Listings`, driven by the response `live` flag), and the Keywords & Skills field was removed in Phase 12.3 — discovery derives from the stored profile.
+- Historical (resolved): "Development Mock Source Active" hardcoded as the default banner; Keywords & Skills filter present.
+- Historical: Match Details modal referenced `#advisorReviewJobTitle`/`#advisorReviewCompany`, which no longer exist — the advisor modal now renders through the shared modal shell.
 
 ---
 
-## 5. Job Details Modal (Implemented)
+## 6. Job Details Modal (Implemented)
 
 - **Trigger** — "Match Details" / "View Details" buttons
 - **Content** — Title, company, meta row (location, exp, type, date, track), description, required/preferred skills
@@ -109,7 +110,7 @@
 
 ---
 
-## 6. Career Analysis Modal (Backend OK / Frontend Broken)
+## 7. Career Analysis Modal (Backend OK / Frontend Broken)
 
 ### Backend Returns
 ```json
@@ -132,7 +133,7 @@
 
 ---
 
-## 6. Prepared Application Modal (Historical Phase 12.2 snapshot — Backend OK / Frontend Broken as of investigation)
+## 8. Prepared Application Modal (Historical Phase 12.2 snapshot — Backend OK / Frontend Broken as of investigation)
 
 ### Backend Returns
 ```json
@@ -161,21 +162,19 @@
 
 ---
 
-## 7. Career Agent Modal (Backend OK / Frontend Artifact)
+## 9. Career Agent Modal (Implemented — deterministic advisor report)
 
 ### Current Behavior
-- Progress list rendered once from empty `{}` → all stages show `WAITING`
-- `AgentStatus` backend enum: `PENDING, RUNNING, COMPLETED, FAILED, SKIPPED` — **no `WAITING`**
-- `careerAgent.js:buildProgressHtml` invents `WAITING` status
-- List never updated; all stages show `WAITING` for entire request duration
+- `careerAgent.js` presents a career decision report for one candidate against one job, built from `POST /api/v1/jobs/advisor` plus `GET /api/v1/jobs/{id}`, rendered through the shared `modalShell`.
+- The historical static progress list that invented a `WAITING` state (backend `AgentStatus` has only `PENDING, RUNNING, COMPLETED, FAILED, SKIPPED`) is gone, along with the orchestration telemetry it displayed. The user sees "Analysis completed"; unavailable data says so instead of being filled in to look complete.
+- The agent pipeline itself still exists at `POST /api/v1/agent/orchestrate` and is treated as implementation detail, not a career result.
 
-### Required Fix
-- Relabel placeholder state (e.g., "Pending" / "Queued")
-- Or drop static progress list until SSE/polling added (not approved)
+### Historical (resolved)
+- `buildProgressHtml` rendered the list once from an empty `{}` executions map, so every stage showed `WAITING` for the whole request (`careerAgent.js:292/303-307` also read `jobMatchScore` and `recommendedActionDetails`, which the response never carried). Removed in Cleanup Batch 1 (`7fb6e18`).
 
 ---
 
-## 7b. ATS Resume Tailoring Modal (Implemented — Phase 12.6)
+## 10. ATS Resume Tailoring Modal (Implemented — Phase 12.6)
 
 ### Overview
 The "Tailor Resume" action opens the single global `modalShell` with a combined preview of the deterministic tailoring analysis and the tailored resume draft. Two download buttons (PDF, DOCX) are added to the footer after the JSON payload resolves.
@@ -241,7 +240,7 @@ Both buttons disable during generation (spinner), restore on success/failure. Er
 
 ---
 
-## 7c. Application Package — Prepared Review, Editing, Email (Implemented — Phase 12.7)
+## 11. Application Package — Prepared Review, Editing, Email (Implemented — Phase 12.7)
 
 ### Overview
 Flow: prepare → review (shared `modalShell`) → edit via the Applications page → approve → email send with a user-confirmed recipient. No automatic email sending and no employer application submission at any point.
@@ -278,7 +277,7 @@ Flow: prepare → review (shared `modalShell`) → edit via the Applications pag
 
 ---
 
-## 7d. Employer Apply Kit — Assisted Apply (Implemented — Phase 12.8)
+## 12. Employer Apply Kit — Assisted Apply (Implemented — Phase 12.8)
 
 ### Overview
 From an `APPROVED_FOR_APPLICATION` package the user opens the **Apply Kit** in the shared `modalShell`: it shows which whitelisted fields it will prepare and their source (stored `CandidateProfile` vs approved `JobApplication`), lets the user edit every value inline, then hands off — the user pastes each value into the employer tab and submits on the employer site themselves. The app never writes to or submits a page it does not serve.
@@ -311,7 +310,7 @@ Every value is shown with its source label, editable inline, and reset by "Reset
 
 ---
 
-## 7e. Application Tracking (Implemented — Phase 12.9)
+## 13. Application Tracking (Implemented — Phase 12.9)
 
 ### List surface (`applications.html` / `applications.js`)
 - Each card carries a **status badge** derived from the persisted status: `Prepared` (grey-green),
@@ -367,19 +366,9 @@ the platform cannot observe.
 
 ---
 
-## 8. Resume Upload States (Implemented)
-
-| State | Visual |
-|-------|--------|
-| **Upload** | Drag-drop zone, file input, "Analyze resume" (disabled until file) |
-| **Review** | File card (name, size, type), "Analyze resume" enabled |
-| **Analyzing** | 3-stage progress, elapsed timer, progress bar (capped 92%), cancel |
-| **Success** | Green banner, profile sections, "View My Matches" CTA |
-| **Error** | Red banner, actionable hints, retry button |
-
 ---
 
-## 10. Visual Components (Implemented)
+## 14. Visual Components (Implemented)
 
 | Component | Classes | Usage |
 |-----------|---------|-------|
@@ -408,7 +397,7 @@ the platform cannot observe.
 
 ---
 
-## 11. Color/Status Semantics
+## 15. Color/Status Semantics
 
 | Semantic | Class | Color |
 |----------|-------|-------|
@@ -419,38 +408,38 @@ the platform cannot observe.
 
 ---
 
-## 12. States Not Yet Implemented (Planned)
+## 16. States Not Yet Implemented (Planned)
 
 | Feature | Page | Status |
 |---------|------|--------|
-| "Continue to Job Search" CTA after profile ready | `resume.html` | **PLANNED** |
-| Remove Keywords & Skills from Job Search | `jobs.html` | **PLANNED** |
-| Remove Keywords & Skills from Matches | `matches.html` | **PLANNED** |
+| "Continue to Job Search" CTA after profile ready | `resume.html` | **SUPERSEDED** — the post-upload CTA is "View My Matches" (`#continueToMatchesBtn`); Matches is the primary discovery surface |
+| Remove Keywords & Skills from Job Search | `jobs.html` | **REMOVED (12.3)** |
+| Remove Keywords & Skills from Matches | `matches.html` | **REMOVED (12.3)** |
 | Career Analysis modal DOM fixes | `matches.html` + `matches.js` | **SUPERSEDED** — renders via the shared modal shell |
 | Prepared Application overlay wrapper | `matches.html` | **SUPERSEDED** — obsolete `prepReviewOverlay`; review renders via the shared modal shell |
 | Prepared Application content from profile | `matches.js` + backend | **RESOLVED** — profile-derived via `JobApplicationPreparationService` |
-| Career Agent "WAITING" relabel | `careerAgent.js` | **PLANNED** |
-| Live job sources enabled by default | `application.yml` + `jobs.js` | **PLANNED** |
-| Resume → Job Search CTA | `resume.html` / `resume.js` | **PLANNED** |
+| Career Agent "WAITING" relabel | `careerAgent.js` | **RESOLVED** — progress list removed; deterministic advisor report instead |
+| Live job sources enabled by default | `application.yml` + `jobs.js` | **IMPLEMENTED** — Remotive/Arbeitnow/Adzuna/OPENINGS-MCP enabled, mock off; UI banner is live-first |
+| Resume → Job Search CTA | `resume.html` / `resume.js` | **SUPERSEDED** — see the "View My Matches" CTA row above |
 
 ---
 
-## 11. Stale/Deprecated UI Elements (To Remove)
+## 17. Stale/Deprecated UI Elements (Resolved)
 
 | Element | Location | Action |
 |---------|----------|--------|
 | `#jobsKeywordsInput` | `jobs.html` + `jobs.js` | **REMOVED (12.3)** |
 | `#matchesKeywordsInput` | `matches.html` + `matches.js` | **REMOVED (12.3)** |
-| "Development Mock Source Active" default banner | `jobs.js` / `matches.js` | **REPLACE** with live-first logic |
-| `#jobsKeywordsInput` in `buildPayload` | `jobs.js` | **REMOVE** |
-| `#matchesKeywordsInput` in payload | `matches.js` | **REMOVE** |
+| "Development Mock Source Active" default banner | `jobs.js` / `matches.js` | **REPLACED** — live-first banner driven by the response `live` flag |
+| `#jobsKeywordsInput` in `buildPayload` | `jobs.js` | **REMOVED (12.3)** |
+| `#matchesKeywordsInput` in payload | `matches.js` | **REMOVED (12.3)** |
 | Duplicate DOM IDs in advisor modal | `matches.html` | **SUPERSEDED** — shared modal shell (single body) |
 | Missing `advisorReviewJobTitle`/`Company` | `matches.html` | **SUPERSEDED** — modal-shell header renders job/company echo fields |
 | Missing `prepReviewOverlay` | `matches.html` | **SUPERSEDED** — obsolete wrapper; review renders via shared modal shell |
 
 ---
 
-## 12. Visual Style Reference (No Changes)
+## 18. Visual Style Reference (No Changes)
 
 - **Professional SaaS** — neutral slate surfaces, single accent (`--accent:#4f7cff`), layered shadows
 - **No futuristic/glowing effects** — no neon, no animated gradients, no particle backgrounds

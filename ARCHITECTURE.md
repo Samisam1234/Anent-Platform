@@ -1,7 +1,8 @@
 # Architecture — agent-platform
 
-> **Status**: CURRENT — reflects actual repository state as of commit 95da0e9 (Phase 12.7 COMPLETE AND VERIFIED; Phase 12.8 COMPLETE AND VERIFIED; Phase 12.9 COMPLETE AND VERIFIED)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **Phase 12.8 verified**: d60f556, c758dca, 8718d5c, 8b2e966 | **Phase 12.9 verified**: f21b09c, 45afa38, 28d49aa, 95da0e9
+> **Status**: CURRENT — reflects actual repository state as of commit 00079a9 (Phase 12.10 COMPLETE AND VERIFIED; Cleanup Batches 1–3 complete)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 92c0942, 055db64, bc457e2, 091f7c3, 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **Phase 12.8 verified**: d60f556, c758dca, 8718d5c, 8b2e966 | **Phase 12.9 verified**: f21b09c, 45afa38, 28d49aa, 95da0e9 | **Phase 12.10 verified**: 1ba94cc
+> **Cleanup Batch 1**: 7fb6e18 | **Batch 2**: 620749c | **Batch 3**: 00079a9
 > **Current local model**: llama3.2:3b (Ollama)
 
 ---
@@ -23,20 +24,30 @@
 ## 2. Module Dependency Graph (Build Order)
 
 ```
-tool-service
-    ↓
-agent-core
-    ↓
-memory-service
-    ↓
-orchestrator
-    ↓
-ui (bootable)
-    ↓
-logging
-    ↓
-rag-service
+agent-core            logging            memory-service      tool-service
+    ↑                     ↑                    ↑                   ↑
+    └─────────────────────┴────────────────────┼───────────────────┘
+                                    orchestrator
+                                          ↑
+                                        ui (bootable)
+
+agent-core + memory-service ──→ rag-service (dormant)
 ```
+
+Module-to-module dependency edges actually declared in the poms (non-test scope):
+
+| Module | Depends on (internal modules) |
+|--------|--------------------------------|
+| `agent-core` | — |
+| `logging` | — |
+| `memory-service` | — |
+| `tool-service` | — |
+| `orchestrator` | `agent-core`, `logging`, `memory-service`, `tool-service` |
+| `ui` | `orchestrator`, `logging` |
+| `rag-service` | `agent-core`, `memory-service` |
+
+Maven reactor order (dependency-sorted, verified): `agent-core` → `logging` → `memory-service` →
+`tool-service` → `orchestrator` → `ui` → `rag-service`.
 
 - `ui` is the only bootable module (`spring-boot-maven-plugin` only in ui/pom.xml)
 - `ui` scans `com.agentplatform` root → all `@Component`/`@Service`/`@Repository` auto-discovered
@@ -47,11 +58,10 @@ rag-service
 ## 3. Module Responsibilities
 
 ### agent-core (`com.agentplatform.core`)
-- `OllamaChatModelFactory` — builds per-request OllamaChatModel; dynamic model switching
-- `GeminiConfig` / `GeminiProperties` — Google AI Gemini integration (resume parsing, ai/status probe)
+- `OllamaChatModelFactory` — builds per-request OllamaChatModel; dynamic model switching; default model `llama3.2:3b`
+- `GeminiConfig` / `GeminiProperties` — Google AI Gemini integration, disabled by code default and unconfigured in YAML (deferred); no current path uses it
 - `AiErrorClassifier` — provider-aware error classification (quota, auth, model unavailable, network, timeout)
-- `AiStatusService` / `AiStatusResponse` — AI provider health/status (cheap GET + optional probe)
-- `OllamaChatModelFactory` — per-request model building; default model `llama3.2:3b`
+- `AiStatusService` / `AiStatusResponse` — AI provider health/status (Ollama by default; cheap GET + optional probe)
 
 ### orchestrator (`com.agentplatform.orchestrator`)
 | Package | Responsibility |
@@ -66,11 +76,12 @@ rag-service
 | `tailoring` | ResumeTailoringAnalysisService, TailoredResumeDraftService |
 | `document` | ResumeDocumentGenerator, PdfResumeDocumentGenerator, DocxResumeDocumentGenerator |
 | `service` | AgentChatService, OrchestrationService, EvaluationService |
-| `service.agent` | AgentChatService (chat with history, tool calling) |
+| `service.agent` | AgentChatService (chat with history, tool calling) — listed separately only because the AgentChatService classes live in this sub-package |
 
 ### ui (`com.agentplatform.ui`)
 - **Controllers**: AgentChatController, AiStatusController, ResumeUploadController, ResumeTailoringController (POST /tailor, /tailor/pdf, /tailor/docx), JobSearchController, JobMatchController, JobDetailsController, ApplicationAdvisorController, ApplicationEmailController, CustomAgentController, OrchestrationController
-- **Static assets**: `src/main/resources/static/` — 5 HTML pages + 13 JS modules + CSS
+- **Static assets**: `src/main/resources/static/` — 6 HTML pages + 15 JS modules + 1 CSS file
+- `app.js` does not exist: there is no chat page in the static UI, so nothing calls `POST /api/v1/agent/chat` from the browser. The backend endpoint is still live.
 - **PersistenceConfig** — `@EnableJpaRepositories` + `@EntityScan` over `com.agentplatform`
 
 ### memory-service (`com.agentplatform.memory`)
@@ -100,14 +111,15 @@ rag-service
 
 ### Resume Upload → Profile
 ```
-POST /api/v1/resume/upload (multipart)
+POST /api/v1/resume/upload (multipart PDF or DOCX)
   → ResumeUploadController
     → ResumeParserService.extractText(bytes)  [PDFBox/POI]
     → ResumeProfileService.buildProfileOutcome(text)
-      → LLM parsing (Ollama llama3.2:3b) with 600s timeout
+      → LLM parsing (Ollama llama3.2:3b) bounded by ollama.reasoning-timeout (300s in
+        application.yml; OllamaChatModelFactory falls back to 2 minutes when unset)
       → DeterministicCandidateProfileBuilder fallback
     → CandidateProfilePersistenceService.save(profile)
-    → Returns CandidateProfile + X-Candidate-Id header
+    → 200 JSON {candidateId, profile, aiModelUsed, notice?}  (no X-Candidate-Id header)
 ```
 
 ### Job Search
@@ -253,25 +265,27 @@ POST /api/v1/applications/{id}/handoff    APPROVED_FOR_APPLICATION + absolute ht
 ### Ollama (Local LLM)
 - `OllamaChatModelFactory` → per-request `OllamaChatModel` (model from request or default `llama3.2:3b`)
 - Base URL: `http://localhost:11434` (configurable via `ollama.base-url`)
-- Timeout: `ollama.reasoning-timeout` = 600s (was 120s; increased for cold-start)
-- Chat + custom/process route through Ollama; Gemini only for resume parsing + ai/status probe
+- Timeout: `ollama.reasoning-timeout` = 300s (code fallback 2 minutes when the property is absent)
+- Chat, custom/process, resume parsing, and the ai/status probe all route through Ollama
 
 ### Gemini (Google AI Studio)
-- `GeminiConfig` → `GoogleAiGeminiChatModel` bean
-- Used ONLY for: resume parsing (LLM path) + `GET /api/v1/ai/status?probe=true`
-- 60s read timeout (remote cloud API)
+- `GeminiConfig` → `GoogleAiGeminiChatModel` bean, **disabled by code default** and with no YAML
+  configuration block. `gemini` is a deferred decision, not a live dependency of any current path.
+- 60s read timeout retained for the day it is enabled (remote cloud API).
 
 ### OPENINGS-MCP (Phase 11.1)
 - **FROZEN**: Implemented at 0d141d6, enabled via config
 - Config: `job-sources.openings-mcp.enabled=true`, `base-url: http://localhost:9000/`
 - Tools: `google_search_jobs`, `amazon_search_jobs`, `apple_search_jobs`, `meta_search_jobs`
 - SSE transport; parallel tool calls; URL validation via `JobUrlValidator`
-- Currently **disabled** in `application.yml` (`enabled: false`)
+- **Enabled** in `application.yml` (`enabled: true`, `timeout-seconds: 15`); the server itself is a
+  local process (`http://localhost:9000/`), so the provider reports unavailable when it is not running
 
 ### PostgreSQL/pgvector
 - Profile: `SPRING_PROFILES_ACTIVE=postgres`
 - Docker: `pgvector/pgvector:pg16`, db `agentdb`, user `agent`/`agentpassword`
-- `init.sql` creates `vector` extension + `memory` table
+- `init.sql` creates the `vector` extension and the conversation/embedding tables
+  (`conversation_messages`, `documents`, `document_chunks`); the obsolete `memory` table is gone
 - Used by `memory-service` (pgvector conversation store) and `rag-service`
 
 ---
@@ -291,6 +305,10 @@ POST /api/v1/applications/{id}/handoff    APPROVED_FOR_APPLICATION + absolute ht
 | Phase 12.7 (Application Package) | 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **VERIFIED** — prepared-review sections, editing flow, recipient-verified email; full suite 1,216 tests green + browser acceptance A–P 51/51 (2026-09-29); H2 long-text `TEXT` persistence fix + regression test + two `applications.js` regression fixes in 6a9f647; D2 page-level overflow + live job-source reachability deferred to 12.10 |
 | Phase 12.8 (Employer Application — Apply Kit) | d60f556, c758dca, 8718d5c, 8b2e966 | **VERIFIED** — user-triggered assisted apply (review + per-field copy; user pastes and submits on the employer site; never writes to a page it does not serve); one read-only `GET /api/v1/candidate/{candidateId}` (loopback-bound); full suite 1,227 tests green + browser acceptance A–Q 67/67 (2026-09-30); D2 page-level overflow + live single-job reachability flakiness deferred to 12.10 |
 | Phase 12.9 (Application Tracking) | f21b09c, 45afa38, 28d49aa, 95da0e9 | **VERIFIED** — status-filtered list, server-enforced idempotent transitions + approval-gated email send + handoff recording, persisted-field-only event timeline, per-status action visibility; full suite 1,278 tests green + browser acceptance 10/10 API + 10/10 UI (2026-09-30); no auto-submit, no unattended email, no fabricated timeline row, no "delivered" claim; D2 page-level overflow + live reachability/advisor intermittency + unconfigured SMTP + ownership-free candidate endpoints deferred to 12.10 |
+| Phase 12.10 (Final E2E + MCP + handoff) | 1ba94cc | **VERIFIED** — D2 page-level overflow resolved, live job-source reachability confirmed against ARBEITNOW/REMOTIVE/OPENINGS_MCP (`live: true`), employer-site handoff recorded server-side as an OPENING only |
+| Cleanup Batch 1 (dead code removal) | 7fb6e18 | **COMPLETE** — advisor score rendering fixed with regression tests |
+| Cleanup Batch 2 (repository hygiene) | 620749c | **COMPLETE** — single root `.gitignore`, tracked modernize scripts, runtime logs ignored |
+| Cleanup Batch 3 (Maven dependencies/config) | 00079a9 | **COMPLETE** — dependency tree version/scope-identical after manifest cleanup; 1,301 Java + 24 JS tests green |
 
 ---
 
@@ -308,26 +326,38 @@ POST /api/v1/applications/{id}/handoff    APPROVED_FOR_APPLICATION + absolute ht
 ## 8. Configuration (application.yml)
 
 ```yaml
+server:
+  address: 127.0.0.1        # loopback-only binding; see Frozen Boundaries
+  port: 8080
+
 ollama:
-  base-url: http://localhost:11434
-  chat-model: llama3.2:3b
-  reasoning-timeout: 600s
+  base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+  chat-model: ${OLLAMA_CHAT_MODEL:llama3.2:3b}
+  embedding-model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
+  reasoning-timeout: 300s
 
 job-sources:
-  public-api:
-    enabled: false
+  public-api:              # Remotive, no credentials
+    enabled: true
     base-url: https://remotive.com/api/remote-jobs
-  arbeitnow:
+  arbeitnow:               # no credentials, one page per search
     enabled: true
-  adzuna:
+    base-url: https://www.arbeitnow.com/api/job-board-api
+  adzuna:                  # credentials from environment only
     enabled: true
+    country: ${ADZUNA_COUNTRY:gb}
     app-id: ${ADZUNA_APP_ID:}
     app-key: ${ADZUNA_APP_KEY:}
-  openings-mcp:
+  mock:                    # offline fallback, off by default
     enabled: false
+  openings-mcp:
+    enabled: true
     base-url: http://localhost:9000/
-    timeout-seconds: 20
+    timeout-seconds: 15
     country-code: IND
+
+rag:
+  enabled: false           # dormant; also needs the postgres profile
 
 agent.matching:
   skill-weight: 0.40
@@ -342,10 +372,11 @@ agent.matching:
 
 ## 9. Testing Strategy
 
-- **No full `@SpringBootTest`** — slice tests (`@WebMvcTest`) + mocked services
+- No full `@SpringBootTest` — slice tests (`@WebMvcTest`) + mocked services
 - **Plain JUnit** for deterministic logic (matching engines, resume parsing, document generation)
-- **No DB/LLM required** for unit tests — hermetic, fast
-- 74+ test files across modules
+- No DB/LLM required for unit tests — hermetic, fast
+- Java suite: **1,301 tests, 0 failures, 0 errors, 15 skipped** (the 15 are the Testcontainers PostgreSQL/pgvector tests, skipped when the suite runs without that opt-in; Docker was unavailable in the latest verification run)
+- JavaScript suite: **24 tests** (`node --test` over `ui/src/test/js/*.test.mjs`)
 - Browser automation (Shiplight/Playwright) for E2E verification
 - **New in 12.6**: `ResumeTailoringControllerTest` (12 cases: JSON 200, 404s, 400s, PDF 200, DOCX 200, safe 500 on generator failure), `PdfResumeDocumentGeneratorTest` (7 cases: PDF magic, text re-read, unicode safe, pagination, byte determinism, null inputs, slugify), `DocxResumeDocumentGeneratorTest` (6 cases: DOCX magic, text re-read, cert/education sections, null inputs, content stability, slugify)
 - **PDF byte determinism (12.6)**: `PdfResumeDocumentGenerator` pins the PDF document identifier via `document.setDocumentId(FILE_ID)`. PDFBox otherwise writes a variable `/ID` into the xref trailer for each render, which would break byte-for-byte deterministic PDF output for equivalent inputs. The fixed ID is what makes the deterministic-byte assertion in `PdfResumeDocumentGeneratorTest` hold. DOCX output is intentionally **not** byte-deterministic — POI embeds `docProps/core.xml` creation timestamps — so only PDF determinism is asserted.

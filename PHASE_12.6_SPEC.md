@@ -1,4 +1,16 @@
-# PHASE 12.6 SPEC STATUS: READY FOR IMPLEMENTATION
+# PHASE 12.6 SPEC STATUS: COMPLETE AND VERIFIED
+
+> **Status**: IMPLEMENTED AND VERIFIED — this specification was executed, not just planned.
+> Commits: `92c0942` (spec) → `055db64` (backend + tests) → `bc457e2` (frontend preview + PDF/DOCX
+> download UI) → `091f7c3` (docs sync) → `0a02e22` (PDF byte determinism + D2 responsive follow-up).
+> Verification (2026-09-29): core workflow browser-verified — `/tailor` 200, preview modal renders
+> analysis + draft at 1440/768/390px, PDF/DOCX downloads 200 with correct filename/MIME, close/reopen
+> clean, 0 console errors, 0 failed requests; artifact read-back passed via PDFBox 3 + POI 5.2.5.
+> The D2 page-level overflow deferred by this phase was resolved in Phase 12.10 (`1ba94cc`).
+>
+> The specification text below is preserved as originally approved; where it describes a plan in the
+> future tense, read it against the status above. §14 lists the commit plan as proposed at the time —
+> all three commits were executed.
 
 ## FULL REVISED SPECIFICATION — Phase 12.6 ATS Resume Tailoring
 
@@ -173,11 +185,11 @@ A visible button (card + footer) · B 200 on tailoring · C preview modal render
 
 No new tailoring algorithm; no ATS-scoring change; no career-analysis-scoring change; no LLM-provider change; no job-search change; no new frontend framework; no new modal architecture; no DB persistence; no auto-apply/email/submission; no D2 mobile-header fix; no unrelated `JobApplication` sibling-column hardening; no TXT/HTML reduction of PDF/DOCX; no new dependencies.
 
-### 14. Commits (proposed, NOT executed)
+### 14. Commits (as planned; all executed)
 
-1. **Backend + tests** — `orchestrator/document/` (record, interface, PDF impl, DOCX impl) + `ResumeTailoringResponse` + controller (shared resolve helper, 2 new endpoints, wrapper return) + `ResumeTailoringControllerTest` + both generator tests. → `Phase 12.6 - tailored resume PDF/DOCX document generation + controller tests`
-2. **Frontend** — `matches.js`: `data.analysis ?? data` unwrap, draft-preview rendering, download handler (POST → blob → object URL → `<a download>` → revoke), `modalShell.setFooter` buttons; `style.css` only if existing `.btn-*`/`.tailoring-item` classes don't cover it. → `Phase 12.6 - tailored resume preview + PDF/DOCX download UI`
-3. **Docs sync** — `TASKS.md`, `DESIGN.md`, `ARCHITECTURE.md`, `PRD.md`. → `Phase 12.6 - sync docs`
+1. **Backend + tests** — `orchestrator/document/` (record, interface, PDF impl, DOCX impl) + `ResumeTailoringResponse` + controller (shared resolve helper, 2 new endpoints, wrapper return) + `ResumeTailoringControllerTest` + both generator tests. → `Phase 12.6 - tailored resume PDF/DOCX document generation + controller tests` — **`055db64`**
+2. **Frontend** — `matches.js`: `data.analysis ?? data` unwrap, draft-preview rendering, download handler (POST → blob → object URL → `<a download>` → revoke), `modalShell.setFooter` buttons; `style.css` only if existing `.btn-*`/`.tailoring-item` classes don't cover it. → `Phase 12.6 - tailored resume preview + PDF/DOCX download UI` — **`bc457e2`**
+3. **Docs sync** — `TASKS.md`, `DESIGN.md`, `ARCHITECTURE.md`, `PRD.md`. → `Phase 12.6 - sync docs` — **`091f7c3`**
 
 ### 15. Architectural risk (low, acknowledged)
 

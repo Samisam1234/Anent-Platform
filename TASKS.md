@@ -1,7 +1,8 @@
 # Tasks — agent-platform
 
-> **Status**: CURRENT — roadmap as of commit 6a9f647 (Phase 12.6 verified; Phase 12.7 COMPLETE AND VERIFIED)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647
+> **Status**: CURRENT — roadmap as of commit 00079a9 (Phase 12.10 COMPLETE AND VERIFIED; Cleanup Batches 1–3 complete; Batch 4 documentation consistency in progress, uncommitted)
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 92c0942, 055db64, bc457e2, 091f7c3, 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **Phase 12.8 verified**: d60f556, c758dca, 8718d5c, 8b2e966 | **Phase 12.9 verified**: f21b09c, 45afa38, 28d49aa, 95da0e9 | **Phase 12.10 verified**: 1ba94cc
+> **Cleanup Batch 1**: 7fb6e18 | **Batch 2**: 620749c | **Batch 3**: 00079a9
 
 ---
 
@@ -19,8 +20,16 @@
 | **Phase 12.3** | a6eaf5c | **VERIFIED** | Job search reliability, live sources |
 | **Phase 12.4** | da933ac | **VERIFIED** | Match Details — Job Details modal polish, source URLs |
 | **Phase 12.5** | 6f4b483 | **IMPLEMENTED — verification not recorded** | Career Analysis + Readiness UI polish — CSS + markup only (career report + advisor breakdown); no spec, no tests, no committed browser-verification evidence |
-| **Phase 12.6** | 92c0942, 055db64, bc457e2 | **VERIFIED** | ATS Resume Tailoring — spec, backend + tests, frontend preview + PDF/DOCX download UI; core workflow + PDF/DOCX read-back verified; D2 page-level overflow deferred to 12.10 |
-| **Phase 12.7** | 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **VERIFIED** | Application Package — prepared-review sections (9009aae), editing flow (351283e), email recipient verification + simulated-send labelling (9275582), docs sync (cceccc3), acceptance fixes (6a9f647: H2 long-text `TEXT` persistence fix + `JobApplicationLongTextFieldsPersistenceTest` regression + two `applications.js` regression fixes). Slices 1–3 verified: full suite 1,216 tests, 0 failures / 0 errors / 15 skipped; browser acceptance A–P 51/51 checks passed. D2 page-level overflow + live job-source reachability + SMTP-unconfigured simulated sends remain open/pending (Phase 12.10) |
+| **Phase 12.6** | 92c0942, 055db64, bc457e2, 091f7c3, 0a02e22 | **VERIFIED** | ATS Resume Tailoring — spec, backend + tests, frontend preview + PDF/DOCX download UI, docs sync (091f7c3), PDF byte determinism + D2 responsive follow-up (0a02e22); core workflow + PDF/DOCX read-back verified; D2 page-level overflow resolved in 12.10 |
+| **Phase 12.7** | 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **VERIFIED** | Application Package — prepared-review sections (9009aae), editing flow (351283e), email recipient verification + simulated-send labelling (9275582), docs sync (cceccc3), acceptance fixes (6a9f647: H2 long-text `TEXT` persistence fix + `JobApplicationLongTextFieldsPersistenceTest` regression + two `applications.js` regression fixes). Slices 1–3 verified: full suite 1,216 tests, 0 failures / 0 errors / 15 skipped; browser acceptance A–P 51/51 checks passed. D2 page-level overflow + live job-source reachability were resolved in Phase 12.10; SMTP-unconfigured simulated sends remain a documented limitation |
+| **Phase 12.8** | d60f556, c758dca, 8718d5c, 8b2e966 | **VERIFIED** | Employer Application — Apply Kit assisted apply; full suite 1,227 tests green; browser acceptance A–Q 67/67 (2026-09-30) |
+| **Phase 12.9** | f21b09c, 45afa38, 28d49aa, 95da0e9 | **VERIFIED** | Application Tracking — status-filtered list, server-enforced transitions, event timeline, action states; full suite 1,278 tests green; browser acceptance 10/10 API + 10/10 UI (2026-09-30) |
+| **Phase 12.10** | 1ba94cc | **VERIFIED** | Final Shiplight E2E — D2 page-level overflow resolved; live job-source reachability confirmed (ARBEITNOW/REMOTIVE/OPENINGS-MCP, `live: true`); employer handoff recorded as an opening only |
+| **Cleanup Batch 1** | 7fb6e18 | **COMPLETE** | Confirmed dead code removed; advisor score rendering fixed with regression tests |
+| **Cleanup Batch 2** | 620749c | **COMPLETE** | Repository hygiene — single root `.gitignore`, tracked modernize scripts, runtime logs ignored |
+| **Cleanup Batch 3** | 00079a9 | **COMPLETE** | Maven dependency/config manifest cleanup; dependency tree version/scope-identical; 1,301 Java + 24 JS tests green |
+| **Cleanup Batch 4** | *(uncommitted)* | **IN PROGRESS** | Documentation consistency across the nine project documents — source-verified only, no source/config changes |
+| **Cleanup Batch 5** | — | **PENDING** | Not started; scope not yet defined |
 
 ---
 
@@ -34,21 +43,22 @@ Make the browser UI accurately display the profile that the backend produces fro
 |---------|---------|
 | **Browser automation environment** | Shiplight/Playwright works but Spring Boot devtools causes process exit |
 | **Ollama cold-start/runtime** | First inference ~290s (model loading); subsequent ~2-5s |
-| **Frontend/API issues** | Application Advisor modal DOM missing; Prepared Application modal broken; Career Agent "WAITING" artifact (all historical — advisor/prepare review flows now render via the shared modal shell) |
+| **Frontend/API issues** | All resolved — advisor/prepare review flows render via the shared modal shell, the keyword fields and mock-default banner are gone, and the Career Agent `WAITING` artifact was removed in Cleanup Batch 1 (`7fb6e18`) |
 
 ### Work Items (In Order)
+
+> Historical Phase 12.2 investigation list, retained for traceability. Every item is now resolved or superseded — see the Phase Status table above and PRD §4.
 
 | # | Task | Status | Notes |
 |---|------|--------|-------|
 | 1 | **Fix Application Advisor modal DOM** (`matches.html` + `matches.js`) | **SUPERSEDED** | Advisor modal renders via the shared modal shell; `ApplicationAdvisorResponse` already carries `jobTitle`/`company` |
 | 2 | **Fix Prepared Application modal** (`matches.html` + `matches.js`) | **SUPERSEDED** | Review renders via the shared modal shell; no `prepReviewOverlay` wrapper exists |
-| 3 | **Fix Career Agent "WAITING" artifact** | **TODO** | Relabel or drop static progress list |
+| 3 | **Fix Career Agent "WAITING" artifact** | **RESOLVED** | Static progress list and the invented `WAITING` state removed (`7fb6e18`); `careerAgent.js` renders the deterministic advisor report |
 | 4 | **Add `jobTitle`/`company` to `ApplicationAdvisorResponse`** | **RESOLVED** | Fields present on the record and rendered by the advisor modal |
 | 5 | **Fix Prepared Application content** | **RESOLVED** | `JobApplicationPreparationService` builds the package from `CandidateProfile` + `Job` (profile-derived) |
-| 6 | **Enable live job sources by default** | **PLANNED** | `job-sources.public-api.enabled: true`; banner logic update |
-| 7 | **Remove free-text keyword fields** | **PLANNED** | Remove `#jobsKeywordsInput` / `#matchesKeywordsInput`; derive from profile |
-| 6 | **Add "Continue to Job Search" CTA** | **PLANNED** | On resume upload success |
-| 7 | **Fix Career Agent "WAITING" label** | **PLANNED** | Relabel or drop static progress list |
+| 6 | **Enable live job sources by default** | **DONE (12.3)** | Remotive, Arbeitnow, Adzuna and OPENINGS-MCP enabled; mock disabled; live-first banner |
+| 7 | **Remove free-text keyword fields** | **DONE (12.3)** | `#jobsKeywordsInput` / `#matchesKeywordsInput` removed; discovery derives from the profile |
+| 8 | **Add a continue CTA after profile ready** | **DONE** | `#continueToMatchesBtn` ("View My Matches") on upload success; Matches is the primary discovery surface |
 
 ### Remaining Phase 12 Work (Ordered)
 
@@ -62,7 +72,10 @@ Make the browser UI accurately display the profile that the backend produces fro
 | **12.7** | Application Package | **VERIFIED** — review sections, editing, recipient-verified email; full suite 1,216 tests green; browser acceptance 51/51; D2 page-level overflow + live job-source reachability open (12.10 E2E gate) |
 | **12.8** | Employer Application | "Apply on Employer Site" flow — assisted apply (kit) — **VERIFIED** — spec: PHASE_12.8_SPEC.md |
 | **12.9** | Application Tracking | Status-filtered list, status transitions, event timeline, action states — **VERIFIED** — spec: PHASE_12.9_SPEC.md |
-| **12.10** | Final Shiplight E2E | Full browser E2E regression |
+| **12.10** | Final Shiplight E2E | **VERIFIED** — full browser E2E regression; D2 overflow resolved; live reachability confirmed (`live: true` from ARBEITNOW/REMOTIVE/OPENINGS-MCP); handoff recorded as an opening only |
+| **B1–B3** | Cleanup Batches 1–3 | **COMPLETE** — dead code, repository hygiene, Maven dependency/config manifests |
+| **B4** | Cleanup Batch 4 (documentation consistency) | **IN PROGRESS** — nine project documents reconciled against source and verified evidence; uncommitted |
+| **B5** | Cleanup Batch 5 | **PENDING** — not started |
 
 ---
 
@@ -220,11 +233,27 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
 
 ---
 
-## Phase 12.10 — Final Shiplight E2E (PLANNED)
+## Phase 12.10 — Final Shiplight E2E (COMPLETE AND VERIFIED)
 
-- Full browser E2E regression test
-- Resume → Profile → Match → Analysis → Tailor → Prepare → Apply
+> Commit: `1ba94cc` ("Phase 12.10 - MCP integration and verified employer handoff").
+
+- Full browser E2E regression — Resume → Profile → Match → Analysis → Tailor → Prepare → Apply
 - Regression against Phase 11.1/12.1 baselines
+- **D2 page-level overflow resolved** — the gate deferred through 12.6–12.9 is closed.
+- **Live job-source reachability verified** — the running app returned results from ARBEITNOW,
+  REMOTIVE and OPENINGS-MCP with `live: true`.
+- **Employer handoff verified as an opening, not a submission** — `employerOpenedAt`/`employerUrl`
+  are persisted; the platform never claims a submission it cannot observe.
+
+### Limitations that remain open after 12.10
+
+- SMTP transport is not configured: application emails are `SENT_SIMULATED` and labelled.
+- Candidate endpoints are unauthenticated and ownership-free; the app binds to `127.0.0.1` and is a
+  trusted single-user local-first prototype. Networked/multi-user deployment needs an
+  identity/ownership/transport-security design.
+- Docker was unavailable in the latest verification run, so `init.sql` was never applied to a live
+  PostgreSQL/pgvector container and the 15 Testcontainers tests were skipped.
+- Phase 12.5 verification evidence is still not recorded.
 
 ---
 
@@ -234,15 +263,18 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
 |---------|----------|------------|
 | Browser automation environment | High | Shiplight works but Spring Boot devtools causes process exit |
 | Ollama cold-start/runtime | High | First inference ~290s; subsequent ~2-5s |
-| Application Advisor modal DOM missing | High | Historical — superseded by shared modal shell rendering |
-| Prepared Application modal broken | High | Historical — superseded by shared modal shell rendering |
-| Career Agent "WAITING" artifact | Medium | Frontend artifact, not backend bug |
+| Application Advisor modal DOM missing | Resolved | Historical — superseded by shared modal shell rendering |
+| Prepared Application modal broken | Resolved | Historical — superseded by shared modal shell rendering |
+| Career Agent "WAITING" artifact | Resolved | Frontend artifact, not backend bug; progress list removed (`7fb6e18`) |
 
 ---
 
 ## Completed in Phase 12.2 Prep (f47562b)
 
-- [x] Timeout increased: 120s → 600s server, 150s → 630s client
+> Historical record. Timeouts have since changed: the server-side AI deadline is now
+> `ollama.reasoning-timeout: 300s` and the client watchdog is 300s (`CLIENT_TIMEOUT_MS`).
+
+- [x] Timeout increased at the time: 120s → 600s server, 150s → 630s client (later reduced to 300s / 300s)
 - [x] Model references updated: `gemma3:4b` → `llama3.2:3b`
 - [x] Cold-start comment added to `resume.js`
 - [x] `.gitignore` updated with `node_modules/`
@@ -251,7 +283,12 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
 
 ---
 
-## Current Phase 12.2 Status
+## Phase 12.2 Status (SUPERSEDED — historical snapshot)
+
+> This table is the Phase 12.2 checkpoint view. Every ❌/⚠️ below was resolved later; it is kept
+> for history only. Current state: all UI surfaces render through the shared modal shell, the
+> keyword fields are gone, live job sources are the default, and the Career Agent artifact was
+> removed. See the Phase Status table at the top.
 
 | Area | Status |
 |------|--------|
@@ -271,22 +308,24 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
 
 ## Next Immediate Action
 
-> **STALE / SUPERSEDED**: the items below belonged to the legacy 12.2 investigation
-> (INVESTIGATION-REPORT §8/§9.1). Since then the UI migrated to the single global
+> **SUPERSEDED**: the items below belonged to the legacy 12.2 investigation
+> (INVESTIGATION-REPORT §8/§9.1) and are **all resolved**. The UI migrated to the single global
 > modal shell (`modalShell.js`) — Application Advisor, Career Analysis, Application
-> Readiness, prepared-application review, and ATS tailoring all render through it, and
-> the dedicated `advisorReviewJobTitle`/`advisorReviewCompany`/`prepReviewOverlay`
-> wrappers no longer exist in `matches.html`. The ApplicationAdvisorResponse already
-> carries `jobTitle`/`company` echo fields. Phase 12.7 (Application Package) supersedes
-> the application-flow items. Keep only for historical reference.
+> Readiness, prepared-application review, and ATS tailoring all render through it, and the
+> dedicated `advisorReviewJobTitle`/`advisorReviewCompany`/`prepReviewOverlay` wrappers no longer
+> exist in `matches.html`. `ApplicationAdvisorResponse` already carries `jobTitle`/`company` echo
+> fields. Kept only for historical reference; do not execute.
 
-**Legacy action (pre-modal-shell):**
+**Legacy action list (pre-modal-shell, all done):**
 1. `matches.html` — Add `advisorReviewJobTitle` / `advisorReviewCompany` header elements
 2. De-duplicate 4 advisor DOM IDs (keep on `<ul>`, remove from wrapper `<div>`)
 3. Restore `<div class="prep-review-overlay" id="prepReviewOverlay" hidden>` wrapper
 4. `matches.js` — Null-guard new lookups; relax `data.applicationId != null` gate
 5. `ApplicationAdvisorResponse` — Add `jobTitle`/`company` fields
-5. `ApplicationAdvisorService.adviseFromDomain` — Populate from `Job`
+6. `ApplicationAdvisorService.adviseFromDomain` — Populate from `Job`
+
+**Current next action:** Cleanup Batch 4 (documentation consistency) is in progress and uncommitted.
+Cleanup Batch 5 has not been started or scoped.
 
 ---
 

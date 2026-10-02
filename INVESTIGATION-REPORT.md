@@ -5,6 +5,31 @@ Branch: `arena/01a08566-anent-platform` · Base: `b5784b7` ("Complete logging ph
 Every claim below was produced by reading a file or running a command in this repo. Where a claim is
 *not* verified it is marked **UNVERIFIED**.
 
+> **This document is a HISTORICAL SNAPSHOT, not a current-state report.** It describes the repository
+> at base `b5784b7` (pre-Phase 12.2) and is preserved verbatim as the investigation record that drove
+> Phases 12.2–12.10 and Cleanup Batches 1–3. Every "Current …" heading below means "current as of
+> `b5784b7`". For current state see `AGENTS.md`, `ARCHITECTURE.md`, `PRD.md` and `TASKS.md`.
+>
+> **Resolution of the findings (as of commit `00079a9`):**
+>
+> | Report section | Finding | Current status |
+> |---|---|---|
+> | §2, §3, §9.5 | Free-text "Keywords & Skills" on Job Search and Matches | **RESOLVED (12.3)** — both fields removed; discovery derives from the stored profile |
+> | §5, §9 | Prepared Application content ignores the candidate profile | **RESOLVED** — `JobApplicationPreparationService` builds the package from `CandidateProfile` + `Job` |
+> | §7, §9.6 | Mock source is the default experience; "Development Mock Source Active" banner | **RESOLVED (12.3)** — Remotive, Arbeitnow, Adzuna and OPENINGS-MCP enabled, mock disabled, live-first banner. Reachability **VERIFIED (12.10)** (`live: true` from ARBEITNOW/REMOTIVE/OPENINGS-MCP) |
+> | §8 | `matches.js` reads `advisorReviewJobTitle`/`advisorReviewCompany`, which do not exist | **RESOLVED** — all modals render through the shared `modalShell`; `ApplicationAdvisorResponse` carries `jobTitle`/`company` |
+> | §9.1 | Prepared Application modal missing its `prepReviewOverlay` wrapper | **RESOLVED** — obsolete wrapper; review renders via the shared modal shell |
+> | §9.2 | Four duplicate DOM ids in the advisor modal | **RESOLVED** — shared modal shell has a single body |
+> | §9.3 | `careerAgent.js` reads `jobMatchScore` / `recommendedActionDetails` the backend never sends | **RESOLVED (Batch 1, `7fb6e18`)** — the static progress list was removed; `careerAgent.js` now renders the deterministic advisor report |
+> | §9.4 | No path from resume parsing into job discovery | **RESOLVED** — "View My Matches" (`#continueToMatchesBtn`) on upload success; Matches auto-fires from the stored profile id |
+> | §9.7 | `applications.js` Save/Cancel handlers bind to non-existent ids; `.modal-open` CSS rule missing; `AGENTS.md` stale | **RESOLVED** — editing flow implemented in 12.7; scroll-lock handled in the modal shell; `AGENTS.md` reconciled |
+> | §10 | "Could not run `mvn test`" — no JDK/Maven/network in that sandbox | **SUPERSEDED** — tests now run: 1,301 Java tests (15 skipped Testcontainers tests) + 24 JS tests. Docker was unavailable in the latest run, so the PostgreSQL/pgvector path remains unexecuted |
+> | §11, §12 | Proposed fix set "awaiting approval — nothing implemented" | **EXECUTED** — implemented across Phases 12.3–12.10 and Batches 1–3 |
+>
+> Remaining open items (not defects from this report): Phase 12.5 has no recorded browser-verification
+> evidence, SMTP is unconfigured (email is simulated and labelled), and candidate endpoints remain
+> unauthenticated and ownership-free behind a loopback-only binding. See `PRD.md` §4.
+
 ---
 
 ## 1. Current architecture / modules
