@@ -41,6 +41,7 @@
         <langchain4j.ollama.version>1.0.0-beta5</langchain4j.ollama.version>
         <!-- LangChain4j Google AI Gemini integration (separate versioning) -->
         <langchain4j.gemini.version>1.0.0-beta5</langchain4j.gemini.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
     </properties>
 
     <!-- ===== Shared dependency management ===== -->
@@ -110,6 +111,17 @@
                 <groupId>org.apache.poi</groupId>
                 <artifactId>poi-ooxml</artifactId>
                 <version>5.2.5</version>
+            </dependency>
+
+            <!-- Testcontainers BOM — single version source for every module
+                 (memory-service and rag-service declare the test artifacts without
+                 their own <version>, so this is the only place to bump them) -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
