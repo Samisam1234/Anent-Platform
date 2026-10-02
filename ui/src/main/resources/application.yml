@@ -164,9 +164,10 @@ conversation:
 # Matches, Career Agent, Application Advisor or Prepare Application. Automated
 # tests keep full access by constructing `new MockJobSource()` directly.
 #
-# Override without touching this file:
-#   JOB_SOURCES_PUBLIC_API_ENABLED=false   disable Remotive
-#   JOB_SOURCES_ARBEITNOW_ENABLED=false    disable Arbeitnow
+# Provider enablement below is hardcoded, not environment-driven: there is no
+# JOB_SOURCES_*_ENABLED property, so setting such a variable has no effect. To
+# disable Remotive or Arbeitnow, set its `enabled:` to false in this file.
+# Adzuna credentials ARE environment-driven and are the only override here:
 #   ADZUNA_APP_ID / ADZUNA_APP_KEY         Adzuna credentials (free, developer.adzuna.com)
 # Never hard-code credentials. Remotive's and Arbeitnow's public feeds need no key.
 job-sources:
@@ -210,13 +211,15 @@ job-sources:
     include-meta: true
 
 # ── Logging ──────────────────────────────────────────────────────────
+# Logger levels are NOT set here. The `logging` module is on this app's classpath,
+# so its logback-spring.xml is the single source of truth: com.agentplatform=INFO,
+# dev.langchain4j=WARN, root=INFO. Restating them under logging.level here only
+# shadowed that file, so the levels live in exactly one place.
 logging:
-  level:
-    com.agentplatform: INFO
-    dev.langchain4j: WARN
   app:
     # Master switch for the Phase 8.3 centralized correlated logging
-    # (LoggingContext, MDC runId, lifecycle logging). Independent of logging.level.
+    # (LoggingContext, MDC runId, lifecycle logging). Turning it off suppresses the
+    # correlated MDC/lifecycle instrumentation; it does not change logger levels.
     enabled: true
 
 # ── RAG Service (Phase 8.2) ──────────────────────────────────────────
