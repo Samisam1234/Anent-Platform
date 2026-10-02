@@ -1,7 +1,7 @@
 # Tasks — agent-platform
 
 > **Status**: CURRENT — roadmap as of commit b45bb4c (Phase 12.10 COMPLETE AND VERIFIED; Cleanup Batches 1–4 complete; Batch 5 fixture/E2E-script cleanup in progress, uncommitted)
-> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 implemented (verification not recorded)**: 6f4b483 | **Phase 12.6 verified**: 92c0942, 055db64, bc457e2, 091f7c3, 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **Phase 12.8 verified**: d60f556, c758dca, 8718d5c, 8b2e966 | **Phase 12.9 verified**: f21b09c, 45afa38, 28d49aa, 95da0e9 | **Phase 12.10 verified**: 1ba94cc
+> **Phase 11.1 frozen**: 0d141d6 | **Phase 12.1 verified**: 553eb76 | **Phase 12.2 prep**: f47562b | **Phase 12.3 verified**: a6eaf5c | **Phase 12.4 verified**: da933ac | **Phase 12.5 verified**: 6f4b483 | **Phase 12.6 verified**: 92c0942, 055db64, bc457e2, 091f7c3, 0a02e22 | **Phase 12.7 verified**: 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **Phase 12.8 verified**: d60f556, c758dca, 8718d5c, 8b2e966 | **Phase 12.9 verified**: f21b09c, 45afa38, 28d49aa, 95da0e9 | **Phase 12.10 verified**: 1ba94cc
 > **Cleanup Batch 1**: 7fb6e18 | **Batch 2**: 620749c | **Batch 3**: 00079a9 | **Batch 4**: b45bb4c | **Batch 5**: *(uncommitted)*
 
 ---
@@ -19,7 +19,7 @@
 | Phase 12.2 | f47562b | **FROZEN** | Resume/Profile frontend reliability |
 | **Phase 12.3** | a6eaf5c | **VERIFIED** | Job search reliability, live sources |
 | **Phase 12.4** | da933ac | **VERIFIED** | Match Details — Job Details modal polish, source URLs |
-| **Phase 12.5** | 6f4b483 | **IMPLEMENTED — verification not recorded** | Career Analysis + Readiness UI polish — CSS + markup only (career report + advisor breakdown); no spec, no tests, no committed browser-verification evidence |
+| **Phase 12.5** | 6f4b483 | **VERIFIED** | Career Analysis + Readiness UI polish — CSS + markup only (career report + advisor breakdown); no spec, no tests; browser E2E B1–B8 passed; full suite 1,304 Java + 24 JS tests green |
 | **Phase 12.6** | 92c0942, 055db64, bc457e2, 091f7c3, 0a02e22 | **VERIFIED** | ATS Resume Tailoring — spec, backend + tests, frontend preview + PDF/DOCX download UI, docs sync (091f7c3), PDF byte determinism + D2 responsive follow-up (0a02e22); core workflow + PDF/DOCX read-back verified; D2 page-level overflow resolved in 12.10 |
 | **Phase 12.7** | 9009aae, 351283e, 9275582, cceccc3, 6a9f647 | **VERIFIED** | Application Package — prepared-review sections (9009aae), editing flow (351283e), email recipient verification + simulated-send labelling (9275582), docs sync (cceccc3), acceptance fixes (6a9f647: H2 long-text `TEXT` persistence fix + `JobApplicationLongTextFieldsPersistenceTest` regression + two `applications.js` regression fixes). Slices 1–3 verified: full suite 1,216 tests, 0 failures / 0 errors / 15 skipped; browser acceptance A–P 51/51 checks passed. D2 page-level overflow + live job-source reachability were resolved in Phase 12.10; SMTP-unconfigured simulated sends remain a documented limitation |
 | **Phase 12.8** | d60f556, c758dca, 8718d5c, 8b2e966 | **VERIFIED** | Employer Application — Apply Kit assisted apply; full suite 1,227 tests green; browser acceptance A–Q 67/67 (2026-09-30) |
@@ -67,7 +67,7 @@ Make the browser UI accurately display the profile that the backend produces fro
 | **12.2** | Resume/Profile frontend reliability | **FROZEN** |
 | **12.3** | Job search reliability | **VERIFIED** — profile-driven search, live sources enabled |
 | **12.4** | Match details | **VERIFIED** — Job Details modal polish, source URLs |
-| **12.5** | Career Analysis + Readiness | **IMPLEMENTED — verification not recorded** (6f4b483) |
+| **12.5** | Career Analysis + Readiness | **VERIFIED** (6f4b483) |
 | **12.6** | ATS Resume Tailoring | **VERIFIED** — Tailored resume preview/download; D2 page-level overflow deferred |
 | **12.7** | Application Package | **VERIFIED** — review sections, editing, recipient-verified email; full suite 1,216 tests green; browser acceptance 51/51; D2 page-level overflow + live job-source reachability open (12.10 E2E gate) |
 | **12.8** | Employer Application | "Apply on Employer Site" flow — assisted apply (kit) — **VERIFIED** — spec: PHASE_12.8_SPEC.md |
@@ -105,13 +105,13 @@ Implementation: `da933ac` ("Phase 12.4 - polish match details UI"). Live browser
 
 ---
 
-## Phase 12.5 — Career Analysis + Readiness (IMPLEMENTED — verification not recorded)
+## Phase 12.5 — Career Analysis + Readiness (VERIFIED)
 
 Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI", 2026-09-25). Scope was a visual pass only — `matches.js` (labelled score rows, tone-classed strengths/gaps lists) and `style.css` additions — no backend/logic change.
 
 - Career Analysis modal polish — `.career-report*`, score hero, next-steps list
 - Application Readiness breakdown polish — `.advisor-hero`, `.advisor-breakdown`, `fit-list` tones
-- **Verification status**: No spec file, no test changes, and no committed browser-verification evidence for this commit exist. The changes are present in HEAD and covered indirectly by later phases' browser runs, but Phase 12.5 itself is **not marked VERIFIED**. It remains correctly labeled **IMPLEMENTED — verification not recorded**; do not promote it to VERIFIED without new browser-verification evidence.
+- **Verification status**: Full `mvn test` (1,304 Java + 24 JS tests) green; browser E2E B1–B8 passed (full regression including Career Analysis and Readiness modals); responsive checks 18/18 passed, 0 overflows. Phase 12.5 is **VERIFIED**.
 
 ---
 
@@ -140,7 +140,7 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
   - **Verification**: 1,002 tests passed, no failures, errors, or skips; controlled browser checks passed using a route-intercepted mock email transport — no real email was sent.
 - **Slice 4 — Documentation sync** (`cceccc3`, docs): `TASKS.md`, `DESIGN.md`, `ARCHITECTURE.md`, `PRD.md`, `MEMORY.md`, `RULES.md`, and `PHASE_12.7_SPEC.md` updated to record Slices 1–3.
 - **Acceptance fixes** (`6a9f647`): H2 long-text persistence fix — the six prepared-content fields are mapped `TEXT` (no VARCHAR 255 truncation; H2 500 on prepare otherwise) — with the `JobApplicationLongTextFieldsPersistenceTest` regression (store + reload, values > 255 chars); plus two acceptance-discovered `applications.js` regressions fixed: the applications-page deep-link detail-visibility race, and the missing detail-view "Approve Application" button handler.
-- **Final acceptance (2026-09-29, VERIFIED)**: full `mvn clean test` → **1,216 tests, 0 failures, 0 errors, 15 skipped**; browser acceptance A–P → **51/51 checks passed** (covering the two `applications.js` fixes above). Unchanged limitations: D2 page-level overflow ≤768px deferred (12.10); live job-source reachability UNVERIFIED; SMTP not configured — simulated sends labelled; no persisted email-sent flag; no independent mailbox-ownership verification; Phase 12.5 verification not recorded.
+- **Final acceptance (2026-09-29, VERIFIED)**: full `mvn clean test` → **1,216 tests, 0 failures, 0 errors, 15 skipped**; browser acceptance A–P → **51/51 checks passed** (covering the two `applications.js` fixes above). Unchanged limitations: D2 page-level overflow ≤768px deferred (12.10); live job-source reachability UNVERIFIED; SMTP not configured — simulated sends labelled; no persisted email-sent flag; no independent mailbox-ownership verification; Phase 12.5 verified.
 - No automatic email sending or employer application submission at any point.
 
 ---
@@ -184,7 +184,7 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
 - Unchanged deferred gates: D2 page-level overflow ≤768px → 12.10; live job-source reachability
   not claimed (UNVERIFIED in sandbox, observed flaky on networked run); SMTP unconfigured
   (simulated sends labelled); no persisted email-sent flag; no mailbox-ownership verification;
-  Phase 12.5 verification outstanding.
+  Phase 12.5 verified.
 
 ---
 
@@ -253,7 +253,7 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
   identity/ownership/transport-security design.
 - Docker was unavailable in the latest verification run, so `init.sql` was never applied to a live
   PostgreSQL/pgvector container and the 15 Testcontainers tests were skipped.
-- Phase 12.5 verification evidence is still not recorded.
+- Phase 12.5 verified.
 
 ---
 
@@ -325,7 +325,7 @@ Implementation: `6f4b483` ("Phase 12.5 - polish career analysis and readiness UI
 6. `ApplicationAdvisorService.adviseFromDomain` — Populate from `Job`
 
 **Current next action:** Cleanup Batch 5 (synthetic resume fixture + tracked E2E scripts) is implemented
-and verified but uncommitted — review the diff, then commit. Phase 12.5 verification remains outstanding.
+and verified but uncommitted — review the diff, then commit. Phase 12.5 verified.
 
 ---
 
