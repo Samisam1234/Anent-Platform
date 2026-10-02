@@ -1656,10 +1656,13 @@
         const recEl = document.getElementById('applicationDetailRecommendation');
         if (recEl) recEl.textContent = adv.recommendation || '—';
 
-        // Add readiness score next to match score
+        // Readiness + job match only: these are the two scores ApplicationAdvisorResponse
+        // actually carries. There is no matchScore on the advisor payload, so nothing is
+        // borrowed from the application object here.
         const matchScoreEl = document.getElementById('applicationDetailMatchScore');
         if (matchScoreEl && adv.applicationReadinessScore != null) {
-            matchScoreEl.textContent = `Match Score: ${app.matchScore != null ? app.matchScore + '/100' : '—'} | Readiness: ${adv.applicationReadinessScore}/100 | Job Match: ${adv.jobMatchScore || '—'}/100`;
+            const jobMatch = adv.jobMatchScore != null ? adv.jobMatchScore + '/100' : '—';
+            matchScoreEl.textContent = `Readiness: ${adv.applicationReadinessScore}/100 | Job Match: ${jobMatch}`;
         }
 
         // Strengths
