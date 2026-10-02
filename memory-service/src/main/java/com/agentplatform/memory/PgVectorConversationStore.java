@@ -137,7 +137,10 @@ public class PgVectorConversationStore implements ConversationStore, VectorSearc
     @Transactional
     public void trim(String conversationId, int maxMessages) {
         repository.findByConversationId(conversationId)
-                .ifPresent(conversation -> trimMessages(conversation, maxMessages));
+                .ifPresent(conversation -> {
+                    trimMessages(conversation, maxMessages);
+                    repository.flush();
+                });
     }
 
     @Override
