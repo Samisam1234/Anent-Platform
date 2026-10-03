@@ -1,164 +1,181 @@
 /**
- * AI Job Agent — Career Analysis.
+ * AI Job Agent — Career Agent workflow (orchestration execution status + results).
  *
- * Presents a career decision report for one candidate against one job, built from the
- * deterministic Application Advisor (POST /api/v1/jobs/advisor) plus the job record
- * (GET /api/v1/jobs/{id}). Every number shown is a score the backend already computed
- * from the parsed profile and the listing; nothing is estimated here and no section is
- * filled in to look complete — unavailable data says so.
+ * Wires the controlled agent-orchestration API (POST /api/v1/agent/orchestrate)
+ * into the matches page. A single user action (clicking "Run Career Agent" on a
+ * job) issues exactly one orchestration request against the resolved candidate
+ * profile (localStorage key agentplatform:candidateId) and the selected job id.
  *
- * It renders through the single global modal shell, so it can never stack behind or on
- * top of the Match Details dialog that launched it.
- *
- * Deliberately NOT shown: orchestration telemetry (AI call counts, tool call counts,
- * stopping agent, per-stage execution statuses). The agent pipeline still exists at
- * POST /api/v1/agent/orchestrate; it is implementation detail, not a career result, so
- * the user sees "Analysis completed" instead.
- *
- * It never displays raw AgentContext, resume text, tool arguments or internal
- * exceptions, and it never treats an analysis as an email sent or an application
- * submitted — only the explicit approval flow does that.
+ * Renders ONLY safe API fields: runStatus, success, message, agentExecutions,
+ * aiCallsUsed, toolCallsUsed, stoppingAgentType. It never displays raw
+ * AgentContext, resume text, tool arguments, or internal exceptions, and it
+ * never interprets an APPLICATION_ADVISOR completion as an email sent or an
+ * application submitted — only ApplicationEmailService + explicit approval do that.
  */
 (() => {
     'use strict';
 
     const LS_CANDIDATE_ID = 'agentplatform:candidateId';
     const LS_CANDIDATE_NAME = 'agentplatform:candidateName';
-    const ADVISOR_API = '/api/v1/jobs/advisor';
-    const JOB_API = '/api/v1/jobs/';
+    const ORCHESTRATION_API = '/api/v1/agent/orchestrate';
 
-    /**
-     * User-facing fit bands. Labels describe the outcome; the underlying thresholds are
-     * the backend's, unchanged here.
-     */
-    /**
-     * Labelled progress bar for the headline score, using the same .fit-bar markup and
-     * green/yellow/red tones as the factor rows in Match Details and Application
-     * Readiness, so every dialog visualizes a score identically.
-     */
-    function scoreBarHtml(score, fit) {
-        const pct = Number(score);
-        if (!Number.isFinite(pct)) return '';
-        const clamped = Math.max(0, Math.min(100, pct));
-        const tone = fit && fit.cls === 'fit-high' ? 'is-good'
-            : fit && fit.cls === 'fit-medium' ? 'is-caution'
-            : fit && fit.cls === 'fit-low' ? 'is-gap' : '';
-        return `<span class="fit-bar" role="img" aria-label="Career fit ${clamped} out of 100">
-            <span class="fit-bar-fill ${tone}" style="width:${clamped}%"></span></span>`;
-    }
-
-    const FIT_LABELS = {
-        STRONGLY_RECOMMENDED: { label: 'Strong fit', cls: 'fit-high' },
-        RECOMMENDED: { label: 'Good fit', cls: 'fit-high' },
-        APPLY_WITH_IMPROVEMENTS: { label: 'Borderline', cls: 'fit-medium' },
-        LOW_PRIORITY: { label: 'Weak fit', cls: 'fit-low' },
-        NOT_RECOMMENDED: { label: 'Not recommended', cls: 'fit-low' }
+    const AGENT_LABELS = {
+        RESUME: 'Resume Analysis',
+        JOB_DISCOVERY: 'Job Discovery',
+        MATCHING: 'Job Matching',
+        CAREER_ADVISOR: 'Career Advisor',
+        APPLICATION_ADVISOR: 'Application Advisor'
     };
 
-    let inFlight = false;
-    let activeCandidateId = null;
-    let activeJobId = null;
+    const AGENT_ORDER = ['RESUME', 'JOB_DISCOVERY', 'MATCHING', 'CAREER_ADVISOR', 'APPLICATION_ADVISOR'];
 
-    // ─── Entry point ────────────────────────────────────────────────────────
-    function open(candidateId, candidateName, job) {
-        if (inFlight || !job || !job.id) return;
+    let overlay = null;
+    let requestInFlight = false;
 
-        activeCandidateId = candidateId;
-        activeJobId = job.id;
+    // ─── Modal lifecycle ────────────────────────────────────────────────────
+    function ensureModal() {
+        if (overlay) return overlay;
 
-        window.modalShell.open({
-            kicker: 'Career Analysis',
-            title: job.title || 'Selected role',
-            subtitle: subtitleFor(candidateName, job),
-            body: loadingHtml(),
-            footer: footerHtml(candidateId)
+        overlay = document.createElement('div');
+        overlay.className = 'agent-overlay';
+        overlay.hidden = true;
+        overlay.innerHTML = `
+            <div class="agent-modal" role="dialog" aria-modal="true" aria-labelledby="agentModalTitle">
+                <div class="agent-modal-header">
+                    <div class="agent-modal-header-text">
+                        <span class="agent-kicker">Controlled Agent Run</span>
+                        <h3 class="agent-modal-title" id="agentModalTitle">Career Agent</h3>
+                        <div class="agent-modal-sub" id="agentModalSub"></div>
+                    </div>
+                    <button type="button" class="modal-close" id="agentModalClose" aria-label="Close career agent results">&times;</button>
+                </div>
+                <div class="agent-modal-body" id="agentModalBody"></div>
+                <div class="agent-modal-footer" id="agentModalFooter"></div>
+            </div>
+        `;
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeModal();
+        });
+        overlay.querySelector('#agentModalClose').addEventListener('click', closeModal);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && overlay && !overlay.hidden) closeModal();
         });
 
+        document.body.appendChild(overlay);
+        return overlay;
+    }
+
+    function open(candidateId, candidateName, job) {
+        if (requestInFlight || !job || !job.id) return;
+
+        const modal = ensureModal();
+        modal.querySelector('#agentModalSub').innerHTML = buildSubHtml(candidateName, job);
+        modal.querySelector('#agentModalBody').innerHTML = '';
+        renderFooter(candidateId, job);
+        modal.hidden = false;
+        document.body.classList.add('modal-open');
+        run(candidateId, job.id, modal);
+    }
+
+    function closeModal() {
+        if (!overlay || overlay.hidden) return;
+        overlay.hidden = true;
+        document.body.classList.remove('modal-open');
+    }
+
+    // ─── Display helpers ────────────────────────────────────────────────────
+    function buildSubHtml(candidateName, job) {
+        const nameChip = candidateName
+            ? `<span class="summary-chip">Profile: ${esc(candidateName)}</span>`
+            : `<span class="summary-chip">No profile</span>`;
+        return `${nameChip}<span class="summary-chip">Role: ${esc(job.title || 'Untitled')} at ${esc(job.company || 'Unknown Company')}</span>`;
+    }
+
+    function renderFooter(candidateId, job) {
+        const footer = ensureModal().querySelector('#agentModalFooter');
+        footer.innerHTML = '';
+
+        const runBtn = document.createElement('button');
+        runBtn.type = 'button';
+        runBtn.className = 'btn-primary btn-run-agent';
+        runBtn.textContent = 'Run Career Agent';
+
+        const missing = !candidateId;
+        if (missing) {
+            runBtn.disabled = true;
+            runBtn.setAttribute('title', 'Upload a resume first to run the career agent.');
+        }
+
+        runBtn.addEventListener('click', () => run(candidateId, job.id, ensureModal()));
+        footer.appendChild(runBtn);
+
+        const hint = document.createElement('span');
+        hint.className = 'modal-hint';
+        if (missing) {
+            hint.innerHTML = `Upload a <a href="resume.html">resume</a> first to run the career agent.`;
+        } else {
+            hint.textContent = 'Runs resume, job discovery, matching, career advisor and application advisor.';
+        }
+        footer.appendChild(hint);
+    }
+
+    // ─── Orchestration request (one user action → one request) ──────────────
+    async function run(candidateId, jobId, modal) {
+        if (requestInFlight) return;
         if (!candidateId) {
-            window.modalShell.setBody(errorHtml(
-                'Upload your resume first — career analysis compares your parsed profile against this listing.'));
+            renderMissingResult(modal);
             return;
         }
 
-        run(candidateId, job.id, job);
-    }
+        requestInFlight = true;
+        const body = modal.querySelector('#agentModalBody');
+        const runBtn = modal.querySelector('.btn-run-agent');
+        if (runBtn) runBtn.disabled = true;
 
-    function subtitleFor(candidateName, job) {
-        const company = job.company ? ` at ${job.company}` : '';
-        return candidateName
-            ? `${candidateName} · ${job.title || 'role'}${company}`
-            : `No profile · ${job.title || 'role'}${company}`;
-    }
+        // Initialize agent progress view with all agents in WAITING state
+        body.innerHTML = buildProgressHtml({});
 
-    function footerHtml(candidateId) {
-        if (!candidateId) {
-            return `<span class="modal-hint">Upload a <a href="resume.html">resume</a> to run career analysis.</span>`;
-        }
-        return `<span class="modal-hint">Calculated from your parsed resume and this listing.</span>
-                <button type="button" class="btn-primary" data-career-analysis-retry="true">Run again</button>`;
-    }
+        const payload = { candidateId: Number(candidateId), jobId: String(jobId) };
 
-    function loadingHtml() {
-        return `
-            <div class="agent-run-loading">
-                <span class="processing-spinner"></span>
-                <span>Analysing your profile against this role…</span>
-            </div>`;
-    }
-
-    function errorHtml(message) {
-        return `
-            <div class="agent-run-summary agent-summary-bad">
-                <span class="agent-summary-status">Analysis unavailable</span>
-                <span class="agent-summary-message">${esc(message)}</span>
-            </div>`;
-    }
-
-    // ─── Data ───────────────────────────────────────────────────────────────
-    async function run(candidateId, jobId, launchJob) {
-        inFlight = true;
         try {
-            const [advisor, job] = await Promise.all([
-                fetchJson(ADVISOR_API, { candidateId: Number(candidateId), jobId: String(jobId) }),
-                // The listing lookup only supplies header context (location, employment
-                // type). The index holds a limited window of live jobs, so a miss must
-                // not suppress the analysis the advisor already produced.
-                fetchJson(JOB_API + encodeURIComponent(jobId)).catch(err => {
-                    console.warn('Listing not retrievable for header context:', err);
-                    return null;
-                })
-            ]);
+            const response = await fetch(ORCHESTRATION_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
 
-            // Ignore a late response if the user has since opened another dialog.
-            if (!window.modalShell.isOpen() || activeJobId !== jobId) return;
-            window.modalShell.setBody(reportHtml(advisor, job, launchJob));
-        } catch (err) {
-            console.error('Career analysis error:', err);
-            if (window.modalShell.isOpen() && activeJobId === jobId) {
-                // Named, contextual wording rather than a bare exception message: the
-                // server logs the real cause, the user gets something actionable.
-                window.modalShell.setBody(errorHtml(window.apiError.describe(err,
-                    'Could not load Career Analysis. The job listing data may be incomplete, '
-                    + 'or the analysis service is temporarily unavailable. Please try again.')));
+            if (!response.ok) {
+                const detail = await safeError(response);
+                if (response.status === 404) {
+                    // The stored candidate is gone — clear stale id and guide the user.
+                    if (String(detail.title || '').indexOf('Candidate') !== -1
+                        || String(detail.title || '').indexOf('Profile') !== -1) {
+                        localStorage.removeItem(LS_CANDIDATE_ID);
+                        localStorage.removeItem(LS_CANDIDATE_NAME);
+                    }
+                    body.innerHTML = buildErrorResult('Not found — the saved candidate profile or job no longer exists. Upload your resume again if needed.');
+                } else {
+                    body.innerHTML = buildErrorResult(
+                        response.status >= 500
+                            ? 'An unexpected error occurred. Please try again later.'
+                            : (detail.detail || detail.title || `Request failed (${response.status}).`));
+                }
+                return;
             }
+
+            const data = await response.json();
+            body.innerHTML = buildResultsHtml(data);
+        } catch (err) {
+            console.error('Career agent orchestration error:', err);
+            body.innerHTML = buildErrorResult('Could not reach the career agent. Check the connection and try again.');
         } finally {
-            inFlight = false;
+            requestInFlight = false;
+            if (runBtn) runBtn.disabled = false;
         }
     }
 
-    async function fetchJson(url, body) {
-        const options = body
-            ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-            : { method: 'GET', headers: { 'Accept': 'application/json' } };
-
-        const response = await fetch(url, options);
-        if (!response.ok) {
-            const detail = await safeError(response);
-            throw new Error(detail.detail || detail.title || `Request failed (${response.status}).`);
-        }
-        return response.json();
-    }
-
+    // ─── Safe error mapping ─────────────────────────────────────────────────
     async function safeError(response) {
         try {
             return await response.json();
@@ -167,280 +184,224 @@
         }
     }
 
-    // ─── Report ─────────────────────────────────────────────────────────────
-    /**
-     * Builds the report from the advisor response. Each section renders only when the
-     * backing data exists, and says "Not available" otherwise — no placeholder scores.
-     */
-    function reportHtml(advisor, job, launchJob) {
-        const adv = advisor || {};
-        const b = adv.scoreBreakdown || null;
-        const jobData = Object.assign({}, launchJob || {}, job || {});
-
-        const readiness = Number.isFinite(adv.applicationReadinessScore)
-            ? adv.applicationReadinessScore : null;
-        const fit = FIT_LABELS[adv.recommendation] || null;
-
-        const matched = (b && b.matchedRequiredSkills) || [];
-        const missing = (b && b.missingRequiredSkills) || [];
-        const missingPreferred = (b && b.missingPreferredSkills) || [];
-        const alsoMatched = (b && b.matchedPreferredSkills) || [];
-        const strengths = narrativeLines(adv.strengths, matched, null);
-        const risks = narrativeLines(adv.concerns, missing, missingPreferred);
+    // ─── Progress rendering (during execution) ──────────────────────────────
+    function buildProgressHtml(executions) {
+        // executions is a map of agentType -> {status, message, errorCode, durationMs}
+        const items = AGENT_ORDER.map(type => {
+            const exec = executions[type] || { status: 'WAITING', message: '', errorCode: 'NONE', durationMs: -1 };
+            const status = exec.status || 'WAITING';
+            const statusClass = statusClassForProgress(status);
+            const label = AGENT_LABELS[type] || type;
+            const duration = exec.durationMs > 0 ? ` (${formatDuration(exec.durationMs)})` : '';
+            const errorNote = exec.errorCode && exec.errorCode !== 'NONE'
+                ? `<span class="agent-error-code">${esc(exec.errorCode)}</span>`
+                : '';
+            return `
+                <li class="agent-progress-item agent-progress-${statusClass}">
+                    <span class="agent-progress-dot" aria-hidden="true"></span>
+                    <div class="agent-progress-main">
+                        <span class="agent-progress-name">${esc(label)}</span>
+                        <span class="agent-progress-msg">${esc(exec.message || '')}${duration} ${errorNote}</span>
+                    </div>
+                    <span class="agent-progress-status ${statusClass}">${esc(status)}</span>
+                </li>`;
+        }).join('');
 
         return `
-            <div class="analysis-complete">Analysis completed using your resume and this job listing.</div>
-
-            <section class="career-report">
-                <header class="career-report-head">
-                    <div class="career-report-role">
-                        <h4 class="career-report-title">${esc(jobData.title || adv.jobTitle || 'Selected role')}</h4>
-                        <div class="career-report-company">${esc(jobData.company || adv.company || 'Company not listed')}</div>
-                        <div class="career-report-meta">
-                            <span class="summary-chip">${esc(jobData.location || 'Location not listed')}</span>
-                            <span class="summary-chip">${esc(formatEmploymentType(jobData.employmentType))}</span>
-                            <span class="summary-chip">${esc(jobData.experienceRequirement || 'Experience: not specified')}</span>
-                        </div>
-                    </div>
-                    <div class="career-report-score">
-                        <span class="fit-label">Career fit</span>
-                        <span class="fit-value">${readiness == null ? '—' : esc(readiness)}<small>/100</small></span>
-                        ${scoreBarHtml(readiness, fit)}
-                        ${fit ? `<span class="fit-badge ${fit.cls}">${esc(fit.label)}</span>` : ''}
-                    </div>
-                </header>
-
-                ${section('Why', adv.recommendationExplanation
-                    ? `<p class="career-report-text">${esc(adv.recommendationExplanation)}</p>`
-                    : notAvailable())}
-
-                ${section('Skill fit', skillFitHtml(b, matched, missing, missingPreferred, alsoMatched))}
-
-                ${section('Experience fit', b ? experienceHtml(b) : notAvailable())}
-
-                ${section('Education fit', educationHtml(b, jobData))}
-
-                ${section('Location fit', locationHtml(b, jobData))}
-
-                ${section('Career track', b ? trackHtml(b) : notAvailable())}
-
-                ${section('Strengths', strengths.length
-                    ? `<ul class="fit-list is-good">${strengths.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`
-                    : notAvailable('No further strengths beyond the matched skills above.'))}
-
-                ${section('Risks and gaps', risks.length
-                    ? `<ul class="fit-list is-bad">${risks.map(s => `<li>${esc(s)}</li>`).join('')}</ul>`
-                    : notAvailable('No gaps were identified for this role.'))}
-
-                ${section('Next steps', (adv.recommendedActionDetails && adv.recommendedActionDetails.length)
-                    ? nextStepsHtml(adv.recommendedActionDetails)
-                    : notAvailable('Nothing to close for this role — your profile covers what it asks for.'))}
-
-                <p class="agent-note">
-                    Fit is calculated from your parsed resume and this listing: required-skill coverage,
-                    role, experience, education, location and career-track factors. Career fit is
-                    60% resume readiness + 40% job match. No text here is generated by the AI model.
-                </p>
-            </section>`;
-    }
-
-    function section(title, bodyHtml) {
-        return `
-            <div class="career-report-section">
-                <h5 class="career-report-section-title">${esc(title)}</h5>
-                ${bodyHtml}
+            <div class="agent-progress-section">
+                <h4 class="agent-section-title">Agent Progress</h4>
+                <ul class="agent-progress-list">${items}</ul>
+            </div>
+            <div class="agent-run-loading">
+                <span class="processing-spinner"></span>
+                <span>Running the career agent orchestration…</span>
             </div>`;
     }
 
-    function notAvailable(fallback) {
-        return `<p class="career-report-na">${esc(fallback || 'Not available')}</p>`;
-    }
-
-    function skillFitHtml(b, matched, missing, missingPreferred, alsoMatched) {
-        if (!b) return notAvailable();
-
-        const chips = (list, cls) => list
-            .map(s => `<span class="skill-tag ${cls}">${esc(s)}</span>`).join('');
-        const parts = [];
-
-        parts.push(`<p class="career-report-note">Required: ${esc(b.matchedRequiredCount)} matched, ${esc(b.missingRequiredCount)} missing. Preferred: ${esc(b.matchedPreferredCount)} matched, ${esc(b.missingPreferredCount)} missing.</p>`);
-
-        if (matched.length) {
-            parts.push(`<div class="analysis-sub">Matched required</div><div class="skills-tags-wrap">${chips(matched, 'required-skill match-hit')}</div>`);
-        }
-        if (missing.length) {
-            parts.push(`<div class="analysis-sub">Missing required</div><div class="skills-tags-wrap">${chips(missing, 'required-skill match-miss')}</div>`);
-        }
-        if (alsoMatched.length) {
-            parts.push(`<div class="analysis-sub">Preferred skills you also have</div><div class="skills-tags-wrap">${chips(alsoMatched, 'preferred-skill match-hit')}</div>`);
-        }
-        if (missingPreferred.length) {
-            parts.push(`<div class="analysis-sub">Preferred skills you do not have</div><div class="skills-tags-wrap">${chips(missingPreferred, 'preferred-skill match-miss')}</div>`);
-        }
-        if (parts.length === 1) {
-            parts.push(notAvailable('This listing states no required or preferred skills.'));
-        }
-        return parts.join('');
-    }
-
-    /**
-     * Experience sentence. A shortfall is stated only when both sides carried structured
-     * years; otherwise it says the comparison could not be made rather than guessing.
-     */
-    function experienceHtml(b) {
-        const required = b.requiredYears;
-        const candidate = b.candidateYears;
-        const fit = b.experienceFitScore;
-
-        if (!b.experienceKnowable) {
-            return `<p class="career-report-text">Not available — ${
-                required != null
-                    ? 'the listing asks for ' + esc(required) + ' year(s), but no structured years could be read from your resume, so no shortfall is claimed.'
-                    : 'neither the listing nor your resume carried structured years to compare.'
-            } Experience factor ${esc(fit)}/100.</p>`;
-        }
-        if (required === 0) {
-            return `<p class="career-report-text">This role is entry level, so no minimum years apply. Experience factor ${esc(fit)}/100.</p>`;
-        }
-        if (required != null && candidate != null) {
-            const short = required - candidate;
-            const verdict = short > 0
-                ? `You are ${esc(short)} year${short === 1 ? '' : 's'} short of the stated requirement.`
-                : 'Your stated experience meets or exceeds the requirement.';
-            return `<p class="career-report-text">Your resume shows ${esc(candidate)} year${candidate === 1 ? '' : 's'}; this listing asks for ${esc(required)}. ${esc(verdict)} Experience factor ${esc(fit)}/100.</p>`;
-        }
-        return notAvailable();
-    }
-
-    /**
-     * Education fit. The job model carries no education requirement, so the requirement
-     * side is reported as not stated rather than invented.
-     */
-    function educationHtml(b, jobData) {
-        if (!b) return notAvailable();
-        return `<p class="career-report-text">Education factor ${esc(b.educationFitScore)}/100. `
-            + `This listing does not state an education requirement${
-                jobData && jobData.experienceRequirement ? '' : ''
-            }, and your stored education entries are not part of this comparison.</p>`;
-    }
-
-    function locationHtml(b, jobData) {
-        if (!b) return notAvailable();
-        const where = jobData && jobData.location ? esc(jobData.location) : 'not listed';
-        return `<p class="career-report-text">Listing location: ${where}. Location factor ${esc(b.locationFitScore)}/100.</p>`;
-    }
-
-    function trackHtml(b) {
-        const candidate = humanize(b.candidateTrack);
-        const jobTrack = humanize(b.jobTrack);
-        if (!candidate || !jobTrack) {
-            return notAvailable('Career track could not be determined on both sides.');
-        }
-        const badge = b.trackMismatch
-            ? `<span class="fit-badge fit-low">Different tracks</span>`
-            : `<span class="fit-badge fit-high">Compatible</span>`;
-        return `<p class="career-report-text">Your profile reads as <strong>${esc(candidate)}</strong>; this role reads as <strong>${esc(jobTrack)}</strong>. ${badge} Track factor ${esc(b.trackFitScore)}/100.</p>`;
-    }
-
-    function nextStepsHtml(details) {
-        return `<ol class="career-next-steps">${details.map(d => `
-            <li>
-                <span class="career-step-focus">${esc(stepTitle(d))}</span>
-                ${d.description ? `<span class="career-step-desc">${esc(d.description)}</span>` : ''}
-            </li>`).join('')}</ol>`;
-    }
-
-    /**
-     * Turns an improvement priority into an instruction. The backend's machine-readable
-     * type (REQUIRED_SKILL / PREFERRED_SKILL / EXPERIENCE) is mapped to wording here so
-     * the internal label never reaches the screen.
-     */
-    function stepTitle(detail) {
-        const focus = detail && detail.focus ? String(detail.focus) : 'Improvement';
-        switch (detail && detail.type) {
-            case 'REQUIRED_SKILL': return 'Learn ' + focus;
-            case 'PREFERRED_SKILL': return 'Review ' + focus;
-            case 'EXPERIENCE': return 'Build relevant experience';
-            default: return focus;
+    function statusClassForProgress(status) {
+        switch (String(status || '').toUpperCase()) {
+            case 'COMPLETED': return 'completed';
+            case 'RUNNING': return 'running';
+            case 'FAILED': return 'failed';
+            case 'TIMEOUT': return 'timeout';
+            case 'SKIPPED': return 'skipped';
+            default: return 'waiting';
         }
     }
 
-    /**
-     * Keeps only the narrative lines of the advisor's strengths/concerns. Skill names are
-     * already shown as chips, so a line that merely names a skill already displayed (with
-     * or without its evidence suffix) is dropped — an exact comparison against structured
-     * data, not pattern matching, so nothing is shown twice.
-     */
-    function narrativeLines(lines, requiredSkills, preferredSkills) {
-        const shown = new Set((requiredSkills || []).map(String));
-        (preferredSkills || []).forEach(s => shown.add(String(s)));
-
-        return (lines || [])
-            .map(line => String(line || '').trim())
-            .filter(text => {
-                if (!text) return false;
-                if (text.indexOf('Preferred match: ') === 0) return false;
-                if (text.indexOf('Missing required skill: ') === 0) return false;
-                if (text.indexOf('Missing preferred skill: ') === 0) return false;
-                const bare = text.replace(/\s*\(evidence:[^)]*\)\s*$/, '');
-                return !shown.has(bare);
-            });
+    function formatDuration(ms) {
+        if (ms < 1000) return `${ms}ms`;
+        const sec = Math.round(ms / 1000);
+        if (sec < 60) return `${sec}s`;
+        const min = Math.floor(sec / 60);
+        const rem = sec % 60;
+        return rem > 0 ? `${min}m ${rem}s` : `${min}m`;
     }
 
-    function humanize(value) {
-        if (!value) return '';
-        return String(value).toLowerCase().split('_')
-            .filter(Boolean)
-            .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-            .join(' ');
-    }
+    // ─── Results rendering (safe fields only) ───────────────────────────────
+    function buildResultsHtml(data) {
+        const runStatus = data.runStatus || 'UNKNOWN';
+        const statusCls = statusClass(runStatus);
+        const statusLabel = printable(runStatus);
+        const success = !!data.success;
 
-    function formatEmploymentType(type) {
-        if (!type) return 'Employment type not listed';
-        switch (String(type).toUpperCase()) {
-            case 'FULL_TIME': return 'Full-time';
-            case 'PART_TIME': return 'Part-time';
-            case 'INTERNSHIP': return 'Internship';
-            case 'CONTRACT': return 'Contract';
-            default: return String(type);
+        const executions = (data.agentExecutions || []).map(agent => {
+            const state = printable(agent.status || 'PENDING');
+            const tone = agent.success ? 'good'
+                : (agent.status === 'SKIPPED' ? 'skip' : 'bad');
+            const errNote = agent.errorCode && agent.errorCode !== 'NONE'
+                ? `<span class="agent-error-code">${esc(agent.errorCode)}</span>`
+                : '';
+            const duration = agent.durationMs > 0 ? ` (${formatDuration(agent.durationMs)})` : '';
+            return `
+                <li class="agent-execution agent-exec-${tone}">
+                    <span class="agent-exec-dot" aria-hidden="true"></span>
+                    <div class="agent-exec-main">
+                        <span class="agent-exec-name">${esc(AGENT_LABELS[agent.agentType] || printable(agent.agentType))}</span>
+                        <span class="agent-exec-msg">${esc(agent.message || '')}${duration} ${errNote}</span>
+                    </div>
+                    <span class="agent-exec-status ${tone === 'good' ? 'agent-status-good' : (tone === 'skip' ? 'agent-status-skip' : 'agent-status-bad')}">${esc(state)}</span>
+                </li>`;
+        }).join('');
+
+        const summaryLine = success
+            ? 'The career agent completed its controlled run.'
+            : 'The career agent finished with issues — review the details below.';
+
+        // Check for any timeout/failed agents for special messaging
+        const hasTimeout = (data.agentExecutions || []).some(a => a.status === 'TIMEOUT');
+        const hasFailure = (data.agentExecutions || []).some(a => a.status === 'FAILED');
+        let statusMessage = data.message || summaryLine;
+        if (hasTimeout) {
+            statusMessage = 'One or more AI reasoning steps timed out. Deterministic results are shown below. ' +
+                'You may retry or increase the Ollama timeout setting.';
+        } else if (hasFailure && !success) {
+            statusMessage = 'Some agents did not complete successfully. Deterministic results are shown where available. ' +
+                'Check the details below and retry if needed.';
         }
+
+        return `
+            <div class="agent-run-summary agent-summary-${statusCls}">
+                <span class="agent-summary-status">${esc(statusLabel)}</span>
+                <span class="agent-summary-message">${esc(statusMessage)}</span>
+            </div>
+
+            <div class="agent-usage-row">
+                <div class="agent-usage-cell"><span class="agent-usage-num">${Number(data.aiCallsUsed) || 0}</span><span class="agent-usage-label">AI calls</span></div>
+                <div class="agent-usage-cell"><span class="agent-usage-num">${Number(data.toolCallsUsed) || 0}</span><span class="agent-usage-label">Tool calls</span></div>
+                <div class="agent-usage-cell"><span class="agent-usage-num">${Number(data.jobMatchScore) || 0}</span><span class="agent-usage-label">Job Match</span></div>
+                <div class="agent-usage-cell"><span class="agent-usage-num">${esc(printable(data.stoppingAgentType) || '—')}</span><span class="agent-usage-label">Stopped at</span></div>
+            </div>
+
+            <div class="agent-executions-head">
+                <h4 class="agent-section-title">Agent Executions</h4>
+            </div>
+            ${executions
+                ? `<ul class="agent-executions-list">${executions}</ul>`
+                : `<p class="modal-hint">No agent executions were reported for this run.</p>`}
+
+            ${data.recommendedActionDetails && data.recommendedActionDetails.length ? `
+            <div class="advisor-action-details">
+                <h4 class="agent-section-title">Recommended Action Details</h4>
+                <ul class="advisor-action-details-list">
+                    ${data.recommendedActionDetails.map(d => `
+                        <li>
+                            <strong>${esc(d.focus)}</strong> (${esc(d.type)}): ${esc(d.description)}
+                            ${d.reason ? `<br><small class="agent-action-reason">${esc(d.reason)}</small>` : ''}
+                        </li>`).join('')}
+                </ul>
+            </div>
+            ` : ''}
+
+            <p class="agent-note">The application advisor preparing material does not send email or submit applications. Sending in this platform only ever happens through the explicit, approval-gated application review flow.</p>
+
+            <div class="agent-modal-actions">
+                <button type="button" class="btn-secondary" id="agentModalRetry">Retry</button>
+                <button type="button" class="btn-primary" id="agentModalDone">Done</button>
+            </div>`;
+    }
+
+    function buildErrorResult(message) {
+        return `
+            <div class="agent-run-summary agent-summary-bad">
+                <span class="agent-summary-status">Error</span>
+                <span class="agent-summary-message">${esc(message)}</span>
+            </div>
+            <div class="agent-modal-actions">
+                <button type="button" class="btn-primary" id="agentModalDone">Done</button>
+            </div>`;
+    }
+
+    function renderMissingResult(modal) {
+        modal.querySelector('#agentModalBody').innerHTML = buildErrorResult(
+            'A saved candidate profile is required. Upload your resume first to run the career agent.');
+    }
+
+    // ─── Event delegation for modal action buttons ──────────────────────────
+    document.addEventListener('click', (e) => {
+        // Retry button
+        if (e.target.matches('#agentModalRetry')) {
+            const modal = ensureModal();
+            if (!modal.hidden) {
+                const candidateId = localStorage.getItem(LS_CANDIDATE_ID);
+                const jobId = modal.querySelector('[data-job-id]')?.getAttribute('data-job-id');
+                if (candidateId && jobId) {
+                    run(candidateId, jobId, modal);
+                }
+            }
+            return;
+        }
+        // Done button
+        if (e.target.matches('#agentModalDone')) {
+            closeModal();
+            return;
+        }
+    });
+
+    // ─── Formatting utilities ───────────────────────────────────────────────
+    function statusClass(status) {
+        switch (String(status || '').toUpperCase()) {
+            case 'COMPLETED': return 'good';
+            case 'PARTIAL': return 'partial';
+            case 'FAILED': return 'bad';
+            default: return 'partial';
+        }
+    }
+
+    function printable(value) {
+        if (value === undefined || value === null) return '';
+        return String(value);
     }
 
     function esc(text) {
         if (text === 0) return '0';
         if (text === undefined || text === null) return '';
         return String(text)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
+            .replace(/&/g, '&')
+            .replace(/</g, '<')
+            .replace(/>/g, '>')
+            .replace(/"/g, '"')
             .replace(/'/g, '&#039;');
     }
 
-    // ─── Delegated triggers ─────────────────────────────────────────────────
+    // ─── Delegated click handling for card run buttons ──────────────────────
     document.addEventListener('click', (e) => {
-        const retry = e.target.closest('[data-career-analysis-retry]');
-        if (retry) {
-            if (activeCandidateId && activeJobId && !inFlight) {
-                window.modalShell.setBody(loadingHtml());
-                run(activeCandidateId, activeJobId, null);
-            }
-            return;
-        }
-
         const btn = e.target.closest('[data-career-agent]');
         if (!btn) return;
         const jobId = btn.getAttribute('data-job-id');
         if (!jobId) return;
-        open(localStorage.getItem(LS_CANDIDATE_ID), localStorage.getItem(LS_CANDIDATE_NAME), {
+        const candidateId = localStorage.getItem(LS_CANDIDATE_ID);
+        const candidateName = localStorage.getItem(LS_CANDIDATE_NAME);
+        open(candidateId, candidateName, {
             id: jobId,
             title: btn.getAttribute('data-job-title'),
             company: btn.getAttribute('data-company')
         });
     });
 
+    // ─── Public API (optional, for tests / other pages) ─────────────────────
     window.careerAgent = {
-        open: open,
-        close: () => window.modalShell.close()
+        open: (candidateId, candidateName, job) => open(candidateId, candidateName, job),
+        close: closeModal
     };
 })();

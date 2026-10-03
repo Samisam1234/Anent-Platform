@@ -24,6 +24,12 @@ import static java.lang.String.format;
 public class ApplicationPreparationService {
 
     private static final String RECIPIENT_DEFAULT_NAME = "Hiring Manager";
+    private static final String RECIPIENT_DEFAULT_EMAIL = null;
+
+    private static final String WARN_NOT_SENT = "This application has not been sent.";
+    private static final String WARN_REVIEW = "Review all information before sending.";
+    private static final String WARN_RESUME_DRAFT = "Resume content is based only on existing candidate information.";
+
     /**
      * Prepares an application email draft from the given candidate, job, and
      * tailored resume draft. All inputs may be {@code null}; the service degrades

@@ -773,36 +773,6 @@ class ApplicationAdvisorServiceTest {
         assertEquals(a.recommendedActions(), b.recommendedActions());
     }
 
-    @Test
-    @DisplayName("response echoes the job title and company the advice refers to (review-modal header)")
-    void responseEchoesJobTitleAndCompany() {
-        CareerGapAnalysis gap = gapWith(List.of(), List.of(), List.of(),
-                expGap(0, 0, 0, false), false, GapSeverity.NO_GAP, List.of());
-        AtsReadinessAnalysis readiness = ats(80, false, false);
-
-        ApplicationAdvisorResponse resp = serviceForWithJobMatch(gap, readiness, JOB, 70)
-                .advise(ApplicationAdvisorRequest.fromDomain(1L, "job-1"));
-
-        assertEquals(JOB.title(), resp.jobTitle());
-        assertEquals(JOB.company(), resp.company());
-        // scoring is untouched by the additive echo fields
-        assertEquals(70, resp.jobMatchScore());
-        assertEquals(76, resp.applicationReadinessScore()); // round(0.6*80 + 0.4*70)
-    }
-
-    @Test
-    @DisplayName("legacy 7-arg response constructor still compiles and leaves the echo fields null")
-    void legacyConstructorKeepsBackwardsCompatibility() {
-        ApplicationAdvisorResponse resp = new ApplicationAdvisorResponse(
-                ApplicationRecommendation.RECOMMENDED, 75,
-                List.of(), List.of(), List.of(), List.of(), 60);
-
-        assertEquals(75, resp.applicationReadinessScore());
-        assertEquals(60, resp.jobMatchScore());
-        assertEquals(null, resp.jobTitle());
-        assertEquals(null, resp.company());
-    }
-
     // ─── Helpers ──────────────────────────────────────────────────────────────
     private static void assertTrue(boolean condition) {
         if (!condition) throw new AssertionError("Expected true");

@@ -1,21 +1,15 @@
 package com.agentplatform.orchestrator.job;
 
-import com.agentplatform.orchestrator.matching.CareerTrack;
-import com.agentplatform.orchestrator.matching.CareerTrackEngine;
-import com.agentplatform.orchestrator.resume.CandidateProfile;
-import com.agentplatform.orchestrator.resume.entity.CandidateProfileEntity;
-import com.agentplatform.orchestrator.resume.persistence.CandidateProfilePersistenceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.HashSet;
@@ -24,94 +18,24 @@ import java.util.HashSet;
  * Orchestrates job discovery across configured {@link JobSource}s,
  * deduplicates listings via {@link JobDeduplicationService}, and applies
  * deterministic keyword/location/experience/type/date filters.
- *
- * <p>When a request carries a {@code candidateProfileId} and no explicit keywords, the
- * relevance keywords are derived from that stored profile's parsed skills. This is what
- * lets job discovery follow the uploaded resume: the profile's career track and top
- * skills are condensed into a single job-oriented query that is forwarded to the active
- * sources, and the same derived keywords drive the local relevance filter. Explicit
- * caller keywords always win over profile-derived ones.</p>
  */
 @Service
 public class JobSearchService {
 
     private static final Logger log = LoggerFactory.getLogger(JobSearchService.class);
 
-    /** Upper bound on derived keywords so a skill-rich resume cannot over-narrow discovery. */
-    private static final int MAX_DERIVED_KEYWORDS = 12;
-
     private final List<JobSource> jobSources;
     private final JobDeduplicationService deduplicationService;
-    private final CandidateProfilePersistenceService candidateProfiles;
-    private final JobRelevanceScorer relevanceScorer;
-    private final NegativeJobFilter negativeJobFilter;
-    private final CareerTrackEngine careerTrackEngine;
 
-    /**
-     * Exact job-id lookup cache, populated from the listings this service actually
-     * returned.
-     *
-     * <p>Sources are queried with the caller's keywords, so a listing that came out of a
-     * keyword search cannot in general be re-fetched by id alone: an aggregator or MCP
-     * source that requires a query term has nothing to match against. Caching the exact
-     * records that were returned makes {@link #findById(String)} resolve the job the user
-     * just saw, including its {@code applicationUrl}, without a second network round trip
-     * and without inventing a query the user never typed.</p>
-     *
-     * <p>The cache is <b>process-local and in-memory</b>: it holds no credentials and no
-     * fabricated data — only immutable {@link Job} records exactly as a source published
-     * them — and it is empty again after a restart. A cold cache falls back to the
-     * existing per-source lookup, so behaviour degrades to what it was before rather than
-     * to a wrong answer.</p>
-     */
-    private final JobIdCache idCache = new JobIdCache();
-
-    /**
-     * Test/standalone constructor: no candidate persistence, so profile-driven keyword
-     * derivation is skipped and searches behave exactly as before.
-     */
     public JobSearchService(List<JobSource> jobSources, JobDeduplicationService deduplicationService) {
-        this(jobSources, deduplicationService, null);
-    }
-
-    /**
-     * Convenience constructor that keeps the pre-existing three-argument call sites working.
-     * The relevance components are stateless, so default instances are equivalent to the
-     * Spring-managed ones.
-     */
-    public JobSearchService(List<JobSource> jobSources,
-                            JobDeduplicationService deduplicationService,
-                            CandidateProfilePersistenceService candidateProfiles) {
-        this(jobSources, deduplicationService, candidateProfiles,
-                new JobRelevanceScorer(), new NegativeJobFilter(), new CareerTrackEngine());
-    }
-
-    /**
-     * Production constructor. {@code @Autowired} is explicit because the class declares
-     * more than one constructor.
-     */
-    @Autowired
-    public JobSearchService(List<JobSource> jobSources,
-                            JobDeduplicationService deduplicationService,
-                            CandidateProfilePersistenceService candidateProfiles,
-                            JobRelevanceScorer relevanceScorer,
-                            NegativeJobFilter negativeJobFilter,
-                            CareerTrackEngine careerTrackEngine) {
         this.deduplicationService = deduplicationService != null
                 ? deduplicationService
                 : new JobDeduplicationService();
-        this.candidateProfiles = candidateProfiles;
-        this.relevanceScorer = relevanceScorer != null ? relevanceScorer : new JobRelevanceScorer();
-        this.negativeJobFilter = negativeJobFilter != null ? negativeJobFilter : new NegativeJobFilter();
-        this.careerTrackEngine = careerTrackEngine != null ? careerTrackEngine : new CareerTrackEngine();
 
         if (jobSources != null && !jobSources.isEmpty()) {
             this.jobSources = List.copyOf(jobSources);
         } else {
-            // No silent fallback to the development catalog. An empty source list means
-            // "no jobs available", which the UI renders as a professional empty state
-            // rather than as fabricated listings.
-            this.jobSources = List.of();
+            this.jobSources = List.of(new MockJobSource());
         }
     }
 
@@ -125,13 +49,6 @@ public class JobSearchService {
         if (id == null || id.isBlank()) {
             return Optional.empty();
         }
-        // A hit here is a listing this service already returned under exactly this id, so
-        // the match is by identity, never by similarity: a different job is never returned
-        // for the requested id.
-        Job cached = idCache.get(id);
-        if (cached != null) {
-            return Optional.of(cached);
-        }
         for (JobSource source : jobSources) {
             try {
                 if (!source.isAvailable()) {
@@ -143,7 +60,6 @@ public class JobSearchService {
                 }
                 Optional<Job> match = jobs.stream().filter(job -> job != null && id.equals(job.id())).findFirst();
                 if (match.isPresent()) {
-                    idCache.put(match.get());
                     return match;
                 }
             } catch (Exception ex) {
@@ -162,23 +78,8 @@ public class JobSearchService {
             throw new IllegalArgumentException("Limit must be between 1 and 100");
         }
         long startTime = System.currentTimeMillis();
-
-        // The stored profile drives both relevance keywords and career-track filtering, so
-        // it is resolved once. Explicit keywords always win over profile-derived ones — and
-        // when the caller supplies their own keywords, that is an expression of intent that
-        // supersedes the resume, so the profile's discipline must not then be used to veto
-        // what the caller explicitly asked for.
-        CandidateProfile profile = resolveProfile(request);
-        boolean explicitKeywords = request.keywords() != null && !request.keywords().isEmpty();
-        List<String> relevanceKeywords = explicitKeywords
-                ? request.keywords()
-                : deriveProfileKeywords(profile);
-        Set<CareerTrack> candidateTracks = explicitKeywords
-                ? Set.of()
-                : careerTrackEngine.classifyCandidate(profile);
-
-        log.info("Starting job search: keywords={}, tracks={}, location='{}', experience='{}', type='{}', date='{}', limit={}",
-                relevanceKeywords, candidateTracks, request.location(), request.experience(),
+        log.info("Starting job search: keywords={}, location='{}', experience='{}', type='{}', date='{}', limit={}",
+                request.keywords(), request.location(), request.experience(),
                 request.employmentType(), request.datePosted(), request.limit());
 
         List<JobSource> activeSources = jobSources.stream().filter(JobSource::isAvailable).toList();
@@ -192,32 +93,16 @@ public class JobSearchService {
         List<String> sourceNames = new ArrayList<>();
         boolean anyLive = false;
         int failedSources = 0;
-
-        // Propagate derived keywords to downstream sources when no explicit keywords were provided.
-        // For profile-driven searches, build a concise job-oriented query from the profile's
-        // track and top skills, instead of passing all 12 skills as individual keywords.
-        // A blank derivation (anonymous search with nothing to derive) means there is no
-        // query to forward — pass the original request so no empty keyword is pushed upstream.
-        String derivedQuery = buildJobOrientedQuery(profile, candidateTracks, relevanceKeywords);
-        JobSearchRequest effectiveRequest = explicitKeywords || derivedQuery.isBlank() ? request
-                : new JobSearchRequest(List.of(derivedQuery),
-                        request.location(), request.experience(),
-                        request.employmentType(), request.datePosted(), request.limit(), request.source(),
-                        request.candidateProfileId());
-
         for (JobSource source : activeSources) {
             try {
-                List<Job> jobs = source.search(effectiveRequest);
+                List<Job> jobs = source.search(request);
                 if (jobs != null) {
                     rawListings.addAll(jobs);
-                    // A live source only counts as live if it actually contributed listings.
-                    // An enabled-but-unreachable public API must not make the UI claim live
-                    // data while every row really came from the mock catalog.
-                    if (source.isLive() && !jobs.isEmpty()) {
-                        anyLive = true;
-                    }
                 }
                 sourceNames.add(source.getSourceName());
+                if (source.isLive()) {
+                    anyLive = true;
+                }
             } catch (Exception ex) {
                 failedSources++;
                 log.error("Error retrieving jobs from source '{}': {}", source.getSourceName(), ex.getMessage(), ex);
@@ -233,30 +118,9 @@ public class JobSearchService {
         List<Job> deduplicated = deduplicationService.deduplicate(rawListings);
         int afterDedupCount = deduplicated.size();
 
-        // Pipeline order: retrieval → normalization → dedup → career-track relevance →
-        // negative exclusions → keyword relevance → location → experience → employment
-        // type → date. Track and exclusion run before keyword relevance so that an
-        // off-discipline listing is discarded on what it IS rather than on whether one of
-        // its words happens to appear in the candidate's skill list.
-        List<Job> trackRelevant = deduplicated.stream()
+        List<Job> filtered = deduplicated.stream()
                 .filter(JobSearchService::hasMinimalQuality)
-                .filter(job -> isTrackRelevant(job, candidateTracks))
-                .toList();
-
-        List<Job> notExcluded = trackRelevant.stream()
-                .filter(job -> {
-                    String reason = negativeJobFilter.exclusionReason(job, candidateTracks);
-                    if (reason != null) {
-                        log.debug("Excluded job id={} title='{}' on negative rule '{}'",
-                                job.id(), job.title(), reason);
-                        return false;
-                    }
-                    return true;
-                })
-                .toList();
-
-        List<Job> filtered = notExcluded.stream()
-                .filter(job -> relevanceScorer.isRelevant(job, relevanceKeywords))
+                .filter(job -> matchesKeywords(job, request.keywords()))
                 .filter(job -> matchesLocation(job, request.location()))
                 .filter(job -> matchesSource(job, request.source()))
                 .filter(job -> matchesExperience(job, request.experience()))
@@ -265,45 +129,14 @@ public class JobSearchService {
                 .toList();
         int afterFilterCount = filtered.size();
 
-        if (afterFilterCount < notExcluded.size()) {
-            log.info("Relevance filtering removed {} listing(s) that did not meet the keyword threshold",
-                    notExcluded.size() - afterFilterCount);
-        }
-        if (notExcluded.size() < trackRelevant.size()) {
-            log.info("Negative rules removed {} non-engineering listing(s)",
-                    trackRelevant.size() - notExcluded.size());
-        }
-
         int limit = request.limit() != null && request.limit() > 0 ? request.limit() : 20;
         List<Job> limitedResults = filtered.stream().limit(limit).toList();
 
-        // Cache exactly what the caller is about to see. Populating from the final list —
-        // after normalization, dedup and filtering — means findById() hands back the same
-        // record the UI was shown, with the same id and the same applicationUrl a source
-        // published (dedup keeps the first record's id and merges in a URL a later record
-        // supplied, so caching earlier would cache a listing the user never received).
-        idCache.putAll(limitedResults);
-
         long durationMs = System.currentTimeMillis() - startTime;
         String combinedSourceName = String.join(", ", sourceNames);
-        boolean liveConfigured = activeSources.stream().anyMatch(JobSource::isLive);
-        // Describe what was actually returned rather than what might have been configured:
-        // the development wording appears only when mock rows really are in the result
-        // (job-sources.mock.enabled=true), never in the normal live-only flow.
-        boolean anyMock = limitedResults.stream()
-                .anyMatch(job -> MockJobSource.SOURCE_NAME.equals(job.source()));
-        String message;
-        if (anyLive) {
-            message = "Live job search completed successfully.";
-        } else if (anyMock) {
-            message = liveConfigured
-                    ? "The live job source returned no listings, so results fall back to the development mock catalog."
-                    : "Live job source not configured. Returning development mock data.";
-        } else {
-            message = liveConfigured
-                    ? "No live jobs are currently available for these preferences."
-                    : "No live job source is configured.";
-        }
+        String message = anyLive
+                ? "Live job search completed successfully."
+                : "Live job source not configured. Returning development mock data.";
         log.info("Job search complete in {} ms: sources=[{}], raw={}, afterDedup={}, afterFilter={}, returned={}",
                 durationMs, combinedSourceName, rawCount, afterDedupCount, afterFilterCount, limitedResults.size());
         return new JobSearchResult(limitedResults, afterFilterCount, combinedSourceName, anyLive, message);
@@ -335,147 +168,38 @@ public class JobSearchService {
         return jobSource.equals(query);
     }
 
-    /**
-     * Returns the keywords that decide which discovered listings are relevant.
-     *
-     * <p>Explicit caller keywords are used verbatim (backwards compatible). When none are
-     * supplied but the request names a stored candidate profile, the profile's parsed
-     * skills become the relevance keywords — this is the profile-driven discovery that
-     * replaces the removed free-text "Keywords &amp; Skills" field. When neither is
-     * available, an empty list is returned and nothing is filtered out.</p>
-     */
-    /**
-     * Loads the stored candidate profile the request refers to, or {@code null} when the
-     * request is anonymous, the id is absent, the profile cannot be found, or persistence
-     * is unavailable. Every downstream relevance decision treats {@code null} as "no
-     * profile signal" rather than as an error, so an anonymous search still works.
-     */
-    private CandidateProfile resolveProfile(JobSearchRequest request) {
-        Long profileId = request.candidateProfileId();
-        if (candidateProfiles == null || profileId == null) {
-            return null;
-        }
-        try {
-            return candidateProfiles.findById(profileId)
-                    .map(CandidateProfileEntity::toDomain)
-                    .orElseGet(() -> {
-                        log.debug("Candidate profile {} not found — searching without profile relevance", profileId);
-                        return null;
-                    });
-        } catch (Exception ex) {
-            log.warn("Could not load candidate profile {} for relevance filtering: {}",
-                    profileId, ex.getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Whether a listing is in a discipline the candidate actually targets.
-     *
-     * <p>Conservative by design. It only rejects when <em>both</em> sides are specific and
-     * they belong to different families — a VLSI candidate against a clearly software role,
-     * or the reverse. Listings whose discipline cannot be determined are left for the
-     * negative rules and keyword relevance to judge, because unclassifiable wording is not
-     * evidence that a role is wrong; and a search with no known candidate discipline has no
-     * basis to exclude anything on track.</p>
-     */
-    private boolean isTrackRelevant(Job job, Set<CareerTrack> candidateTracks) {
-        if (candidateTracks == null || candidateTracks.isEmpty()) {
+    private boolean matchesKeywords(Job job, List<String> keywords) {
+        if (keywords == null || keywords.isEmpty()) {
             return true;
         }
-        CareerTrack jobTrack = careerTrackEngine.classifyJob(job);
-        if (jobTrack == CareerTrack.UNKNOWN || jobTrack == CareerTrack.MIXED) {
+        List<String> cleanKeywords = keywords.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(k -> !k.isEmpty())
+                .map(String::toLowerCase)
+                .toList();
+        if (cleanKeywords.isEmpty()) {
             return true;
         }
-        for (CareerTrack candidateTrack : candidateTracks) {
-            if (candidateTrack == null || !candidateTrack.isSpecific()) {
-                continue;
+        String title = job.title() != null ? job.title().toLowerCase() : "";
+        String desc = job.description() != null ? job.description().toLowerCase() : "";
+        String company = job.company() != null ? job.company().toLowerCase() : "";
+        List<String> skills = new ArrayList<>();
+        if (job.requiredSkills() != null) {
+            job.requiredSkills().forEach(s -> skills.add(s.toLowerCase()));
+        }
+        if (job.preferredSkills() != null) {
+            job.preferredSkills().forEach(s -> skills.add(s.toLowerCase()));
+        }
+        for (String keyword : cleanKeywords) {
+            if (title.contains(keyword) || desc.contains(keyword) || company.contains(keyword)) {
+                return true;
             }
-            if (candidateTrack.family() == jobTrack.family()) {
+            if (skills.stream().anyMatch(skill -> skill.contains(keyword) || skill.equalsIgnoreCase(keyword))) {
                 return true;
             }
         }
-        boolean candidateIsSpecific = candidateTracks.stream().anyMatch(CareerTrack::isSpecific);
-        return !candidateIsSpecific;
-    }
-
-    /**
-     * Builds relevance keywords from a parsed profile: canonical skills first, then the
-     * track-specific skill lists and inferred preferred roles. Order is stable and the
-     * list is capped so a skill-rich resume cannot over-narrow discovery.
-     */
-    static List<String> deriveProfileKeywords(CandidateProfile profile) {
-        if (profile == null) {
-            return List.of();
-        }
-        LinkedHashSet<String> keywords = new LinkedHashSet<>();
-        addAll(keywords, profile.skills());
-        addAll(keywords, profile.softwareSkills());
-        addAll(keywords, profile.hardwareSkills());
-        addAll(keywords, profile.preferredRoles());
-        return keywords.stream().limit(MAX_DERIVED_KEYWORDS).toList();
-    }
-
-    /**
-     * Builds a concise job-oriented search query from the candidate's profile and career tracks.
-     * <p>
-     * Instead of passing all 12 raw skills as individual keywords (which makes poor search queries),
-     * this constructs a concise job-oriented query like "Java Embedded Systems Engineer" or
-     * "VLSI FPGA Engineer" based on the candidate's detected career tracks and top skills.
-     * </p>
-     */
-    static String buildJobOrientedQuery(CandidateProfile profile, Set<CareerTrack> candidateTracks,
-                                        List<String> relevanceKeywords) {
-        if (profile == null) {
-            return relevanceKeywords.isEmpty() ? "" : relevanceKeywords.get(0);
-        }
-
-        // Build a role-oriented query based on the strongest career track signal
-        String rolePrefix = "";
-        if (candidateTracks != null && !candidateTracks.isEmpty()) {
-            for (CareerTrack track : candidateTracks) {
-                switch (track) {
-                    case EMBEDDED -> { return "Embedded Systems Engineer"; }
-                    case VLSI_FPGA -> { return "VLSI FPGA Engineer"; }
-                    case AI_ML -> { return "Machine Learning Engineer"; }
-                    case SOFTWARE -> { rolePrefix = "Software Engineer"; }
-                    case HARDWARE -> { rolePrefix = "Hardware Engineer"; }
-                    default -> {}
-                }
-            }
-        }
-
-        // If no specific track prefix, infer from skills
-        if (rolePrefix.isEmpty()) {
-            List<String> topSkills = relevanceKeywords.stream().limit(3).toList();
-            if (!topSkills.isEmpty()) {
-                rolePrefix = String.join(" ", topSkills.subList(0, Math.min(2, topSkills.size()))) + " Engineer";
-            } else {
-                rolePrefix = "Engineer";
-            }
-        }
-
-        // Append top distinguishing skill if not already in role prefix
-        String topSkill = null;
-        for (String k : relevanceKeywords) {
-            if (!rolePrefix.toLowerCase().contains(k.toLowerCase())) {
-                topSkill = k;
-                break;
-            }
-        }
-
-        return topSkill != null ? rolePrefix + " " + topSkill : rolePrefix;
-    }
-
-    private static void addAll(Set<String> target, List<String> values) {
-        if (values == null) {
-            return;
-        }
-        for (String value : values) {
-            if (value != null && !value.isBlank()) {
-                target.add(value.trim());
-            }
-        }
+        return false;
     }
 
     private boolean matchesLocation(Job job, String requestedLocation) {

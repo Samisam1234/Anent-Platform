@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -52,18 +51,13 @@ public class PersistentConversationStore implements ConversationStore {
         List<ConversationMessageEntity> messages = conversation.getMessages();
         messages.add(new ConversationMessageEntity(conversation, messages.size(), message.role(), message.content()));
         conversation.setUpdatedAt(Instant.now());
-
-        // Deliberately no repository.save() here. The conversation is already managed, so
-        // dirty checking flushes updatedAt and CascadeType.PERSIST inserts the new message.
-        // repository.save() would be em.merge() (the id is non-null by now), and merging a
-        // parent whose orphanRemoval collection has removals queued from a previous trim
-        // discards those deletions. See trimMessages for the full explanation.
+        conversation = repository.save(conversation);
 
         // Update cache
         conversationCache.put(conversationId, conversation);
 
         // Trim if needed
-        trimIfNeeded(conversation);
+        trimIfNeeded(conversationId, conversation);
     }
 
     @Override
@@ -93,7 +87,7 @@ public class PersistentConversationStore implements ConversationStore {
 
         // Re-fetch so trim operates on a Hibernate-managed PersistentBag
         ConversationEntity managed = repository.findByConversationId(conversationId).orElseThrow();
-        trimIfNeeded(managed);
+        trimIfNeeded(conversationId, managed);
     }
 
     @Override
@@ -123,8 +117,21 @@ public class PersistentConversationStore implements ConversationStore {
     @Override
     @Transactional
     public void trim(String conversationId, int maxMessages) {
-        repository.findByConversationId(conversationId)
-                .ifPresent(conversation -> trimMessages(conversation, maxMessages));
+        repository.findByConversationId(conversationId).ifPresent(conversation -> {
+            List<ConversationMessageEntity> messages = conversation.getMessages();
+            if (messages.size() > maxMessages) {
+                messages.sort(Comparator.comparingInt(ConversationMessageEntity::getSequence));
+                while (messages.size() > maxMessages) {
+                    messages.remove(0);
+                }
+                for (int i = 0; i < messages.size(); i++) {
+                    messages.get(i).setSequence(i);
+                }
+                conversation.setUpdatedAt(Instant.now());
+                repository.save(conversation);
+                log.debug("Trimmed conversation {} to {} messages", conversationId, maxMessages);
+            }
+        });
     }
 
     @Override
@@ -178,103 +185,23 @@ public class PersistentConversationStore implements ConversationStore {
     /**
      * Trims conversation if it exceeds max messages.
      */
-    private void trimIfNeeded(ConversationEntity conversation) {
-        trimMessages(conversation, MAX_MESSAGES_PER_CONVERSATION);
+    private void trimIfNeeded(String conversationId, ConversationEntity conversation) {
+        List<ConversationMessageEntity> messages = conversation.getMessages();
+        if (messages.size() > MAX_MESSAGES_PER_CONVERSATION) {
+            messages.sort(Comparator.comparingInt(ConversationMessageEntity::getSequence));
+            while (messages.size() > MAX_MESSAGES_PER_CONVERSATION) {
+                messages.remove(0);
+            }
+            for (int i = 0; i < messages.size(); i++) {
+                messages.get(i).setSequence(i);
+            }
+            conversation.setUpdatedAt(Instant.now());
+            repository.save(conversation);
+            log.debug("Trimmed conversation {} to {} messages", conversationId, MAX_MESSAGES_PER_CONVERSATION);
+        }
 
         // Check if we need to evict oldest conversations
         evictIfNeeded();
-    }
-
-    /**
-     * Drops the oldest messages so that at most {@code maxMessages} remain, then renumbers
-     * the {@code sequence} of the survivors from zero. Does nothing when the conversation
-     * is already within the limit.
-     *
-     * <p><strong>This method must not call {@code repository.save(conversation)}.</strong>
-     * The conversation arrives managed, so {@code save} resolves to {@code em.merge} rather
-     * than {@code em.persist} — Spring Data picks between them on {@code id == null}, and
-     * the id is populated by now. Hibernate does not carry pending orphan deletions across a
-     * merge: merging a parent whose {@code orphanRemoval} collection has had elements
-     * removed drops those deletions, so the removed messages stay managed in the session,
-     * still referencing their parent, but are no longer reachable from the parent's
-     * collection.</p>
-     *
-     * <p>That state is invisible until something deletes the parent. A {@code deleteAll}
-     * cascades {@code remove} only down the collection it can reach, so the stranded
-     * messages are left behind as persistent instances pointing at a parent that is now in
-     * DELETED state — which Hibernate reports as an unsaved transient instance:</p>
-     *
-     * <pre>
-     * org.hibernate.TransientObjectException: persistent instance references an unsaved
-     * transient instance of ConversationEntity
-     * </pre>
-     *
-     * <p>Dropping the merge is necessary but not sufficient. {@code orphanRemoval} does not
-     * delete anything by itself: the deletes are produced during flush-time cascading, in
-     * {@code AbstractFlushingEventListener.prepareEntityFlushes}, whose <em>first</em> loop
-     * cascades {@code PERSIST_ON_FLUSH} (the only action whose {@code deleteOrphans()} is
-     * {@code true}) and which walks only entries that are still {@code flushable()} —
-     * {@code MANAGED}, {@code SAVING} or {@code READ_ONLY}. So the orphan deletes exist only
-     * while {@code conversation} itself is managed.</p>
-     *
-     * <p>Every caller of this method is free to delete that conversation next
-     * ({@link #clear}, {@link #evictIfNeeded}, the wholesale replacement in {@link #save},
-     * or a caller's own {@code deleteAll}). Once {@code em.remove} has run, the parent's
-     * {@code EntityEntry} is {@code Status.DELETED}, it is no longer {@code flushable()}, and
-     * the first loop can never produce the orphan deletes again. The trimmed messages are
-     * still {@code MANAGED} — orphan removal never touched them — and they are unreachable
-     * from the parent, so nothing else deletes them either. The <em>second</em> loop of the
-     * same method then runs {@code CHECK_ON_FLUSH} over every flushable entity, follows the
-     * owning {@code @ManyToOne ConversationMessageEntity.conversation}, and
-     * {@code CascadingActions.isChildTransient} returns true because the child's status
-     * {@code isDeletedOrGone()}. The flush aborts with:</p>
-     *
-     * <pre>
-     * org.hibernate.TransientObjectException: persistent instance references an unsaved
-     * transient instance of ConversationEntity
-     * </pre>
-     *
-     * <p>Hence the explicit {@code repository.flush()} below. It runs the first loop while
-     * the parent is still managed, so the trimmed rows are gone before this method returns
-     * and the persistence context never holds a managed message whose parent is deleted.
-     * It is skipped entirely when nothing was trimmed (the early return above), which is the
-     * common case.</p>
-     *
-     * <p>The collection is also never reordered in place. {@code @OrderBy("sequence ASC")}
-     * already returns it in sequence order and every read path sorts by {@code sequence},
-     * so the copy is sorted purely to identify the oldest entries.</p>
-     */
-    private void trimMessages(ConversationEntity conversation, int maxMessages) {
-        List<ConversationMessageEntity> messages = conversation.getMessages();
-        if (messages.size() <= maxMessages) {
-            return;
-        }
-
-        List<ConversationMessageEntity> oldestFirst = new ArrayList<>(messages);
-        oldestFirst.sort(Comparator.comparingInt(ConversationMessageEntity::getSequence));
-
-        int excess = oldestFirst.size() - maxMessages;
-        for (int i = 0; i < excess; i++) {
-            // Removal by identity: ConversationMessageEntity declares no equals/hashCode,
-            // so PersistentBag.remove drops exactly this instance and queues its orphan
-            // delete, which is the removal path the mapping expects.
-            messages.remove(oldestFirst.get(i));
-        }
-        for (int i = 0; i < maxMessages; i++) {
-            oldestFirst.get(excess + i).setSequence(i);
-        }
-
-        conversation.setUpdatedAt(Instant.now());
-        // Deliberately no repository.save(): see the method Javadoc. Merging here is what
-        // discarded the orphan deletions and left managed messages pointing at a parent
-        // that a later delete had already removed.
-        //
-        // Flush instead, so the orphan deletes are produced while this conversation is still
-        // MANAGED. Without it the trimmed messages stay managed and unreachable, and the next
-        // delete of the conversation turns them into a TransientObjectException at flush.
-        repository.flush();
-        log.debug("Trimmed conversation {} to {} messages",
-                conversation.getConversationId(), maxMessages);
     }
 
     /**

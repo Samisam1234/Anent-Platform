@@ -42,21 +42,16 @@
             <artifactId>tool-service</artifactId>
         </dependency>
 
-        <!-- Spring Web for @RestController / @RequestMapping in JobApplicationController.
-             This also supplies spring-boot-starter transitively, so no separate
-             starter declaration is needed. -->
+        <!-- Spring Context for @Service -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- Spring Web for @RestController / @RequestMapping in JobApplicationController -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-
-        <!-- LangChain4j core: directly imported by the agent, chat, resume and gap
-             services (ChatModel, ChatRequest, ToolSpecifications, AiMessage, ...).
-             Declared explicitly so compilation does not rely on agent-core
-             happening to bring it in transitively. Version from the root pom. -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j</artifactId>
         </dependency>
 
         <!-- Spring Data JPA + Jakarta Persistence + Spring Transaction for
@@ -82,13 +77,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- H2 in-memory database for @DataJpaTest slice tests (test scope only) -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

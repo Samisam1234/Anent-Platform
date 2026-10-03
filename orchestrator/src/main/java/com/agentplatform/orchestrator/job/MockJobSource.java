@@ -6,20 +6,9 @@ import com.agentplatform.orchestrator.job.JobSource;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-/**
- * Development-only catalog of synthetic listings.
- *
- * <p><strong>Not a bean in the normal user-facing application.</strong> The catalog is
- * registered only when {@code job-sources.mock.enabled=true} is set explicitly, so the
- * Jobs portal, Matches, Career Agent, Application Advisor and Prepare Application never
- * surface {@code MOCK_SOURCE} rows. Tests keep full access by constructing
- * {@code new MockJobSource()} directly and passing it to {@link JobSearchService}.</p>
- */
 @Component
-@ConditionalOnProperty(name = "job-sources.mock.enabled", havingValue = "true")
 public class MockJobSource
 implements JobSource {
     private static final Logger log = LoggerFactory.getLogger(MockJobSource.class);

@@ -3,7 +3,6 @@ package com.agentplatform.ui.controller;
 import com.agentplatform.orchestrator.agent.AgentResult;
 import com.agentplatform.orchestrator.agent.AgentType;
 import com.agentplatform.orchestrator.agent.OrchestrationRun;
-import com.agentplatform.orchestrator.agent.EvaluationResult;
 import com.agentplatform.orchestrator.agent.RunStatus;
 import com.agentplatform.orchestrator.resume.exception.CandidateProfileNotFoundException;
 import com.agentplatform.orchestrator.service.OrchestrationService;
@@ -50,10 +49,6 @@ class OrchestrationControllerTest {
             AgentResult.completed(AgentType.APPLICATION_ADVISOR, "done").withStartTime().withCompletionTime()
     );
 
-    private static OrchestrationService.OrchestrationWithEvaluation withEvaluation(OrchestrationRun run) {
-        return new OrchestrationService.OrchestrationWithEvaluation(run, EvaluationResult.from(run, null));
-    }
-
     private String body(Long candidateId, String jobId) throws Exception {
         return objectMapper.writeValueAsString(
                 new com.agentplatform.ui.dto.OrchestrationRequestDto(candidateId, jobId));
@@ -66,7 +61,7 @@ class OrchestrationControllerTest {
     void orchestrate_validRequest_returns200() throws Exception {
         OrchestrationRun run = new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
                 0, 0, true, "Career orchestration completed successfully.", null);
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1")).thenReturn(withEvaluation(run));
+        when(orchestrationService.orchestrate(1L, "job-1")).thenReturn(run);
 
         mockMvc.perform(post("/api/v1/agent/orchestrate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -82,14 +77,9 @@ class OrchestrationControllerTest {
     @Test
     @DisplayName("response exposes runStatus")
     void response_exposesRunStatus() throws Exception {
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1"))
-                .thenReturn(new OrchestrationService.OrchestrationWithEvaluation(
-                new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
-                        0, 0, true, "ok", null),
-                EvaluationResult.from(
-                        new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
-                                0, 0, true, "ok", null), null)
-        ));
+        when(orchestrationService.orchestrate(1L, "job-1"))
+                .thenReturn(new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
+                        0, 0, true, "ok", null));
 
         mockMvc.perform(post("/api/v1/agent/orchestrate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -103,14 +93,9 @@ class OrchestrationControllerTest {
     @Test
     @DisplayName("response contains the agent execution list")
     void response_containsAgentExecutions() throws Exception {
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1"))
-                .thenReturn(new OrchestrationService.OrchestrationWithEvaluation(
-                new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
-                        0, 0, true, "ok", null),
-                EvaluationResult.from(
-                        new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
-                                0, 0, true, "ok", null), null)
-        ));
+        when(orchestrationService.orchestrate(1L, "job-1"))
+                .thenReturn(new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
+                        0, 0, true, "ok", null));
 
         mockMvc.perform(post("/api/v1/agent/orchestrate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -124,14 +109,9 @@ class OrchestrationControllerTest {
     @Test
     @DisplayName("agent executions preserve the fixed pipeline order")
     void response_fixedAgentOrder() throws Exception {
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1"))
-                .thenReturn(new OrchestrationService.OrchestrationWithEvaluation(
-                new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
-                        0, 0, true, "ok", null),
-                EvaluationResult.from(
-                        new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
-                                0, 0, true, "ok", null), null)
-        ));
+        when(orchestrationService.orchestrate(1L, "job-1"))
+                .thenReturn(new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
+                        0, 0, true, "ok", null));
 
         mockMvc.perform(post("/api/v1/agent/orchestrate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -150,7 +130,7 @@ class OrchestrationControllerTest {
     void response_returnsUsageCounts() throws Exception {
         OrchestrationRun run = new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
                 2, 3, true, "ok", null);
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1")).thenReturn(withEvaluation(run));
+        when(orchestrationService.orchestrate(1L, "job-1")).thenReturn(run);
 
         mockMvc.perform(post("/api/v1/agent/orchestrate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -171,7 +151,7 @@ class OrchestrationControllerTest {
                 AgentResult.skipped(AgentType.CAREER_ADVISOR, "Skipped: ..."),
                 AgentResult.skipped(AgentType.APPLICATION_ADVISOR, "Skipped: ...")
         ), 0, 0, false, "Blocking agent RESUME failed.", AgentType.RESUME);
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1")).thenReturn(withEvaluation(run));
+        when(orchestrationService.orchestrate(1L, "job-1")).thenReturn(run);
 
         mockMvc.perform(post("/api/v1/agent/orchestrate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -196,7 +176,7 @@ class OrchestrationControllerTest {
                 AgentResult.completed(AgentType.CAREER_ADVISOR, "done"),
                 AgentResult.completed(AgentType.APPLICATION_ADVISOR, "done")
         ), 0, 0, false, "Some stages skipped/failed.", null);
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1")).thenReturn(withEvaluation(run));
+        when(orchestrationService.orchestrate(1L, "job-1")).thenReturn(run);
 
         mockMvc.perform(post("/api/v1/agent/orchestrate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -212,7 +192,7 @@ class OrchestrationControllerTest {
     @Test
     @DisplayName("unknown candidate → 404 ProblemDetail")
     void orchestrate_unknownCandidate_returns404() throws Exception {
-        when(orchestrationService.orchestrateWithEvaluation(anyLong(), eq("job-1")))
+        when(orchestrationService.orchestrate(anyLong(), eq("job-1")))
                 .thenThrow(new CandidateProfileNotFoundException(999L));
 
         mockMvc.perform(post("/api/v1/agent/orchestrate")
@@ -228,7 +208,7 @@ class OrchestrationControllerTest {
     @Test
     @DisplayName("unknown job → 404 ProblemDetail")
     void orchestrate_unknownJob_returns404() throws Exception {
-        when(orchestrationService.orchestrateWithEvaluation(1L, "nope"))
+        when(orchestrationService.orchestrate(1L, "nope"))
                 .thenThrow(new JobNotFoundException("nope"));
 
         mockMvc.perform(post("/api/v1/agent/orchestrate")
@@ -293,7 +273,7 @@ class OrchestrationControllerTest {
     @Test
     @DisplayName("unexpected error → 500 with safe generic message, no stack trace or internals")
     void orchestrate_unexpectedError_returns500Safe() throws Exception {
-        when(orchestrationService.orchestrateWithEvaluation(eq(1L), eq("job-1")))
+        when(orchestrationService.orchestrate(eq(1L), eq("job-1")))
                 .thenThrow(new IllegalStateException("super secret DB password and stacktrace"));
 
         String raw = mockMvc.perform(post("/api/v1/agent/orchestrate")
@@ -317,14 +297,9 @@ class OrchestrationControllerTest {
     @Test
     @DisplayName("request contract cannot trigger email sending (no approved/email fields)")
     void request_hasNoEmailCommand() throws Exception {
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1"))
-                .thenReturn(new OrchestrationService.OrchestrationWithEvaluation(
-                new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
-                        0, 0, true, "ok", null),
-                EvaluationResult.from(
-                        new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
-                                0, 0, true, "ok", null), null)
-        ));
+        when(orchestrationService.orchestrate(1L, "job-1"))
+                .thenReturn(new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
+                        0, 0, true, "ok", null));
 
         // An 'approved' field must be ignored — it is not part of the contract.
         mockMvc.perform(post("/api/v1/agent/orchestrate")
@@ -334,7 +309,7 @@ class OrchestrationControllerTest {
                 .andExpect(jsonPath("$.success").value(true));
 
         // And the service is only ever called with ids — never with an approval signal.
-        org.mockito.Mockito.verify(orchestrationService).orchestrateWithEvaluation(1L, "job-1");
+        org.mockito.Mockito.verify(orchestrationService).orchestrate(1L, "job-1");
     }
 
     // ─── 16. No arbitrary tool execution ────────────────────────────────────
@@ -356,7 +331,7 @@ class OrchestrationControllerTest {
     void response_budgetsWithinLimits() throws Exception {
         OrchestrationRun run = new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
                 3, 4, true, "ok", null);
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1")).thenReturn(withEvaluation(run));
+        when(orchestrationService.orchestrate(1L, "job-1")).thenReturn(run);
 
         mockMvc.perform(post("/api/v1/agent/orchestrate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -376,7 +351,7 @@ class OrchestrationControllerTest {
     void response_deterministicSameResult() throws Exception {
         OrchestrationRun run = new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
                 0, 0, true, "Career orchestration completed successfully.", null);
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1")).thenReturn(withEvaluation(run));
+        when(orchestrationService.orchestrate(1L, "job-1")).thenReturn(run);
 
         String a = mockMvc.perform(post("/api/v1/agent/orchestrate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -400,7 +375,7 @@ class OrchestrationControllerTest {
     void response_frontendJsonShape() throws Exception {
         OrchestrationRun run = new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
                 2, 3, true, "Career orchestration completed successfully.", null);
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1")).thenReturn(withEvaluation(run));
+        when(orchestrationService.orchestrate(1L, "job-1")).thenReturn(run);
 
         mockMvc.perform(post("/api/v1/agent/orchestrate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -420,14 +395,9 @@ class OrchestrationControllerTest {
     @Test
     @DisplayName("each agent execution exposes agentType/status/success/message/errorCode")
     void response_agentExecutionShape() throws Exception {
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1"))
-                .thenReturn(new OrchestrationService.OrchestrationWithEvaluation(
-                new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
-                        0, 0, true, "ok", null),
-                EvaluationResult.from(
-                        new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
-                                0, 0, true, "ok", null), null)
-        ));
+        when(orchestrationService.orchestrate(1L, "job-1"))
+                .thenReturn(new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
+                        0, 0, true, "ok", null));
 
         mockMvc.perform(post("/api/v1/agent/orchestrate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -449,24 +419,14 @@ class OrchestrationControllerTest {
     @Test
     @DisplayName("response exposes only safe status fields — never raw outputs/context")
     void response_neverExposesInternals() throws Exception {
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1"))
-                .thenReturn(new OrchestrationService.OrchestrationWithEvaluation(
-                new OrchestrationRun(RunStatus.PARTIAL, List.of(
+        when(orchestrationService.orchestrate(1L, "job-1"))
+                .thenReturn(new OrchestrationRun(RunStatus.PARTIAL, List.of(
                         AgentResult.completed(AgentType.RESUME, "Resume summary ready."),
                         AgentResult.completed(AgentType.JOB_DISCOVERY, "Found 12 candidate roles."),
                         AgentResult.failed(AgentType.MATCHING, "Matching unavailable.", "AGENT_OPTIONAL_FAILURE"),
                         AgentResult.completed(AgentType.CAREER_ADVISOR, "Advice ready."),
                         AgentResult.skipped(AgentType.APPLICATION_ADVISOR, "Skipped.")
-                ), 2, 1, false, "Some stages did not complete.", null),
-                EvaluationResult.from(
-                        new OrchestrationRun(RunStatus.PARTIAL, List.of(
-                                AgentResult.completed(AgentType.RESUME, "Resume summary ready."),
-                                AgentResult.completed(AgentType.JOB_DISCOVERY, "Found 12 candidate roles."),
-                                AgentResult.failed(AgentType.MATCHING, "Matching unavailable.", "AGENT_OPTIONAL_FAILURE"),
-                                AgentResult.completed(AgentType.CAREER_ADVISOR, "Advice ready."),
-                                AgentResult.skipped(AgentType.APPLICATION_ADVISOR, "Skipped.")
-                        ), 2, 1, false, "Some stages did not complete.", null), null)
-        ));
+                ), 2, 1, false, "Some stages did not complete.", null));
 
         String raw = mockMvc.perform(post("/api/v1/agent/orchestrate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -492,7 +452,7 @@ class OrchestrationControllerTest {
     void response_agentExecutionIncludesTiming() throws Exception {
         OrchestrationRun run = new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
                 0, 0, true, "ok", null);
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1")).thenReturn(withEvaluation(run));
+        when(orchestrationService.orchestrate(1L, "job-1")).thenReturn(run);
 
         mockMvc.perform(post("/api/v1/agent/orchestrate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -511,7 +471,7 @@ class OrchestrationControllerTest {
                 AgentResult.failed(AgentType.CAREER_ADVISOR, "AI timed out", "TIMEOUT"),
                 AgentResult.completed(AgentType.APPLICATION_ADVISOR, "done")
         ), 1, 0, false, "AI timeout occurred.", null);
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1")).thenReturn(withEvaluation(run));
+        when(orchestrationService.orchestrate(1L, "job-1")).thenReturn(run);
 
         mockMvc.perform(post("/api/v1/agent/orchestrate")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -528,144 +488,12 @@ class OrchestrationControllerTest {
                 AgentResult.failed(AgentType.CAREER_ADVISOR, "AI budget exhausted", "AI_BUDGET_EXHAUSTED"),
                 AgentResult.completed(AgentType.APPLICATION_ADVISOR, "done").withStartTime().withCompletionTime()
         ), 3, 0, false, "AI budget exhausted.", null);
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1")).thenReturn(withEvaluation(run));
+        when(orchestrationService.orchestrate(1L, "job-1")).thenReturn(run);
 
         mockMvc.perform(post("/api/v1/agent/orchestrate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(1L, "job-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.agentExecutions[1].errorCode").value("AI_BUDGET_EXHAUSTED"));
-    }
-
-    // ─── 23. Phase 9 timeline fields exposed ─────────────────────────────────
-
-    @Test
-    @DisplayName("response exposes totalDurationMs and a PII-free execution timeline")
-    void response_exposesTimeline() throws Exception {
-        OrchestrationRun run = new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
-                0, 0, true, "ok", null);
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1")).thenReturn(withEvaluation(run));
-
-        mockMvc.perform(post("/api/v1/agent/orchestrate")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(1L, "job-1")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalDurationMs").isNumber())
-                .andExpect(jsonPath("$.totalDurationMs").value(
-                        org.hamcrest.Matchers.greaterThanOrEqualTo(0)))
-                .andExpect(jsonPath("$.executionTimeline").isArray())
-                .andExpect(jsonPath("$.executionTimeline.length()").value(5))
-                .andExpect(jsonPath("$.executionTimeline[0].agentType").value("RESUME"))
-                .andExpect(jsonPath("$.executionTimeline[0].status").value("COMPLETED"))
-                .andExpect(jsonPath("$.executionTimeline[0].durationMs").isNumber())
-                .andExpect(jsonPath("$.executionTimeline[0].startedAt").isString())
-                .andExpect(jsonPath("$.executionTimeline[0].completedAt").isString())
-                .andExpect(jsonPath("$.executionTimeline[0].errorCode").value("NONE"));
-    }
-
-    @Test
-    @DisplayName("execution timeline entries never carry message or output payloads")
-    void response_timelineNoInternals() throws Exception {
-        OrchestrationRun run = new OrchestrationRun(RunStatus.PARTIAL, List.of(
-                AgentResult.completed(AgentType.RESUME, "Resume summary with my private details."),
-                AgentResult.failed(AgentType.MATCHING, "Matching failed.", "AGENT_OPTIONAL_FAILURE"),
-                AgentResult.skipped(AgentType.APPLICATION_ADVISOR, "Skipped.")
-        ), 1, 0, false, "Some stages failed.", null);
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1")).thenReturn(withEvaluation(run));
-
-        String raw = mockMvc.perform(post("/api/v1/agent/orchestrate")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(1L, "job-1")))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-
-        // Check the executionTimeline array in isolation — entries must carry only
-        // type/status/timing/errorCode, never the message text or output payloads.
-        com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(raw).get("executionTimeline");
-        for (com.fasterxml.jackson.databind.JsonNode entry : node) {
-            for (String forbidden : new String[]{"message", "output", "success"}) {
-                org.junit.jupiter.api.Assertions.assertFalse(entry.has(forbidden),
-                        "timeline entry must not carry field: " + forbidden);
-            }
-            org.junit.jupiter.api.Assertions.assertTrue(entry.has("agentType"));
-            org.junit.jupiter.api.Assertions.assertTrue(entry.has("status"));
-            org.junit.jupiter.api.Assertions.assertTrue(entry.has("durationMs"));
-            org.junit.jupiter.api.Assertions.assertTrue(entry.has("errorCode"));
-        }
-        // Messages live ONLY in the separate agentExecutions array, not the timeline.
-        org.junit.jupiter.api.Assertions.assertTrue(raw.contains("private details"),
-                "message text belongs in agentExecutions, not the timeline");
-    }
-
-    // ─── 24. Phase 10 evaluation fields exposed ────────────────────────────────
-
-    @Test
-    @DisplayName("response exposes evaluation with pipeline health and resource metrics")
-    void response_exposesEvaluation() throws Exception {
-        OrchestrationRun run = new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
-                2, 3, true, "ok", null);
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1")).thenReturn(new OrchestrationService.OrchestrationWithEvaluation(
-                run,
-                EvaluationResult.from(run, null)
-        ));
-
-        mockMvc.perform(post("/api/v1/agent/orchestrate")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(1L, "job-1")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.evaluation").exists())
-                .andExpect(jsonPath("$.evaluation.pipelineCompleted").value(true))
-                .andExpect(jsonPath("$.evaluation.agentsCompleted").value(5))
-                .andExpect(jsonPath("$.evaluation.agentsFailed").value(0))
-                .andExpect(jsonPath("$.evaluation.agentsSkipped").value(0))
-                .andExpect(jsonPath("$.evaluation.aiCallsUsed").value(2))
-                .andExpect(jsonPath("$.evaluation.toolCallsUsed").value(3))
-                .andExpect(jsonPath("$.evaluation.totalDurationMs").isNumber());
-    }
-
-    @Test
-    @DisplayName("evaluation has null matching/gap/advisor fields when those stages are skipped")
-    void evaluation_nullForSkippedStages() throws Exception {
-        OrchestrationRun run = new OrchestrationRun(RunStatus.PARTIAL, List.of(
-                AgentResult.completed(AgentType.RESUME, "done").withStartTime().withCompletionTime(),
-                AgentResult.completed(AgentType.JOB_DISCOVERY, "done").withStartTime().withCompletionTime(),
-                AgentResult.skipped(AgentType.MATCHING, "no job"),
-                AgentResult.skipped(AgentType.CAREER_ADVISOR, "no job"),
-                AgentResult.skipped(AgentType.APPLICATION_ADVISOR, "no job")
-        ), 0, 0, false, "partial", null);
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1")).thenReturn(new OrchestrationService.OrchestrationWithEvaluation(
-                run,
-                EvaluationResult.from(run, null)
-        ));
-
-        mockMvc.perform(post("/api/v1/agent/orchestrate")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(1L, "job-1")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.evaluation.pipelineCompleted").value(false))
-                .andExpect(jsonPath("$.evaluation.matchScore").doesNotExist())
-                .andExpect(jsonPath("$.evaluation.gapSeverity").doesNotExist())
-                .andExpect(jsonPath("$.evaluation.appRecommendation").doesNotExist());
-    }
-
-    @Test
-    @DisplayName("evaluation is deterministic for identical inputs")
-    void evaluation_deterministic() throws Exception {
-        OrchestrationRun run = new OrchestrationRun(RunStatus.COMPLETED, FULL_COMPLETED,
-                1, 2, true, "ok", null);
-        when(orchestrationService.orchestrateWithEvaluation(1L, "job-1")).thenReturn(new OrchestrationService.OrchestrationWithEvaluation(
-                run,
-                EvaluationResult.from(run, null)
-        ));
-
-        String a = mockMvc.perform(post("/api/v1/agent/orchestrate")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(1L, "job-1")))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        String b = mockMvc.perform(post("/api/v1/agent/orchestrate")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body(1L, "job-1")))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        org.junit.jupiter.api.Assertions.assertEquals(a, b, "evaluation must be deterministic");
     }
 }

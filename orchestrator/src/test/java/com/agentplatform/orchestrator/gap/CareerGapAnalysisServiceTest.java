@@ -303,9 +303,7 @@ class CareerGapAnalysisServiceTest {
                             List.of("Verilog"), List.of(), "3-5 years"));
 
             assertEquals(CareerTrack.SOFTWARE, a.candidateTrack());
-            // A Verilog/RTL/UVM role is now classified as VLSI_FPGA rather than generic
-            // HARDWARE; it is still a hardware-family mismatch against a software profile.
-            assertEquals(CareerTrack.VLSI_FPGA, a.jobTrack());
+            assertEquals(CareerTrack.HARDWARE, a.jobTrack());
             assertTrue(a.trackMismatch());
         }
 

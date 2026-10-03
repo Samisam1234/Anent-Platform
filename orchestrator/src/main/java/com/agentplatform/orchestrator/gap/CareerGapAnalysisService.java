@@ -303,53 +303,24 @@ public class CareerGapAnalysisService {
         return CareerTrack.UNKNOWN;
     }
 
-    /**
-     * Maps a human-readable track label (as produced by
-     * {@link com.agentplatform.orchestrator.resume.CareerTrackEvidence#trackLabelForCategory})
-     * onto a track, preserving the fine-grained discipline rather than collapsing it.
-     *
-     * <p>Discipline-specific labels are tested before the generic software/hardware words,
-     * because "Embedded Systems" and "VLSI / FPGA" are hardware labels that must not be
-     * reduced to {@code HARDWARE}, and "AI / ML" is its own track rather than generic
-     * software. Labels spanning more than one family stay {@code MIXED}.</p>
-     */
     private static CareerTrack classifyTrackLabel(String label) {
         if (label == null) {
             return CareerTrack.UNKNOWN;
         }
         String lower = label.toLowerCase(Locale.ROOT);
-        boolean vlsi = lower.contains("vlsi") || lower.contains("fpga") || lower.contains("asic");
-        boolean embedded = lower.contains("embedded") || lower.contains("firmware");
-        boolean aiMl = lower.contains("ai") || lower.contains("ml")
-                || lower.contains("machine learning") || lower.contains("data science");
-        boolean software = lower.contains("software") || lower.contains("full stack")
-                || lower.contains("backend");
-        boolean genericHardware = lower.contains("electronics") || lower.contains("ece")
-                || lower.contains("communication");
-
-        Set<CareerTrack> matched = new LinkedHashSet<>();
-        if (vlsi) {
-            matched.add(CareerTrack.VLSI_FPGA);
-        }
-        if (embedded) {
-            matched.add(CareerTrack.EMBEDDED);
-        }
-        if (aiMl) {
-            matched.add(CareerTrack.AI_ML);
-        }
-        if (software) {
-            matched.add(CareerTrack.SOFTWARE);
-        }
-        if (genericHardware) {
-            matched.add(CareerTrack.HARDWARE);
-        }
-        if (matched.isEmpty()) {
-            return CareerTrack.UNKNOWN;
-        }
-        if (matched.size() > 1 && matched.stream().map(CareerTrack::family).distinct().count() > 1) {
+        boolean software = lower.contains("software") || lower.contains("ai") || lower.contains("ml");
+        boolean hardware = lower.contains("embedded") || lower.contains("vlsi")
+                || lower.contains("fpga") || lower.contains("electronics") || lower.contains("ece");
+        if (software && hardware) {
             return CareerTrack.MIXED;
         }
-        return matched.iterator().next();
+        if (software) {
+            return CareerTrack.SOFTWARE;
+        }
+        if (hardware) {
+            return CareerTrack.HARDWARE;
+        }
+        return CareerTrack.UNKNOWN;
     }
 
     private static boolean isTrackMismatch(CareerTrack candidate, CareerTrack job) {
@@ -359,12 +330,7 @@ public class CareerGapAnalysisService {
         if (job == CareerTrack.UNKNOWN || job == CareerTrack.MIXED) {
             return false;
         }
-        // Compared at family level. With fine-grained tracks, an embedded candidate against
-        // a VLSI/FPGA role is a different discipline but the same family — related enough
-        // to be worth surfacing, and consistent with CareerTrackEngine, which scores a
-        // same-family pairing above the mismatch threshold. A software profile against a
-        // hardware role remains a genuine mismatch.
-        return candidate.family() != job.family();
+        return candidate != job;
     }
 
     // ── Severity ────────────────────────────────────────────────────────────

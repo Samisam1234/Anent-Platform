@@ -19,16 +19,6 @@ package com.agentplatform.core.ai;
  */
 public final class AiErrorClassifier {
 
-    /**
-     * Matches the wording local model servers actually use when a tag has not been
-     * pulled, e.g. Ollama's {@code model 'llama3.2:3b' not found}. The literal needles in
-     * {@link #classify} do not match this because the model name sits between
-     * "model" and "not found".
-     */
-    private static final java.util.regex.Pattern MODEL_NOT_FOUND = java.util.regex.Pattern
-            .compile("model\\s*['\"][^'\"]*['\"]?\\s*(?:not found|does not exist)",
-                    java.util.regex.Pattern.CASE_INSENSITIVE);
-
     public enum Kind {
         AUTHENTICATION,
         QUOTA,
@@ -63,11 +53,7 @@ public final class AiErrorClassifier {
         boolean auth = containsAny(text, "PERMISSION_DENIED", "UNAUTHENTICATED", "API key not valid",
                 "api key invalid", "API_KEY_INVALID", "401", "403");
         boolean modelGone = containsAny(text, "NOT_FOUND", "model not found", "model does not exist",
-                "does not exist for model", "models/")
-                // Ollama words it differently and has no HTTP status in the body, so the
-                // literal needles above miss it and it used to fall through to GENERIC —
-                // which leaked the raw {"error":"model '...' not found"} body to the user.
-                || MODEL_NOT_FOUND.matcher(text == null ? "" : text).find();
+                "does not exist for model", "models/");
         boolean timedOut = containsAny(text, "timed out", "timeout", "SocketTimeoutException",
                 "HttpConnectTimeoutException", "ReadTimeout", "read timeout");
 
@@ -168,16 +154,10 @@ public final class AiErrorClassifier {
                 + "If this persists, consider increasing the ollama.reasoning-timeout setting.";
     }
 
-    /**
-     * Safe catch-all message. Deliberately does NOT embed the provider's raw response
-     * body: an unclassified provider failure can carry arbitrary JSON (model names,
-     * internal endpoints, quota payloads) that must never reach a browser. The technical
-     * detail stays in the server log, where the calling code logs the throwable itself.
-     */
     private static String genericMessage(String provider, String text) {
-        return providerLabel(provider) + " AI request failed. The request could not be completed, "
-                + "so the built-in fallback processing was used instead. "
-                + "Check that the AI provider is running and reachable, then try again.";
+        String trimmed = text == null ? "unknown error"
+                : text.length() > 220 ? text.substring(0, 220) + "…" : text;
+        return providerLabel(provider) + " AI request failed: " + trimmed;
     }
 
     // ─── Extraction helpers ───────────────────────────────────────────────────

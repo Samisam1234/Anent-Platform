@@ -148,9 +148,7 @@ class AiErrorClassifierTest {
                 new RuntimeException("mystery boom"));
 
         assertThat(failure.kind()).isEqualTo(AiErrorClassifier.Kind.GENERIC);
-        // The raw exception text must never be echoed: GENERIC messages reach the
-        // browser, and an unclassified provider body can carry arbitrary internals.
-        assertThat(failure.message()).isNotBlank().doesNotContain("mystery boom");
+        assertThat(failure.message()).contains("mystery boom");
     }
 
     @Test
@@ -187,7 +185,7 @@ class AiErrorClassifierTest {
                 new RuntimeException("mystery boom"), "Ollama");
 
         assertThat(failure.kind()).isEqualTo(AiErrorClassifier.Kind.GENERIC);
-        assertThat(failure.message()).contains("Ollama").doesNotContain("mystery boom");
+        assertThat(failure.message()).contains("Ollama").contains("mystery boom");
     }
 
     @Test
@@ -196,48 +194,6 @@ class AiErrorClassifierTest {
         AiErrorClassifier.Failure failure = AiErrorClassifier.classify(
                 new RuntimeException("mystery boom"));
 
-        assertThat(failure.message()).contains("Ollama").doesNotContain("mystery boom");
-    }
-
-    /**
-     * Regression: Ollama reports an unpulled model as {@code model 'gemma3:4b' not found}
-     * with no HTTP status in the body. That wording used to miss every MODEL_UNAVAILABLE
-     * needle, fall through to GENERIC, and surface the raw provider JSON on the Resume
-     * page as "Profile created - AI model was not used {"error":"model 'gemma3:4b' not found"}".
-     */
-    @Test
-    @DisplayName("Ollama unpulled model is MODEL_UNAVAILABLE and never leaks the raw JSON body")
-    void ollama_modelNotFound_isModelUnavailableWithoutRawBody() {
-        String rawBody = "{\"error\":\"model 'gemma3:4b' not found\"}";
-
-        AiErrorClassifier.Failure failure =
-                AiErrorClassifier.classify(new RuntimeException(rawBody), "Ollama");
-
-        assertThat(failure.kind()).isEqualTo(AiErrorClassifier.Kind.MODEL_UNAVAILABLE);
-        assertThat(failure.message())
-                .contains("Ollama")
-                .doesNotContain("{")
-                .doesNotContain("}")
-                .doesNotContain("\"error\"")
-                .doesNotContain("gemma3");
-    }
-
-    @Test
-    @DisplayName("no classifier message ever contains provider JSON syntax")
-    void noMessage_containsProviderJson() {
-        String[] rawBodies = {
-            "{\"error\":\"model 'gemma3:4b' not found\"}",
-            "HTTP error (500): {\"error\":\"internal\",\"path\":\"/api/chat\"}",
-            "{\"code\":503,\"message\":\"upstream unavailable\"}"
-        };
-        for (String body : rawBodies) {
-            AiErrorClassifier.Failure failure =
-                    AiErrorClassifier.classify(new RuntimeException(body), "Ollama");
-            assertThat(failure.message())
-                    .as("body=%s kind=%s", body, failure.kind())
-                    .doesNotContain("{")
-                    .doesNotContain("}")
-                    .doesNotContain("\"error\"");
-        }
+        assertThat(failure.message()).contains("Ollama").contains("mystery boom");
     }
 }

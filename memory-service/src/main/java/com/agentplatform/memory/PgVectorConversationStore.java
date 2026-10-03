@@ -65,16 +65,13 @@ public class PgVectorConversationStore implements ConversationStore, VectorSearc
         newMessage.setEmbedding(embed(message.content()));
         messages.add(newMessage);
         conversation.setUpdatedAt(Instant.now());
-
-        // Deliberately no repository.save(): the conversation is managed, so save would be
-        // em.merge(), and merge resets the collection's stored snapshot, which cancels the
-        // orphan deletion of anything a previous trim removed. See trimMessages.
+        conversation = repository.save(conversation);
 
         // Update cache
         conversationCache.put(conversationId, conversation);
 
         // Trim if needed
-        trimIfNeeded(conversation);
+        trimIfNeeded(conversationId, conversation);
     }
 
     @Override
@@ -106,7 +103,7 @@ public class PgVectorConversationStore implements ConversationStore, VectorSearc
 
         // Re-fetch so trim operates on a Hibernate-managed PersistentBag
         ConversationEntity managed = repository.findByConversationId(conversationId).orElseThrow();
-        trimIfNeeded(managed);
+        trimIfNeeded(conversationId, managed);
     }
 
     @Override
@@ -136,11 +133,21 @@ public class PgVectorConversationStore implements ConversationStore, VectorSearc
     @Override
     @Transactional
     public void trim(String conversationId, int maxMessages) {
-        repository.findByConversationId(conversationId)
-                .ifPresent(conversation -> {
-                    trimMessages(conversation, maxMessages);
-                    repository.flush();
-                });
+        repository.findByConversationId(conversationId).ifPresent(conversation -> {
+            List<ConversationMessageEntity> messages = conversation.getMessages();
+            if (messages.size() > maxMessages) {
+                messages.sort(Comparator.comparingInt(ConversationMessageEntity::getSequence));
+                while (messages.size() > maxMessages) {
+                    messages.remove(0);
+                }
+                for (int i = 0; i < messages.size(); i++) {
+                    messages.get(i).setSequence(i);
+                }
+                conversation.setUpdatedAt(Instant.now());
+                repository.save(conversation);
+                log.debug("Trimmed conversation {} to {} messages", conversationId, maxMessages);
+            }
+        });
     }
 
     @Override
@@ -240,57 +247,23 @@ public class PgVectorConversationStore implements ConversationStore, VectorSearc
     /**
      * Trims conversation if it exceeds max messages.
      */
-    private void trimIfNeeded(ConversationEntity conversation) {
-        trimMessages(conversation, MAX_MESSAGES_PER_CONVERSATION);
+    private void trimIfNeeded(String conversationId, ConversationEntity conversation) {
+        List<ConversationMessageEntity> messages = conversation.getMessages();
+        if (messages.size() > MAX_MESSAGES_PER_CONVERSATION) {
+            messages.sort(Comparator.comparingInt(ConversationMessageEntity::getSequence));
+            while (messages.size() > MAX_MESSAGES_PER_CONVERSATION) {
+                messages.remove(0);
+            }
+            for (int i = 0; i < messages.size(); i++) {
+                messages.get(i).setSequence(i);
+            }
+            conversation.setUpdatedAt(Instant.now());
+            repository.save(conversation);
+            log.debug("Trimmed conversation {} to {} messages", conversationId, MAX_MESSAGES_PER_CONVERSATION);
+        }
 
         // Check if we need to evict oldest conversations
         evictIfNeeded();
-    }
-
-    /**
-     * Drops the oldest messages so that at most {@code maxMessages} remain, then renumbers
-     * the {@code sequence} of the survivors from zero.
-     *
-     * <p><strong>Must not call {@code repository.save(conversation)}.</strong> The parent is
-     * managed, so that call resolves to {@code em.merge()}. Hibernate 6.6 realigns the
-     * collection's stored snapshot on merge
-     * ({@code DefaultMergeEventListener.CollectionVisitor} calls
-     * {@code CollectionEntry.resetStoredSnapshot(coll, coll.getSnapshot(persister))}), and
-     * orphan removal is computed as a diff of that snapshot against the current contents
-     * ({@code AbstractPersistentCollection.getOrphans}). Once the snapshot equals the
-     * current contents the diff yields no orphans, so the removed messages are never
-     * deleted: they stay persistent while still referencing their parent, and a later
-     * delete of that parent fails the flush with
-     * {@code TransientObjectException}. Merging also has {@code deleteOrphans() == false}
-     * in {@code CascadingActions}, so it never deletes orphans itself. Dirty checking and
-     * {@code orphanRemoval} handle it at flush, where the cascade is
-     * {@code PERSIST_ON_FLUSH}, whose {@code deleteOrphans()} is {@code true}.</p>
-     *
-     * <p>Elements are dropped with {@code remove(Object)} rather than {@code remove(int)}:
-     * {@code PersistentBag.remove(int)} does not mark the collection dirty, while
-     * {@code remove(Object)} does. The collection is never reordered in place, since
-     * {@code @OrderBy("sequence ASC")} already returns it in sequence order.</p>
-     */
-    private void trimMessages(ConversationEntity conversation, int maxMessages) {
-        List<ConversationMessageEntity> messages = conversation.getMessages();
-        if (messages.size() <= maxMessages) {
-            return;
-        }
-
-        List<ConversationMessageEntity> oldestFirst = new ArrayList<>(messages);
-        oldestFirst.sort(Comparator.comparingInt(ConversationMessageEntity::getSequence));
-
-        int excess = oldestFirst.size() - maxMessages;
-        for (int i = 0; i < excess; i++) {
-            messages.remove(oldestFirst.get(i));
-        }
-        for (int i = 0; i < maxMessages; i++) {
-            oldestFirst.get(excess + i).setSequence(i);
-        }
-
-        conversation.setUpdatedAt(Instant.now());
-        log.debug("Trimmed conversation {} to {} messages",
-                conversation.getConversationId(), maxMessages);
     }
 
     /**

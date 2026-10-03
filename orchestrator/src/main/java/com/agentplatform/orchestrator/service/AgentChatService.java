@@ -259,11 +259,9 @@ public class AgentChatService {
         store.append(conversationId, ConversationMessage.ai(response));
     }
 
-    private AgentChatException classifiedFailure(Exception ex) {
-        String defaultProvider = modelFactory.getRouter().getConfiguredDefaultProvider();
-        String provider = (defaultProvider != null && !defaultProvider.isBlank()) ? defaultProvider : "Ollama";
-        String message = AiErrorClassifier.classify(ex, provider).message();
-        log.error("Agent chat failed ({}): {}", provider, PiiSanitizer.sanitize(ex.getMessage()));
+    private static AgentChatException classifiedFailure(Exception ex) {
+        String message = AiErrorClassifier.classify(ex, "Ollama").message();
+        log.error("Agent chat failed ({}): {}", "Ollama", PiiSanitizer.sanitize(ex.getMessage()));
         return new AgentChatException(message, ex);
     }
 

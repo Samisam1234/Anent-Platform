@@ -18,7 +18,6 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -76,9 +75,6 @@ class PgVectorConversationStoreTest {
 
     @Autowired
     private ConversationMessageVectorRepository vectorRepository;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
 
     @MockBean
     private EmbeddingModel embeddingModel;
@@ -312,40 +308,6 @@ class PgVectorConversationStoreTest {
             store.append("conv-" + i, ConversationMessage.user("payload"));
         }
         assertThat(store.count()).isLessThanOrEqualTo(PgVectorConversationStore.MAX_CONVERSATIONS);
-    }
-
-    @Test
-    @DisplayName("trim() deletes the removed messages before their conversation can be deleted")
-    void trim_deletesRemovedMessagesBeforeConversationIsDeleted() {
-        when(embeddingModel.embed(anyString())).thenAnswer(invocation -> {
-            String text = invocation.getArgument(0);
-            return Response.from(Embedding.from(embeddingFor(text)));
-        });
-
-        for (int i = 0; i < 10; i++) {
-            store.append("conv-1", ConversationMessage.user("m" + i));
-        }
-
-        // Hold the managed parent first, then trim, then remove the parent — with no query in
-        // between, so nothing can auto-flush and paper over a missed orphan delete.
-        ConversationEntity conversation = repository.findByConversationId("conv-1").orElseThrow();
-        store.trim("conv-1", 3);
-        repository.delete(conversation);
-
-        // Regression guard: the 7 trimmed messages must already be deleted from PostgreSQL.
-        // If they are still MANAGED while the parent is DELETED, this flush fails with
-        // TransientObjectException: persistent instance references an unsaved transient
-        // instance of ConversationEntity.
-        entityManager.flush();
-
-        assertThat(store.messages("conv-1")).isEmpty();
-        assertThat(store.exists("conv-1")).isFalse();
-        assertThat(store.count()).isZero();
-
-        // Confirm it in PostgreSQL itself, not just the first-level cache.
-        entityManager.clear();
-        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM conversation_messages", Integer.class)).isZero();
-        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM conversations", Integer.class)).isZero();
     }
 
     @Test

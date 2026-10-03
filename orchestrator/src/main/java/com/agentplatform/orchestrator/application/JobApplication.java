@@ -35,27 +35,25 @@ public class JobApplication {
     @Column(name = "application_status", nullable = false)
     private ApplicationStatus applicationStatus;
 
-    // TEXT (not VARCHAR 255): prepared content routinely exceeds 255 chars.
-    @Column(name = "generated_resume_summary", columnDefinition = "TEXT")
+    @Column(name = "generated_resume_summary")
     private String generatedResumeSummary;
 
-    @Column(name = "cover_letter", columnDefinition = "TEXT")
+    @Column(name = "cover_letter")
     private String coverLetter;
 
-    // TEXT (not VARCHAR 255): generated answers regularly exceed 255 chars.
-    @Column(name = "application_answers", columnDefinition = "TEXT")
+    @Column(name = "application_answers")
     private String applicationAnswers;
 
-    @Column(name = "candidate_strengths", columnDefinition = "TEXT")
+    @Column(name = "candidate_strengths")
     private String candidateStrengths;
 
-    @Column(name = "matching_skills", columnDefinition = "TEXT")
+    @Column(name = "matching_skills")
     private String matchingSkills;
 
-    @Column(name = "missing_skills", columnDefinition = "TEXT")
+    @Column(name = "missing_skills")
     private String missingSkills;
 
-    @Column(name = "resume_highlights", columnDefinition = "TEXT")
+    @Column(name = "resume_highlights")
     private String resumeHighlights;
 
     @Column(name = "match_score")
@@ -72,28 +70,6 @@ public class JobApplication {
 
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
-
-    @Column(name = "email_send_attempted_at")
-    private LocalDateTime emailSendAttemptedAt;
-
-    // Last accepted email-send attempt result: "SENT" (real transport acceptance,
-    // simulated=false) or "SENT_SIMULATED" (nothing mailed). Confirmed delivery is
-    // never represented — transport acceptance is not delivery.
-    @Column(name = "email_send_result", length = 20)
-    private String emailSendResult;
-
-    @Column(name = "employer_opened_at")
-    private LocalDateTime employerOpenedAt;
-
-    // Validated employer URL recorded on kit handoff — the server only stores the
-    // string the client already resolved; never fetches it, and never a submission record.
-    @Column(name = "employer_url", length = 2048)
-    private String employerUrl;
-
-    // Optimistic-lock backstop for concurrent transitions (approve/update/send/handoff).
-    @Version
-    @Column(name = "version")
-    private Long version;
 
     // Default constructor for JPA
     public JobApplication() {
@@ -262,45 +238,5 @@ public class JobApplication {
 
     public void setApprovedAt(LocalDateTime approvedAt) {
         this.approvedAt = approvedAt;
-    }
-
-    public LocalDateTime getEmailSendAttemptedAt() {
-        return emailSendAttemptedAt;
-    }
-
-    public void setEmailSendAttemptedAt(LocalDateTime emailSendAttemptedAt) {
-        this.emailSendAttemptedAt = emailSendAttemptedAt;
-    }
-
-    public String getEmailSendResult() {
-        return emailSendResult;
-    }
-
-    public void setEmailSendResult(String emailSendResult) {
-        this.emailSendResult = emailSendResult;
-    }
-
-    public LocalDateTime getEmployerOpenedAt() {
-        return employerOpenedAt;
-    }
-
-    public void setEmployerOpenedAt(LocalDateTime employerOpenedAt) {
-        this.employerOpenedAt = employerOpenedAt;
-    }
-
-    public String getEmployerUrl() {
-        return employerUrl;
-    }
-
-    public void setEmployerUrl(String employerUrl) {
-        this.employerUrl = employerUrl;
-    }
-
-    public Long getVersion() {
-        return version;
-    }
-
-    public void setVersion(Long version) {
-        this.version = version;
     }
 }

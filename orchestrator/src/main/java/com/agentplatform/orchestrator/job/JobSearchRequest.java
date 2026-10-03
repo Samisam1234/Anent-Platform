@@ -9,14 +9,7 @@ public record JobSearchRequest(
         String employmentType,
         String datePosted,
         Integer limit,
-        String source,
-        /**
-         * Optional stored candidate profile id. When present and no explicit
-         * {@code keywords} were supplied, the search derives its relevance keywords from
-         * that profile's parsed skills — so job discovery follows the resume instead of
-         * requiring the user to type keywords.
-         */
-        Long candidateProfileId) {
+        String source) {
 
     public JobSearchRequest {
         keywords = keywords != null ? List.copyOf(keywords) : List.of();
@@ -27,21 +20,12 @@ public record JobSearchRequest(
     }
 
     /**
-     * Backwards-compatible constructor that leaves the {@code candidateProfileId} unset
-     * (no profile-driven keyword derivation).
-     */
-    public JobSearchRequest(List<String> keywords, String location, String experience,
-                            String employmentType, String datePosted, Integer limit, String source) {
-        this(keywords, location, experience, employmentType, datePosted, limit, source, null);
-    }
-
-    /**
      * Backwards-compatible convenience constructor that leaves the {@code source}
      * filter unset (no source restriction on results).
      */
     public JobSearchRequest(List<String> keywords, String location, String experience,
                             String employmentType, String datePosted, Integer limit) {
-        this(keywords, location, experience, employmentType, datePosted, limit, null, null);
+        this(keywords, location, experience, employmentType, datePosted, limit, null);
     }
 
     public static JobSearchRequest of(List<String> keywords, String location, String experience,
@@ -52,12 +36,5 @@ public record JobSearchRequest(
     public static JobSearchRequest of(List<String> keywords, String location, String experience,
                                       String employmentType, String datePosted, Integer limit, String source) {
         return new JobSearchRequest(keywords, location, experience, employmentType, datePosted, limit, source);
-    }
-
-    public static JobSearchRequest of(List<String> keywords, String location, String experience,
-                                      String employmentType, String datePosted, Integer limit,
-                                      String source, Long candidateProfileId) {
-        return new JobSearchRequest(keywords, location, experience, employmentType, datePosted,
-                limit, source, candidateProfileId);
     }
 }

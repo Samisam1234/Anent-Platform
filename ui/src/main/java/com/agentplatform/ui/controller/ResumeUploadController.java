@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -29,12 +28,6 @@ import java.util.Map;
  * {@link CandidateProfile} via {@link ResumeProfileService}, persists it
  * using {@link CandidateProfilePersistenceService}, and returns the
  * candidate ID and profile data.</p>
- *
- * <p>Profile building is bounded by {@code ollama.reasoning-timeout} inside
- * {@link ResumeProfileService}, so this endpoint always terminates: when the AI
- * provider is unavailable or too slow the deterministic parser supplies the
- * profile and the response carries {@code aiModelUsed=false} plus a
- * user-facing {@code notice} explaining what happened.</p>
  */
 @RestController
 @RequestMapping("/api/v1/resume")
@@ -73,33 +66,23 @@ public class ResumeUploadController {
 
             byte[] bytes = file.getBytes();
             String text = resumeParserService.extractText(bytes);
-            ResumeProfileService.ProfileOutcome outcome = resumeProfileService.buildProfileOutcome(text);
-            CandidateProfile profile = outcome.profile();
+            CandidateProfile profile = resumeProfileService.buildProfile(text);
             CandidateProfileEntity saved = persistenceService.save(profile);
 
-            log.info("Resume uploaded and profile persisted: id={}, name={}, aiUsed={}",
-                    saved.getId(), saved.getName(), outcome.aiUsed());
+            log.info("Resume uploaded and profile persisted: id={}, name={}", saved.getId(), saved.getName());
 
-            // Map.of rejects nulls, so the optional notice is added conditionally.
-            Map<String, Object> body = new LinkedHashMap<>();
-            body.put("candidateId", saved.getId());
-            body.put("profile", profile);
-            body.put("aiModelUsed", outcome.aiUsed());
-            if (outcome.notice() != null) {
-                body.put("notice", outcome.notice());
-            }
-            return ResponseEntity.ok(body);
+            return ResponseEntity.ok(Map.of(
+                    "candidateId", saved.getId(),
+                    "profile", profile
+            ));
         } catch (IOException e) {
             log.error("Failed to read uploaded file", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to read uploaded file"));
         } catch (ResumeException e) {
-            // The technical cause (provider, model, HTTP body) belongs in the log only;
-            // the response must stay safe and actionable.
-            log.warn("Resume parsing failed: {}", e.getMessage(), e);
+            log.warn("Resume parsing failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", "We could not analyse this resume. Please check that the "
-                            + "file is a readable PDF or text document and try again."));
+                    .body(Map.of("error", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {

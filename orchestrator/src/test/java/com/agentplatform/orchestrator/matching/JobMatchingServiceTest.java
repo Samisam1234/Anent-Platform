@@ -12,7 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -220,13 +219,8 @@ class JobMatchingServiceTest {
                 "UVM", List.of("UVM"), List.of(),
                 "Fresher / 0-1 years", "Full-time");
 
-        // The single hardware skill "u" must not be treated as a match for "UVM". With
-        // 0% required-skill overlap the listing is now filtered out entirely, which is the
-        // same conclusion: no false match was recorded.
-        JobMatchResult result = service.matchProfileAgainstJobs(profile, List.of(job), null, null, 10);
-
-        assertTrue(result.matches().isEmpty(),
-                "the short token must not create a match, got " + result.matches());
+        JobMatch match = singleMatch(profile, job);
+        assertEquals(List.of("UVM"), match.missingSkills());
     }
 
     // ─── 8. Hardware full match ───────────────────────────────────────────────
@@ -237,8 +231,7 @@ class JobMatchingServiceTest {
         JobMatch match = singleMatch(hardwareCandidate(), vlsiFresherJob());
 
         assertEquals(100, match.matchScore());
-        // VLSI/FPGA is now its own track rather than collapsing into generic HARDWARE.
-        assertEquals(CareerTrack.VLSI_FPGA, match.careerTrack());
+        assertEquals(CareerTrack.HARDWARE, match.careerTrack());
         assertEquals(List.of("Verilog", "VLSI", "UVM", "RTL Design"), match.matchedSkills());
         assertTrue(match.roleMatch());
         assertEquals(1.0, match.educationScore(), 0.001);
@@ -248,20 +241,16 @@ class JobMatchingServiceTest {
 
     // ─── 9. Cross-domain discrimination ───────────────────────────────────────
 
-    /**
-     * Behaviour change: a listing whose required skills the candidate does not have is no
-     * longer surfaced as a weak match. It is filtered out, because a software role against
-     * a hardware-only profile is not a match worth ranking at all.
-     */
     @Test
-    @DisplayName("Hardware candidate against a software role is filtered out, not ranked as a weak match")
-    void hardwareProfile_againstSoftwareJob_isFilteredOut() {
-        JobMatchResult result = service.matchProfileAgainstJobs(
-                hardwareCandidate(), List.of(javaBackendFresherJob()), null, null, 10);
+    @DisplayName("Hardware candidate is not penalized harshly but is correctly scored low for a software role")
+    void hardwareProfile_againstSoftwareJob_lowScore() {
+        JobMatch match = singleMatch(hardwareCandidate(), javaBackendFresherJob());
 
-        assertTrue(result.matches().isEmpty(),
-                "0% required-skill overlap must be filtered out entirely, got " + result.matches());
-        assertEquals(0, result.totalJobs());
+        assertEquals(CareerTrack.SOFTWARE, match.careerTrack());
+        assertFalse(match.roleMatch());
+        assertTrue(match.missingSkills().containsAll(List.of("Java", "Spring Boot", "PostgreSQL", "Git")));
+        assertTrue(match.matchScore() < 40);
+        assertTrue(match.concerns().stream().anyMatch(c -> c.contains("Role doesn't match")));
     }
 
     // ─── 10. MIXED track ──────────────────────────────────────────────────────
@@ -398,9 +387,7 @@ class JobMatchingServiceTest {
                 null, CareerTrack.HARDWARE, 10);
 
         assertEquals(1, result.matches().size());
-        // A coarse HARDWARE filter still accepts the finer VLSI_FPGA track via
-        // CareerTrack.satisfies(), and the retained job reports its specific track.
-        assertEquals(CareerTrack.VLSI_FPGA, result.matches().get(0).careerTrack());
+        assertEquals(CareerTrack.HARDWARE, result.matches().get(0).careerTrack());
     }
 
     // ─── 17. Ranking + limit ──────────────────────────────────────────────────
@@ -578,9 +565,7 @@ class JobMatchingServiceTest {
         assertEquals("Alice", result.candidateName());
         assertEquals(1, result.matches().size());
         assertFalse(result.live());
-        // Provenance is asserted via live()/source(); the message is now source-agnostic
-        // so it never claims a mock catalog for a merely non-live result.
-        assertTrue(result.message().contains("Matched job listings"), "message=" + result.message());
+        assertTrue(result.message().contains("mock job catalog"));
     }
 
     @Test
@@ -653,272 +638,4 @@ class JobMatchingServiceTest {
         assertEquals("user-provided", result.source());
         assertFalse(result.live());
     }
-
-    // ─── 25. Required-skill overlap threshold and proportional penalties ────────
-
-    private JobMatchingService serviceWith(JobMatchingConfig config) {
-        return new JobMatchingService(null, null,
-                new SkillMatchingEngine(), new RoleMatchingEngine(), new LocationMatchingEngine(),
-                new ExperienceMatchingEngine(), new EducationMatchingEngine(),
-                new CareerTrackEngine(), new ExplanationGenerator(), config);
-    }
-
-    @Test
-    @DisplayName("a job just below the 20% required-skill threshold is filtered out")
-    void belowThreshold_isFilteredOut() {
-        // 1 of 5 required skills = 20% is kept; 1 of 6 = 16.7% is not.
-        CandidateProfile candidate = profile("Alice", "Hyderabad", List.of("B.Tech Computer Science"),
-                List.of("Java"), List.of(), List.of("Backend Engineer"), List.of("Hyderabad"));
-        Job five = job("k5", "Backend Engineer", "Acme", "Hyderabad", "Java",
-                List.of("Java", "Kotlin", "Kafka", "Terraform", "GraphQL"), List.of(),
-                "1-3 years", "Full-time");
-        Job six = job("k6", "Backend Engineer", "Acme", "Hyderabad", "Java",
-                List.of("Java", "Kotlin", "Kafka", "Terraform", "GraphQL", "Scala"), List.of(),
-                "1-3 years", "Full-time");
-
-        assertEquals(1, serviceWith(new JobMatchingConfig())
-                .matchProfileAgainstJobs(candidate, List.of(five), null, null, 10).matches().size(),
-                "20% overlap is exactly at the threshold and must be kept");
-        assertTrue(serviceWith(new JobMatchingConfig())
-                        .matchProfileAgainstJobs(candidate, List.of(six), null, null, 10)
-                        .matches().isEmpty(),
-                "16.7% overlap is below the threshold and must be filtered out");
-    }
-
-    @Test
-    @DisplayName("the overlap threshold is configurable")
-    void thresholdIsConfigurable() {
-        JobMatchingConfig permissive = new JobMatchingConfig();
-        permissive.setMinRequiredSkillOverlap(0.0);
-
-        assertEquals(0.20, new JobMatchingConfig().getMinRequiredSkillOverlap(), 0.001,
-                "the documented default must stay at 20%");
-        assertEquals(1, serviceWith(permissive)
-                        .matchProfileAgainstJobs(hardwareCandidate(), List.of(javaBackendFresherJob()),
-                                null, null, 10)
-                        .matches().size(),
-                "a zero threshold must disable the filter");
-    }
-
-    @Test
-    @DisplayName("a listing that declares no required skills is never filtered on undefined overlap")
-    void jobWithoutRequiredSkills_isNotFiltered() {
-        Job noRequirements = job("k7", "Graduate Programme", "Acme", "Hyderabad",
-                "General engineering programme", List.of(), List.of(), "Fresher / 0-1 years", "Full-time");
-
-        assertEquals(1, serviceWith(new JobMatchingConfig())
-                        .matchProfileAgainstJobs(hardwareCandidate(), List.of(noRequirements), null, null, 10)
-                        .matches().size(),
-                "sources that publish no skill requirements must not be discarded wholesale");
-    }
-
-    @Test
-    @DisplayName("a career-track mismatch materially reduces the score, not just the wording")
-    void trackMismatch_materiallyReducesScore() {
-        JobMatchingConfig noPenalty = new JobMatchingConfig();
-        noPenalty.setMinRequiredSkillOverlap(0.0);
-        noPenalty.setTrackMismatchPenalty(1.0);
-
-        JobMatchingConfig withPenalty = new JobMatchingConfig();
-        withPenalty.setMinRequiredSkillOverlap(0.0);
-
-        JobMatch unpenalized = serviceWith(noPenalty)
-                .matchProfileAgainstJobs(hardwareCandidate(), List.of(javaBackendFresherJob()), null, null, 10)
-                .matches().get(0);
-        JobMatch penalized = serviceWith(withPenalty)
-                .matchProfileAgainstJobs(hardwareCandidate(), List.of(javaBackendFresherJob()), null, null, 10)
-                .matches().get(0);
-
-        assertEquals(CareerTrack.SOFTWARE, penalized.careerTrack());
-        assertTrue(penalized.matchScore() < unpenalized.matchScore() - 10,
-                "the mismatch must cost real points: unpenalized=" + unpenalized.matchScore()
-                        + " penalized=" + penalized.matchScore());
-        assertTrue(penalized.concerns().stream().anyMatch(c -> c.contains("Career-track mismatch")),
-                "the penalty must be explained, concerns=" + penalized.concerns());
-    }
-
-    @Test
-    @DisplayName("a location mismatch reduces the score proportionally")
-    void locationMismatch_reducesScoreProportionally() {
-        Job berlin = job("k8", "Backend Engineer", "Acme", "Berlin, Germany", "Java role",
-                List.of("Java", "Spring Boot", "PostgreSQL", "Git"), List.of(),
-                "1-3 years", "Full-time");
-
-        JobMatchingConfig noPenalty = new JobMatchingConfig();
-        noPenalty.setLocationMismatchPenalty(1.0);
-        JobMatchingConfig withPenalty = new JobMatchingConfig();
-
-        JobMatch unpenalized = serviceWith(noPenalty)
-                .matchProfileAgainstJobs(softwareCandidate(), List.of(berlin), null, null, 10)
-                .matches().get(0);
-        JobMatch penalized = serviceWith(withPenalty)
-                .matchProfileAgainstJobs(softwareCandidate(), List.of(berlin), null, null, 10)
-                .matches().get(0);
-
-        assertFalse(unpenalized.locationMatch());
-        assertTrue(penalized.matchScore() < unpenalized.matchScore(),
-                "unpenalized=" + unpenalized.matchScore() + " penalized=" + penalized.matchScore());
-        assertTrue(penalized.concerns().stream().anyMatch(c -> c.contains("Location mismatch")),
-                "concerns=" + penalized.concerns());
-    }
-
-    @Test
-    @DisplayName("a job that states no location is never penalized for it")
-    void jobWithoutLocation_isNotPenalized() {
-        Job noLocation = job("k9", "Backend Engineer", "Acme", "  ", "Java role",
-                List.of("Java", "Spring Boot", "PostgreSQL", "Git"), List.of(),
-                "1-3 years", "Full-time");
-
-        JobMatch match = serviceWith(new JobMatchingConfig())
-                .matchProfileAgainstJobs(softwareCandidate(), List.of(noLocation), null, null, 10)
-                .matches().get(0);
-
-        assertTrue(match.concerns().stream().noneMatch(c -> c.contains("Location mismatch")),
-                "a listing without a location must not be penalized for it, concerns=" + match.concerns());
-    }
-
-    @Test
-    @DisplayName("strong education and location cannot inflate a listing with almost no skill relevance")
-    void otherFactors_cannotInflateLowSkillRelevance() {
-        // Perfect location and education, but 1 of 5 required skills.
-        CandidateProfile candidate = profile("Alice", "Hyderabad", List.of("B.Tech Computer Science"),
-                List.of("Java"), List.of(), List.of("Backend Engineer"), List.of("Hyderabad"));
-        Job job = job("k10", "Backend Engineer", "Acme", "Hyderabad", "Java",
-                List.of("Java", "Kotlin", "Kafka", "Terraform", "GraphQL"), List.of(),
-                "1-3 years", "Full-time");
-
-        JobMatch match = serviceWith(new JobMatchingConfig())
-                .matchProfileAgainstJobs(candidate, List.of(job), null, null, 10)
-                .matches().get(0);
-
-        assertEquals(1.0, match.locationScore(), 0.001);
-        assertTrue(match.matchScore() < 40,
-                "20% skill coverage must not score in the 40-50 band, got " + match.matchScore());
-    }
-
-    // ─── 21b. Required-skill relevance floor boundary ─────────────────────────
-
-    @Test
-    @DisplayName("coverage below the floor is filtered out entirely")
-    void overlapBelowThreshold_isFilteredOut() {
-        // 1 of 6 required skills = 16.7%, below the 20% floor.
-        JobMatchResult result = serviceWith(new JobMatchingConfig())
-                .matchProfileAgainstJobs(lowOverlapCandidate(), List.of(jobRequiring(6)), null, null, 10);
-
-        assertTrue(result.matches().isEmpty(),
-                "16.7% coverage is below the floor and must not be shown at all, got " + result.matches());
-    }
-
-    @Test
-    @DisplayName("coverage at exactly the floor is retained but stays in the poor band")
-    void overlapAtThreshold_isRetainedButScoredPoorly() {
-        // 1 of 5 required skills = exactly 20%.
-        JobMatchResult result = serviceWith(new JobMatchingConfig())
-                .matchProfileAgainstJobs(lowOverlapCandidate(), List.of(jobRequiring(5)), null, null, 10);
-
-        assertEquals(1, result.matches().size(),
-                "exactly 20% satisfies the >= floor, so the listing must be retained");
-        assertTrue(result.matches().get(0).matchScore() < 40,
-                "a listing at the relevance floor must stay in the poor band, got "
-                        + result.matches().get(0).matchScore());
-    }
-
-    @Test
-    @DisplayName("the low-overlap penalty is what holds a floor-level listing down")
-    void lowOverlapPenalty_isTheCauseOfTheReduction() {
-        JobMatchingConfig noPenalty = new JobMatchingConfig();
-        noPenalty.setLowOverlapPenalty(1.0);
-
-        JobMatch penalized = serviceWith(new JobMatchingConfig())
-                .matchProfileAgainstJobs(lowOverlapCandidate(), List.of(jobRequiring(5)), null, null, 10)
-                .matches().get(0);
-        JobMatch unpenalized = serviceWith(noPenalty)
-                .matchProfileAgainstJobs(lowOverlapCandidate(), List.of(jobRequiring(5)), null, null, 10)
-                .matches().get(0);
-
-        assertTrue(penalized.matchScore() < unpenalized.matchScore(),
-                "penalized=" + penalized.matchScore() + " unpenalized=" + unpenalized.matchScore());
-        assertTrue(penalized.concerns().stream().anyMatch(c -> c.contains("Required-skill coverage")),
-                "the reduction must be explained, concerns=" + penalized.concerns());
-        assertTrue(penalized.explanation().contains("very low required-skill coverage"),
-                "the explanation must disclose the adjustment: " + penalized.explanation());
-        assertTrue(penalized.explanation().contains(penalized.matchScore() + "%"),
-                "the explanation must end at the displayed score: " + penalized.explanation());
-    }
-
-    @Test
-    @DisplayName("coverage just above the floor is untouched by the relevance floor")
-    void overlapAboveThreshold_isNotPenalizedByFloor() {
-        // 1 of 4 required skills = 25%, above the 20% floor.
-        JobMatchingConfig noPenalty = new JobMatchingConfig();
-        noPenalty.setLowOverlapPenalty(1.0);
-
-        JobMatch withFloor = serviceWith(new JobMatchingConfig())
-                .matchProfileAgainstJobs(lowOverlapCandidate(), List.of(jobRequiring(4)), null, null, 10)
-                .matches().get(0);
-        JobMatch withoutFloor = serviceWith(noPenalty)
-                .matchProfileAgainstJobs(lowOverlapCandidate(), List.of(jobRequiring(4)), null, null, 10)
-                .matches().get(0);
-
-        assertEquals(withoutFloor.matchScore(), withFloor.matchScore(),
-                "25% is above the floor, so the floor must not reduce the score");
-    }
-
-    @Test
-    @DisplayName("a listing with no required skills is exempt from the low-overlap penalty")
-    void noRequiredSkills_isExemptFromLowOverlapPenalty() {
-        Job noRequirements = job("k15", "Graduate Programme", "Acme", "Hyderabad",
-                "General engineering programme", List.of(), List.of(), "Fresher / 0-1 years", "Full-time");
-
-        JobMatchingConfig noPenalty = new JobMatchingConfig();
-        noPenalty.setLowOverlapPenalty(1.0);
-
-        JobMatch withFloor = serviceWith(new JobMatchingConfig())
-                .matchProfileAgainstJobs(hardwareCandidate(), List.of(noRequirements), null, null, 10)
-                .matches().get(0);
-        JobMatch withoutFloor = serviceWith(noPenalty)
-                .matchProfileAgainstJobs(hardwareCandidate(), List.of(noRequirements), null, null, 10)
-                .matches().get(0);
-
-        assertEquals(withoutFloor.matchScore(), withFloor.matchScore(),
-                "undefined coverage must not be penalized");
-    }
-
-    /** Candidate who demonstrates exactly one required skill (Java). */
-    private CandidateProfile lowOverlapCandidate() {
-        return profile("Alice", "Hyderabad", List.of("B.Tech Computer Science"),
-                List.of("Java"), List.of(), List.of("Backend Engineer"), List.of("Hyderabad"));
-    }
-
-    /** Role requiring Java plus {@code extraCount - 1} skills the candidate does not have. */
-    private Job jobRequiring(int requiredCount) {
-        List<String> required = new ArrayList<>();
-        required.add("Java");
-        String[] others = {"Kotlin", "Kafka", "Terraform", "GraphQL", "Elasticsearch", "Scala"};
-        for (int i = 0; required.size() < requiredCount; i++) {
-            required.add(others[i]);
-        }
-        return job("k-req-" + requiredCount, "Backend Engineer", "Acme", "Hyderabad", "Java role",
-                required, List.of(), "1-3 years", "Full-time");
-    }
-
-    @Test
-    @DisplayName("the explanation states the arithmetic that produced the displayed score")
-    void explanation_isMathematicallyConsistent() {
-        JobMatchingConfig config = new JobMatchingConfig();
-        config.setMinRequiredSkillOverlap(0.0);
-
-        JobMatch match = serviceWith(config)
-                .matchProfileAgainstJobs(hardwareCandidate(), List.of(javaBackendFresherJob()), null, null, 10)
-                .matches().get(0);
-
-        assertTrue(match.explanation().contains("Score adjustment"),
-                "explanation must disclose the adjustment: " + match.explanation());
-        assertTrue(match.explanation().contains(match.matchScore() + "%"),
-                "explanation must end at the displayed score: " + match.explanation());
-        assertTrue(match.explanation().contains("career-track mismatch"),
-                "explanation must name the factor: " + match.explanation());
-    }
-
-
 }

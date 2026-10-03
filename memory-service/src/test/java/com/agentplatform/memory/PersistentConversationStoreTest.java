@@ -111,30 +111,6 @@ class PersistentConversationStoreTest {
     }
 
     @Test
-    @DisplayName("trim() deletes the removed messages before their conversation can be deleted")
-    void trim_deletesRemovedMessagesBeforeConversationIsDeleted() {
-        for (int i = 0; i < 10; i++) {
-            store.append("conv-1", ConversationMessage.user("m" + i));
-        }
-
-        // Hold the managed parent first, then trim, then remove the parent — with no query in
-        // between, so nothing can auto-flush and paper over a missed orphan delete.
-        ConversationEntity conversation = repository.findByConversationId("conv-1").orElseThrow();
-        store.trim("conv-1", 3);
-        repository.delete(conversation);
-
-        // Regression guard: the 7 trimmed messages must already be deleted. If they are still
-        // MANAGED while the parent is DELETED, this flush fails with
-        // TransientObjectException: persistent instance references an unsaved transient
-        // instance of ConversationEntity.
-        entityManager.flush();
-
-        assertThat(store.messages("conv-1")).isEmpty();
-        assertThat(store.exists("conv-1")).isFalse();
-        assertThat(store.count()).isZero();
-    }
-
-    @Test
     @DisplayName("clear() removes the conversation from database")
     void clear_removesConversation() {
         store.append("conv-1", ConversationMessage.user("a"));

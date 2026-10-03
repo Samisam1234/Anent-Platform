@@ -11,8 +11,7 @@ public record ApplicationSendResult(
         String status,
         String message,
         String jobId,
-        String recipientEmail,
-        boolean simulated
+        String recipientEmail
 ) {
     public ApplicationSendResult {
         status = status == null ? "" : status.trim();
@@ -23,26 +22,22 @@ public record ApplicationSendResult(
 
     /** Sent successfully via SMTP. */
     public static final ApplicationSendResult SENT =
-            new ApplicationSendResult("SENT", "Application email sent successfully.", "", "", false);
-
-    /** Validation passed but no mail transport was configured; the send was simulated. */
-    public static final ApplicationSendResult SENT_SIMULATED =
-            new ApplicationSendResult("SENT", "Application email sent successfully (simulated — no SMTP configured).", "", "", true);
+            new ApplicationSendResult("SENT", "Application email sent successfully.", "", "");
 
     /** Explicit user approval was not given. */
     public static final ApplicationSendResult REJECTED =
-            new ApplicationSendResult("REJECTED", "Explicit user approval is required before sending.", "", "", false);
+            new ApplicationSendResult("REJECTED", "Explicit user approval is required before sending.", "", "");
 
     /** Validation failed or send could not proceed. */
     public static final ApplicationSendResult FAILED =
-            new ApplicationSendResult("FAILED", "Email could not be sent due to validation or configuration errors.", "", "", false);
+            new ApplicationSendResult("FAILED", "Email could not be sent due to validation or configuration errors.", "", "");
 
     /** Builder-style factory for common cases. */
     public static ApplicationSendResult rejected(String reason) {
-        return new ApplicationSendResult("REJECTED", reason, "", "", false);
+        return new ApplicationSendResult("REJECTED", reason, "", "");
     }
 
     public static ApplicationSendResult failed(String reason) {
-        return new ApplicationSendResult("FAILED", reason, "", "", false);
+        return new ApplicationSendResult("FAILED", reason, "", "");
     }
 }

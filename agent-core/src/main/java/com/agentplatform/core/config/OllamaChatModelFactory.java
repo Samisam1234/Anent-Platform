@@ -1,21 +1,28 @@
 package com.agentplatform.core.config;
 
 import dev.langchain4j.model.chat.ChatModel;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import dev.langchain4j.model.ollama.OllamaChatModel;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 
 /**
- * Builds {@link ChatModel} instances on demand for the chat and custom AI
- * endpoints. Delegates to {@link LlmProviderRouter} for provider-aware model
- * construction while preserving the original Ollama-only API for backward
- * compatibility.
+ * Builds {@link OllamaChatModel} instances on demand so the chat and custom AI
+ * endpoints can switch models per request (e.g. {@code llama3.2:3b} for
+ * fast chat, {@code qwen2.5:1.5b} for lightweight code,
+ * {@code gemma3:4b} for reasoning).
  *
- * <p>Existing callers continue to work unchanged — they receive an Ollama-backed
- * {@link ChatModel} by default. New callers can specify a provider name via
- * the overloaded {@link #chatModel(String, String)} method.</p>
+ * <p>Configuration (both optional, with defaults):
+ * <pre>
+ * ollama:
+ *   base-url: http://localhost:11434
+ *   default-model: llama3.2:3b
+ *   reasoning-timeout: 120s
+ * </pre>
+ *
+ * <p>A {@code null}/blank requested model resolves to the configured default
+ * ({@code llama3.2:3b}). Constructing an {@link OllamaChatModel} is cheap and
+ * does not touch the network — the call is only made when the model is used.</p>
  */
 @Service
 public class OllamaChatModelFactory {
@@ -26,20 +33,16 @@ public class OllamaChatModelFactory {
 
     public static final Duration DEFAULT_TIMEOUT = Duration.ofMinutes(2);
 
-    private static final Logger log = LoggerFactory.getLogger(OllamaChatModelFactory.class);
+    private final String baseUrl;
 
-    private final LlmProviderRouter router;
-    private final OllamaProvider ollamaProvider;
+    private final String defaultModel;
+
     private final Duration timeout;
 
-    public OllamaChatModelFactory(OllamaProperties props, LlmProviderRouter router, OllamaProvider ollamaProvider) {
-        this.router = router;
-        this.ollamaProvider = ollamaProvider;
+    public OllamaChatModelFactory(OllamaProperties props) {
+        this.baseUrl = props.getBaseUrl();
+        this.defaultModel = props.getChatModel();
         this.timeout = props.getReasoningTimeout();
-    }
-
-    public LlmProviderRouter getRouter() {
-        return router;
     }
 
     /**
@@ -47,45 +50,26 @@ public class OllamaChatModelFactory {
      * otherwise the configured default ({@code llama3.2:3b}).
      */
     public String resolveModelName(String model) {
-        return ollamaProvider.resolveModelName(model);
+        return (model == null || model.isBlank()) ? defaultModel : model;
     }
 
     /**
-     * Returns a ready-to-use {@link ChatModel} from the configured default provider
-     * (or highest-priority configured provider if no default is configured).
-     * This replaces the previous hardcoded "ollama" behavior.
+     * Returns a ready-to-use {@link ChatModel} backed by Ollama at
+     * {@code baseUrl} running {@code resolveModelName(model)}.
+     * The model has a configurable request timeout (default 2 minutes) to prevent
+     * long UI hangs during cold-start model loads.
      */
     public ChatModel chatModel(String model) {
-        return router.chatModel(null, model);
+        String modelName = resolveModelName(model);
+        return OllamaChatModel.builder()
+                .baseUrl(baseUrl)
+                .modelName(modelName)
+                .timeout(timeout)
+                .build();
     }
 
     /**
-     * Returns a {@link ChatModel} from the specified provider.
-     * New method for provider-aware callers.
-     *
-     * @param providerName the provider to use ("ollama", "gemini", etc.)
-     * @param model the model name, or null for the provider's default
-     * @return a configured {@link ChatModel}
-     */
-    public ChatModel chatModel(String providerName, String model) {
-        return router.chatModel(providerName, model);
-    }
-
-    /**
-     * The configured reasoning timeout ({@code ollama.reasoning-timeout}).
-     *
-     * <p>Callers that must guarantee a response use this as a <em>wall-clock</em>
-     * deadline around {@link ChatModel#chat}. The same value is passed to
-     * the underlying model's timeout, but that maps to the HTTP client's
-     * socket-idle read timeout, which does not bound the total duration of a
-     * long generation. See {@code AiStatusService} for the established pattern.</p>
-     */
-    public Duration timeout() {
-        return timeout != null ? timeout : DEFAULT_TIMEOUT;
-    }
-
-    /**
-     * Returns a safe fallback response when the default provider is unreachable,
+     * Returns a safe fallback response when Ollama is unreachable,
      * so the UI completes without hanging.
      */
     public static String fallbackResponse() {

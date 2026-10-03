@@ -1,6 +1,5 @@
 package com.agentplatform.orchestrator.service;
 
-import com.agentplatform.core.config.LlmProviderRouter;
 import com.agentplatform.core.config.OllamaChatModelFactory;
 import com.agentplatform.memory.ConversationMessage;
 import com.agentplatform.memory.InMemoryConversationStore;
@@ -55,10 +54,6 @@ class AgentChatServiceTest {
         service = new AgentChatService(modelFactory, store);
         // Every request resolves to the same mock model.
         lenient().when(modelFactory.chatModel(any())).thenReturn(chatModel);
-        // Mock the router for error classification
-        LlmProviderRouter mockRouter = mock(LlmProviderRouter.class);
-        lenient().when(mockRouter.getConfiguredDefaultProvider()).thenReturn("ollama");
-        lenient().when(modelFactory.getRouter()).thenReturn(mockRouter);
     }
 
     private void stubReply(String reply) {

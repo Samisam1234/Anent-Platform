@@ -85,7 +85,7 @@ class JobApplicationControllerTest {
         savedApp.setCompany("Test Company");
         savedApp.setMatchScore(88);
         savedApp.setMatchingSkills("Java, Spring Boot");
-        when(jobApplicationRepository.findByCandidateIdOrderByUpdatedAtDescIdDesc(1L)).thenReturn(List.of(savedApp));
+        when(jobApplicationRepository.findByCandidateId(1L)).thenReturn(List.of(savedApp));
 
         // Act
         var response = controller.prepareApplication(request);
@@ -101,7 +101,7 @@ class JobApplicationControllerTest {
                 eq("Hyderabad"), eq("Focus on Java"), eq(false));
 
         // The prepared application was persisted and is retrievable by candidate.
-        var stored = controller.getApplicationsByCandidate(1L, null);
+        var stored = controller.getApplicationsByCandidate(1L);
         assertNotNull(stored.getBody());
         assertEquals(1, stored.getBody().size());
         var saved = stored.getBody().get(0);
@@ -110,7 +110,7 @@ class JobApplicationControllerTest {
         assertEquals("Java, Spring Boot", saved.getMatchingSkills());
         
         // Verify the mock repository was called
-        verify(jobApplicationRepository).findByCandidateIdOrderByUpdatedAtDescIdDesc(1L);
+        verify(jobApplicationRepository).findByCandidateId(1L);
     }
 
     // ─── 2. Get application by ID ──────────────────────────
@@ -159,10 +159,10 @@ class JobApplicationControllerTest {
         app2.setId(2L);
         app2.setCandidateId(1L);
 
-        when(jobApplicationRepository.findByCandidateIdOrderByUpdatedAtDescIdDesc(1L)).thenReturn(List.of(app1, app2));
+        when(jobApplicationRepository.findByCandidateId(1L)).thenReturn(List.of(app1, app2));
 
         // Act
-        var response = controller.getApplicationsByCandidate(1L, null);
+        var response = controller.getApplicationsByCandidate(1L);
 
         // Assert
         assertNotNull(response);
@@ -170,50 +170,7 @@ class JobApplicationControllerTest {
         var body = response.getBody();
         assertNotNull(body);
         assertEquals(2, body.size());
-        verify(jobApplicationRepository).findByCandidateIdOrderByUpdatedAtDescIdDesc(1L);
-    }
-
-    @Test
-    @DisplayName("Get applications by candidate with a status filter uses the filtered, ordered finder")
-    void getApplicationsByCandidate_withStatusFiltersByStatus() {
-        // Arrange
-        var app = new JobApplication();
-        app.setId(1L);
-        app.setCandidateId(1L);
-        app.setApplicationStatus(ApplicationStatus.GENERATED);
-        when(jobApplicationRepository.findByCandidateIdAndApplicationStatusOrderByUpdatedAtDescIdDesc(
-                1L, ApplicationStatus.GENERATED)).thenReturn(List.of(app));
-
-        // Act — case-insensitive status name, like the UI sends it
-        var response = controller.getApplicationsByCandidate(1L, "generated");
-
-        // Assert
-        assertNotNull(response);
-        assertEquals(200, response.getStatusCodeValue());
-        assertNotNull(response.getBody());
-        assertEquals(1, response.getBody().size());
-        assertEquals(ApplicationStatus.GENERATED, response.getBody().get(0).getApplicationStatus());
-        verify(jobApplicationRepository).findByCandidateIdAndApplicationStatusOrderByUpdatedAtDescIdDesc(
-                1L, ApplicationStatus.GENERATED);
-    }
-
-    @Test
-    @DisplayName("Get applications by candidate with an unknown status throws IllegalArgumentException (400)")
-    void getApplicationsByCandidate_unknownStatus_shouldThrowIllegalArgument() {
-        assertThrows(IllegalArgumentException.class,
-                () -> controller.getApplicationsByCandidate(1L, "NOT-A-STATUS"));
-    }
-
-    @Test
-    @DisplayName("Get applications by candidate with a blank status returns all applications")
-    void getApplicationsByCandidate_blankStatus_shouldReturnAll() {
-        when(jobApplicationRepository.findByCandidateIdOrderByUpdatedAtDescIdDesc(1L)).thenReturn(List.of());
-
-        var response = controller.getApplicationsByCandidate(1L, " ");
-
-        assertNotNull(response);
-        assertEquals(200, response.getStatusCodeValue());
-        verify(jobApplicationRepository).findByCandidateIdOrderByUpdatedAtDescIdDesc(1L);
+        verify(jobApplicationRepository).findByCandidateId(1L);
     }
 
     // ─── 4. Update application ─────────────────────────────
@@ -263,7 +220,6 @@ class JobApplicationControllerTest {
         var app = new JobApplication();
         app.setId(1L);
         app.setCandidateId(1L);
-        app.setApplicationStatus(ApplicationStatus.GENERATED);
         when(jobApplicationRepository.findById(1L)).thenReturn(Optional.of(app));
         when(jobApplicationRepository.save(app)).thenReturn(app);
 
@@ -277,22 +233,6 @@ class JobApplicationControllerTest {
         assertNotNull(response.getBody().getApprovedAt());
         verify(jobApplicationRepository).findById(1L);
         verify(jobApplicationRepository).save(app);
-    }
-
-    @Test
-    @DisplayName("Approve application from a terminal status → 400 via IllegalArgumentException")
-    void approveApplication_terminalStatus_shouldThrowIllegalArgument() {
-        // Arrange
-        var app = new JobApplication();
-        app.setId(1L);
-        app.setCandidateId(1L);
-        app.setApplicationStatus(ApplicationStatus.REJECTED);
-        when(jobApplicationRepository.findById(1L)).thenReturn(Optional.of(app));
-
-        // Act & Assert: the controller lets the storage-service guard propagate;
-        // GlobalExceptionHandler surfaces it as RFC 7807 400.
-        assertThrows(IllegalArgumentException.class, () -> controller.approveApplication(1L));
-        verify(jobApplicationRepository, never()).save(any());
     }
 
     @Test
@@ -329,92 +269,13 @@ class JobApplicationControllerTest {
         verify(jobApplicationRepository).save(app);
     }
 
-@Test
-        @DisplayName("Reject application returns 404 when not found")
-        void rejectApplication_notFound_shouldReturn404() {
-            // Act
-            var response = controller.rejectApplication(999L);
-
-            // Assert
-            assertEquals(404, response.getStatusCodeValue());
-        }
-
-        @Test
-        @DisplayName("Reject application from EMAIL_SENT terminal status → 400 via IllegalArgumentException")
-        void rejectApplication_terminalStatus_shouldThrowIllegalArgument() {
-            // Arrange
-            var app = new JobApplication();
-            app.setId(1L);
-            app.setCandidateId(1L);
-            app.setApplicationStatus(ApplicationStatus.EMAIL_SENT);
-            when(jobApplicationRepository.findById(1L)).thenReturn(Optional.of(app));
-
-            // Act & Assert: storage-service guard propagates to GlobalExceptionHandler (RFC 7807 400).
-            assertThrows(IllegalArgumentException.class, () -> controller.rejectApplication(1L));
-            verify(jobApplicationRepository, never()).save(any());
-        }
-
-    // ─── 7. Employer handoff ─────────────────────────────
-
     @Test
-    @DisplayName("Record handoff persists the event with no status change")
-    void recordHandoff_shouldPersistEvent() {
-        var app = new JobApplication();
-        app.setId(1L);
-        app.setCandidateId(1L);
-        app.setApplicationStatus(ApplicationStatus.APPROVED_FOR_APPLICATION);
-        app.setApprovedAt(java.time.LocalDateTime.now().minusDays(1));
-        when(jobApplicationRepository.findById(1L)).thenReturn(Optional.of(app));
-        when(jobApplicationRepository.save(app)).thenReturn(app);
+    @DisplayName("Reject application returns 404 when not found")
+    void rejectApplication_notFound_shouldReturn404() {
+        // Act
+        var response = controller.rejectApplication(999L);
 
-        var request = new JobApplicationController.HandoffRequest();
-        request.setUrl("https://careers.example.com/apply");
-
-        var response = controller.recordHandoff(1L, request);
-
-        assertEquals(200, response.getStatusCodeValue());
-        assertNotNull(response.getBody());
-        assertEquals(ApplicationStatus.APPROVED_FOR_APPLICATION, response.getBody().getApplicationStatus());
-        assertEquals("https://careers.example.com/apply", response.getBody().getEmployerUrl());
-        assertNotNull(response.getBody().getEmployerOpenedAt());
-        verify(jobApplicationRepository).findById(1L);
-        verify(jobApplicationRepository).save(app);
-    }
-
-    @Test
-    @DisplayName("Record handoff returns 404 when application not found")
-    void recordHandoff_notFound_shouldReturn404() {
-        var request = new JobApplicationController.HandoffRequest();
-        request.setUrl("https://careers.example.com/apply");
-
-        var response = controller.recordHandoff(999L, request);
-
+        // Assert
         assertEquals(404, response.getStatusCodeValue());
-    }
-
-    @Test
-    @DisplayName("Record handoff for a non-approved application → 400 via IllegalArgumentException")
-    void recordHandoff_notApproved_shouldThrowIllegalArgument() {
-        var app = new JobApplication();
-        app.setId(1L);
-        app.setCandidateId(1L);
-        app.setApplicationStatus(ApplicationStatus.GENERATED);
-        when(jobApplicationRepository.findById(1L)).thenReturn(Optional.of(app));
-
-        var request = new JobApplicationController.HandoffRequest();
-        request.setUrl("https://careers.example.com/apply");
-
-        assertThrows(IllegalArgumentException.class, () -> controller.recordHandoff(1L, request));
-        verify(jobApplicationRepository, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("Record handoff with a blank URL → 400 via IllegalArgumentException")
-    void recordHandoff_blankUrl_shouldThrowIllegalArgument() {
-        var request = new JobApplicationController.HandoffRequest();
-        request.setUrl("   ");
-
-        assertThrows(IllegalArgumentException.class, () -> controller.recordHandoff(1L, request));
-        verify(jobApplicationRepository, never()).findById(any());
     }
 }
