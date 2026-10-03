@@ -86,7 +86,7 @@ public final class SkillTaxonomy {
         reg(Category.VLSI_FPGA, "Questa", "questa sim");
         reg(Category.VLSI_FPGA, "Intel FPGA");
         reg(Category.VLSI_FPGA, "Synthesis", "logic synthesis", "synopsys design compiler", "design compiler");
-        reg(Category.VLSI_FPGA, "Simulation", "simulation tools");
+        // reg(Category.VLSI_FPGA, "Simulation", "simulation tools"); // Removed - too generic, appears in many contexts
         reg(Category.VLSI_FPGA, "Digital Design");
         reg(Category.VLSI_FPGA, "ASIC", "asic design", "asic physical design");
         reg(Category.VLSI_FPGA, "SoC", "system on chip");
@@ -123,6 +123,105 @@ public final class SkillTaxonomy {
         String cleaned = clean(raw);
         if (cleaned.isEmpty()) return "";
         return ALIAS_TO_CANONICAL.getOrDefault(cleaned, cleaned);
+    }
+
+    /**
+     * Ordinary English function words that occasionally arrive as malformed tokens from
+     * external job feeds. They are never technical skills, so they are rejected rather
+     * than displayed. Kept deliberately small and limited to unambiguous function words:
+     * anything that could plausibly be a technology (C, R, Go, .NET, Spark) is NOT here.
+     */
+    private static final Set<String> NON_SKILL_TOKENS = Set.of(
+            "for", "and", "the", "with", "from", "that", "this", "are", "was", "were",
+            "you", "your", "our", "will", "have", "has", "not", "all", "any", "other",
+            "plus", "strong", "good", "experience", "knowledge", "ability", "years",
+            "work", "working", "team", "role", "job", "must", "should", "etc", "various");
+
+    /**
+     * Whether a raw token is plausible as a displayable technical skill.
+     *
+     * <p>Rejects null/blank input, tokens with no alphanumeric content, single letters
+     * that are not a known canonical skill (so "C" and "R" survive but stray characters
+     * do not), and the ordinary English function words in {@link #NON_SKILL_TOKENS}.
+     * Nothing is invented here — this only decides what is safe to show.</p>
+     */
+    public static boolean isPlausibleSkill(String raw) {
+        if (raw == null) {
+            return false;
+        }
+        String cleaned = clean(raw);
+        if (cleaned.length() < 2) {
+            // A single character is only a skill if the taxonomy knows it (C, R, ...).
+            return !cleaned.isEmpty() && ALIAS_TO_CANONICAL.containsKey(cleaned);
+        }
+        if (cleaned.chars().noneMatch(Character::isLetterOrDigit)) {
+            return false;
+        }
+        return !NON_SKILL_TOKENS.contains(cleaned);
+    }
+
+    /**
+     * Human-readable display name for a skill: the taxonomy's canonical spelling when
+     * the token is known, otherwise a tidy title-cased form of the cleaned token.
+     *
+     * <p>Purely presentational — it never adds, removes or reinterprets a skill.
+     * {@code "react"} becomes {@code "React"}; {@code "Ruby/Rails"} stays
+     * {@code "Ruby/Rails"}; {@code "c++"} becomes {@code "C++"} via the taxonomy.</p>
+     */
+    public static String displayName(String raw) {
+        String canonical = normalize(raw);
+        if (canonical.isEmpty()) {
+            return "";
+        }
+        if (ALIAS_TO_CANONICAL.containsValue(canonical)) {
+            // Already a registered canonical spelling — return it untouched.
+            return canonical;
+        }
+        return titleCase(canonical);
+    }
+
+    private static String titleCase(String value) {
+        String[] words = value.split(" ");
+        StringBuilder out = new StringBuilder();
+        for (String word : words) {
+            if (word.isEmpty()) {
+                continue;
+            }
+            if (out.length() > 0) {
+                out.append(' ');
+            }
+            out.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return out.toString();
+    }
+
+    /**
+     * Cleans a raw skill list for display: drops implausible tokens, maps each to its
+     * human-readable canonical name, de-duplicates case-insensitively, and sorts.
+     *
+     * <p>This is the single funnel job-source skills pass through before they can reach
+     * the UI, so internal markers such as {@code (REQUIRED_SKILL)} and malformed feed
+     * tokens can never be shown.</p>
+     */
+    public static List<String> displayNames(Collection<String> rawSkills) {
+        if (rawSkills == null) {
+            return List.of();
+        }
+        Map<String, String> byKey = new LinkedHashMap<>();
+        for (String raw : rawSkills) {
+            if (!isPlausibleSkill(raw)) {
+                continue;
+            }
+            String display = displayName(raw);
+            if (display.isEmpty()) {
+                continue;
+            }
+            String key = clean(display);
+            byKey.putIfAbsent(key, display);
+        }
+        List<String> result = new ArrayList<>(byKey.values());
+        Collections.sort(result, String.CASE_INSENSITIVE_ORDER);
+        return List.copyOf(result);
     }
 
     /**

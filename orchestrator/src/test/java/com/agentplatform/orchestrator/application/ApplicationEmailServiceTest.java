@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -162,6 +163,28 @@ class ApplicationEmailServiceTest {
             // may be SENT or FAILED for other reasons.
             assertTrue(result.status().equals("SENT") || result.status().equals("FAILED")
                     || result.status().equals("REJECTED"));
+        }
+
+        @Test
+        @DisplayName("placeholder-style draft (null recipient) → FAILED and EmailTools never reached")
+        void placeholderRecipientNeverSubstitutedOnSendPath() {
+            // A REVIEW_REQUIRED draft with no recipient — the absent-email send path —
+            // must fail safely without the service substituting any placeholder address.
+            ApplicationEmailDraft draft = new ApplicationEmailDraft(
+                    "j1", null, "Acme", "Java Developer",
+                    "Hiring Manager", null,
+                    "Application for Java Developer",
+                    "Body",
+                    "DRAFT_ONLY",
+                    ApplicationDraftStatus.REVIEW_REQUIRED,
+                    List.of());
+
+            ApplicationSendResult result = wiredService.send(draft, true);
+
+            assertEquals(ApplicationSendResult.FAILED.status(), result.status());
+            assertTrue(result.message().contains("Recipient email must be present"),
+                    "message must name the missing recipient");
+            verifyNoInteractions(mockEmailTools);
         }
     }
 

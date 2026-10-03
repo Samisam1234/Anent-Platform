@@ -229,7 +229,7 @@
         } catch (err) {
             console.error('Custom AI task failed:', err);
             showView('error');
-            errorText.textContent = err.message || 'Something went wrong while processing your task.';
+            errorText.textContent = window.apiError.describe(err, 'Something went wrong while processing your task.');
             showToast(errorText.textContent, 'error');
         } finally {
             processingState.hidden = true;

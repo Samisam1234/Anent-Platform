@@ -15,7 +15,7 @@
     <artifactId>agent-core</artifactId>
     <packaging>jar</packaging>
     <name>agent-core</name>
-    <description>AI/LLM configuration and model abstractions (Ollama, LangChain4j)</description>
+    <description>AI/LLM provider configuration and routing (Ollama, Gemini, Groq, Cerebras, OpenRouter, Cloudflare AI Gateway) plus error classification and status</description>
 
     <dependencies>
         <!-- Spring Boot Context for @Configuration, @ConfigurationProperties -->
@@ -47,6 +47,12 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-google-ai-gemini</artifactId>
+        </dependency>
+
+        <!-- LangChain4j OpenAI integration (for Groq and other OpenAI-compatible providers) -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai</artifactId>
         </dependency>
 
         <!-- Test -->

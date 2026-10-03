@@ -1,5 +1,8 @@
 server:
   port: 8080
+  # Loopback-only by default (Phase 12.8 security disposition): the app is a trusted,
+  # single-user, local-first prototype. Override only with an approved networked design.
+  address: 127.0.0.1
 
 spring:
   application:
@@ -24,32 +27,117 @@ spring:
     virtual:
       enabled: true
 
-# ── PostgreSQL / pgvector (activate with SPRING_PROFILES_ACTIVE=postgres) ─
----
-spring:
-  config:
-    activate:
-      on-profile: postgres
-  datasource:
-    url: jdbc:postgresql://localhost:5432/agentdb
-    username: agent
-    password: agentpassword
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    database-platform: com.agentplatform.memory.dialect.PostgresVectorDialect
-    ddl-auto: update
-
 # ── Ollama AI Model Configuration ────────────────────────────────────
 # These values are read by OllamaProperties and OllamaConfig in agent-core.
 ollama:
-  base-url: http://localhost:11434
-  # HARDWARE NOTE: Using gemma3:4b (fits comfortably in 8 GB RAM).
-  # Do NOT change to llama3.1:8b or larger models without sufficient RAM.
-  chat-model: gemma3:4b
-  embedding-model: nomic-embed-text
-  # Request timeout for AI reasoning calls (default 2 minutes).
+  base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+  # The model name MUST match a model that actually exists in the local Ollama
+  # installation. Verify with:  ollama list
+  # A name that has not been pulled fails at call time with
+  # "model '<name>' not found" — the app then falls back to the deterministic
+  # parser, so nothing crashes but no AI profile is produced.
+  #
+  # Override per machine without editing this file:
+  #   OLLAMA_CHAT_MODEL=<exact name from `ollama list`>
+  # e.g. llama3.2:3b, qwen2.5:1.5b — use whatever `ollama list` shows.
+  chat-model: ${OLLAMA_CHAT_MODEL:llama3.2:3b}
+  embedding-model: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
+  # Request timeout for AI reasoning calls (default 5 minutes).
   # Cold-start model loads on CPU can exceed this; increase if needed.
+  # A value of 0 or less is treated as "not configured" by ResumeProfileService,
+  # which then uses OllamaChatModelFactory.DEFAULT_TIMEOUT.
+  reasoning-timeout: 300s
+
+# ── Groq AI Model Configuration ──────────────────────────────────────
+# Groq provides OpenAI-compatible API for fast inference.
+# These values are read by GroqProperties and GroqProvider in agent-core.
+groq:
+  enabled: false
+  # API key from https://console.groq.com/keys
+  # Override without editing this file: GROQ_API_KEY=<your-key>
+  api-key: ${GROQ_API_KEY:}
+  # Base URL for Groq's OpenAI-compatible endpoint.
+  base-url: https://api.groq.com/openai/v1
+  # Model name must match a model available on Groq.
+  # Current recommended model: openai/gpt-oss-20b
+  chat-model: openai/gpt-oss-20b
+  # Request timeout for AI reasoning calls (default 2 minutes).
   reasoning-timeout: 120s
+
+# ── OpenRouter AI Model Configuration ────────────────────────────────
+# OpenRouter provides OpenAI-compatible API with access to multiple models.
+# These values are read by OpenRouterProperties and OpenRouterProvider in agent-core.
+openrouter:
+  enabled: false
+  # API key from https://openrouter.ai/keys
+  # Override without editing this file: OPENROUTER_API_KEY=<your-key>
+  api-key: ${OPENROUTER_API_KEY:}
+  # Base URL for OpenRouter's OpenAI-compatible endpoint.
+  base-url: https://openrouter.ai/api/v1
+  # Model name must match a model available on OpenRouter.
+  # Current recommended model: openrouter/auto
+  chat-model: openrouter/auto
+  # Request timeout for AI reasoning calls (default 2 minutes).
+  reasoning-timeout: 120s
+
+# ── Cerebras AI Model Configuration ──────────────────────────────────
+# Cerebras provides OpenAI-compatible API for fast inference.
+# These values are read by CerebrasProperties and CerebrasProvider in agent-core.
+cerebras:
+  enabled: false
+  # API key from https://cloud.cerebras.ai/
+  # Override without editing this file: CEREBRAS_API_KEY=<your-key>
+  api-key: ${CEREBRAS_API_KEY:}
+  # Base URL for Cerebras's OpenAI-compatible endpoint.
+  base-url: https://api.cerebras.ai/v1
+  # Model name must match a model available on Cerebras.
+  # Current recommended model: gpt-oss-120b
+  chat-model: gpt-oss-120b
+  # Request timeout for AI reasoning calls (default 2 minutes).
+  reasoning-timeout: 120s
+
+# ── Cloudflare AI Gateway Configuration ───────────────────────────────
+# Cloudflare AI Gateway provides OpenAI-compatible API with access to multiple models.
+# These values are read by CloudflareAiGatewayProperties and CloudflareAiGatewayProvider in agent-core.
+cloudflare-ai-gateway:
+  enabled: ${CLOUDFLARE_ENABLED:false}
+  # API token from https://dash.cloudflare.com/profile/api-tokens
+  # Override without editing this file: CLOUDFLARE_API_TOKEN=<your-token>
+  api-key: ${CLOUDFLARE_API_TOKEN:}
+  # Cloudflare Account ID
+  # Override without editing this file: CLOUDFLARE_ACCOUNT_ID=<your-account-id>
+  account-id: ${CLOUDFLARE_ACCOUNT_ID:}
+  # Cloudflare AI Gateway ID (optional, for gateway-specific routing)
+  # Override without editing this file: CLOUDFLARE_AI_GATEWAY_ID=<your-gateway-id>
+  gateway-id: ${CLOUDFLARE_AI_GATEWAY_ID:}
+  # Base URL for Cloudflare AI Gateway's OpenAI-compatible endpoint.
+  # Note: {accountId} will be replaced with the configured account-id at runtime.
+  base-url: https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/v1
+  # Model name must match a model available on Cloudflare AI Gateway.
+  # Current recommended model: @cf/meta/llama-3.1-8b-instruct-fp8
+  chat-model: "@cf/meta/llama-3.1-8b-instruct-fp8"
+  # Request timeout for AI reasoning calls (default 2 minutes).
+  reasoning-timeout: 120s
+
+# ── Global LLM Routing Configuration ──────────────────────────────────
+# Controls which provider is used by default when no explicit provider is requested.
+# When not set, the highest-priority configured provider is used (Ollama > Gemini > Groq).
+llm:
+  # Default provider name: "ollama", "gemini", "groq".
+  # Override without editing this file: LLM_DEFAULT_PROVIDER=<provider>
+  default-provider: ${LLM_DEFAULT_PROVIDER:}
+  # ── Cooldown / circuit breaker (Phase 13.9) ──
+  # Applies to automatic failover only. A provider that fails `failure-threshold`
+  # consecutive eligible requests (auth 401/403, 404/model-unavailable,
+  # 429/quota/rate-limit/payment-required, 5xx, timeout, connection failure) is
+  # skipped by automatic failover for `cooldown-duration`, then becomes eligible
+  # again. A successful request resets its failure count and clears cooldown
+  # immediately. Providers are never "retried" inside a single request, and
+  # explicit provider requests are never redirected by cooldown. State is
+  # in-memory only, per runtime instance.
+  # Override without editing this file: LLM_FAILURE_THRESHOLD=<n>, LLM_COOLDOWN_DURATION=<dur e.g. 60s>
+  failure-threshold: ${LLM_FAILURE_THRESHOLD:3}
+  cooldown-duration: ${LLM_COOLDOWN_DURATION:30s}
 
 # ── Conversation Store Configuration ──────────────────────────────────
 # Select the ConversationStore implementation:
@@ -58,25 +146,80 @@ ollama:
 conversation:
   store: inmemory
 
-# ── Public Job Source (default DISABLED) ────────────────────────────
-# The public adapter (PublicApiJobSource) is off by default so the app boots and
-# serves MockJobSource data with no internet access. Enable it by setting the
-# environment variable JOB_SOURCES_PUBLIC_API_ENABLED=true and, if the provider
-# requires one, JOB_SOURCES_PUBLIC_API_API_KEY=<key>. Never hard-code credentials.
+# ── Job Sources ────────────────────────────────────────────────────────
+# Job discovery runs through JobAggregatorService, which calls every enabled
+# JobSourceProvider in parallel (CompletableFuture), isolates per-provider
+# failures, merges and deduplicates the listings, and hands them to the existing
+# matching pipeline. No single board is privileged: each Job keeps its own
+# `source`, `sourceUrl` and `applicationUrl`, so "View Source Listing" always
+# opens that specific job's originating page.
+#
+# Every provider fails safe: unreachable, rate-limited or mis-configured, it logs
+# a warning and contributes nothing. The UI then shows a professional empty
+# state — never fabricated jobs. The result's `live` flag only reports true when
+# a live provider actually contributed listings.
+#
+# The development MockJobSource is NOT registered as a bean unless
+# job-sources.mock.enabled=true, so MOCK_SOURCE rows cannot reach the Jobs portal,
+# Matches, Career Agent, Application Advisor or Prepare Application. Automated
+# tests keep full access by constructing `new MockJobSource()` directly.
+#
+# Provider enablement below is hardcoded, not environment-driven: there is no
+# JOB_SOURCES_*_ENABLED property, so setting such a variable has no effect. To
+# disable Remotive or Arbeitnow, set its `enabled:` to false in this file.
+# Adzuna credentials ARE environment-driven and are the only override here:
+#   ADZUNA_APP_ID / ADZUNA_APP_KEY         Adzuna credentials (free, developer.adzuna.com)
+# Never hard-code credentials. Remotive's and Arbeitnow's public feeds need no key.
 job-sources:
+  # Remotive — free public feed, no credentials required.
   public-api:
-    enabled: false
+    enabled: true
     base-url: https://remotive.com/api/remote-jobs
     api-key: ""
+  # Arbeitnow — free public feed, no credentials. Rate-limited to 3 requests,
+  # so one page (100 listings) is fetched per search.
+  arbeitnow:
+    enabled: true
+    base-url: https://www.arbeitnow.com/api/job-board-api
+    max-pages: 1
+  # Adzuna — requires a free app_id/app_key pair. Without them the provider
+  # reports itself unavailable and is skipped before any network call, with the
+  # missing-credential reason logged. Credentials come from the environment only.
+  adzuna:
+    enabled: true
+    base-url: https://api.adzuna.com/v1/api/jobs
+    country: ${ADZUNA_COUNTRY:gb}
+    app-id: ${ADZUNA_APP_ID:}
+    app-key: ${ADZUNA_APP_KEY:}
+    results-per-page: 50
+    max-pages: 1
+  mock:
+    enabled: false
+  # openings-mcp: an MCP server exposing job-board and employer career tools.
+  # apply-url-detail-limit follows a search summary with a detail call — the only place
+  # the server publishes apply_url. 0 = off, because the search summary already carries
+  # the employer's own career-posting URL for the first-party tools below.
+  openings-mcp:
+    enabled: true
+    base-url: http://localhost:9000/
+    timeout-seconds: 15
+    country-code: IND
+    apply-url-detail-limit: 0
+    include-google: true
+    include-amazon: true
+    include-apple: true
+    include-meta: true
 
 # ── Logging ──────────────────────────────────────────────────────────
+# Logger levels are NOT set here. The `logging` module is on this app's classpath,
+# so its logback-spring.xml is the single source of truth: com.agentplatform=INFO,
+# dev.langchain4j=WARN, root=INFO. Restating them under logging.level here only
+# shadowed that file, so the levels live in exactly one place.
 logging:
-  level:
-    com.agentplatform: INFO
-    dev.langchain4j: WARN
   app:
     # Master switch for the Phase 8.3 centralized correlated logging
-    # (LoggingContext, MDC runId, lifecycle logging). Independent of logging.level.
+    # (LoggingContext, MDC runId, lifecycle logging). Turning it off suppresses the
+    # correlated MDC/lifecycle instrumentation; it does not change logger levels.
     enabled: true
 
 # ── RAG Service (Phase 8.2) ──────────────────────────────────────────
@@ -91,3 +234,20 @@ rag:
   retrieval:
     similarity-threshold: 0.0   # 1 - cosine_distance; minimum score for returned chunks
     max-context-tokens: 2000    # token budget for retrieveForContext()
+
+
+# ──────────────────────────────────────────────────────────────────
+# ── PostgreSQL / pgvector (activate with SPRING_PROFILES_ACTIVE=postgres) ─
+---
+spring:
+  config:
+    activate:
+      on-profile: postgres
+  datasource:
+    url: jdbc:postgresql://localhost:5432/agentdb
+    username: agent
+    password: agentpassword
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    database-platform: com.agentplatform.memory.dialect.PostgresVectorDialect
+    ddl-auto: update

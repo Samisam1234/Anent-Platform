@@ -14,13 +14,11 @@ public class ExplanationGenerator {
     public String generate(CandidateProfile candidate, Job job, int score, RecommendationLevel recommendation, List<String> matchedSkills, List<String> missingSkills, boolean locationMatch, ExperienceMatchLevel experienceMatch, CareerTrack careerTrack) {
         StringBuilder sb = new StringBuilder();
         String recLabel = recommendation.getDisplayName().toLowerCase();
-        String trackName = switch (careerTrack) {
-            default -> throw new IllegalArgumentException("Unknown career track");
-            case CareerTrack.SOFTWARE -> "Software Engineering";
-            case CareerTrack.HARDWARE -> "Hardware / ECE / VLSI";
-            case CareerTrack.MIXED -> "Cross-disciplinary Software & Hardware";
-            case CareerTrack.UNKNOWN -> "Engineering";
-        };
+        // Delegates to the enum's own exhaustive mapping, so every track the classifier can
+        // produce has a name. The previous switch here listed only the original four values
+        // and threw IllegalArgumentException from its default on EMBEDDED, VLSI_FPGA and
+        // AI_ML, which failed every match against a listing in those disciplines.
+        String trackName = careerTrack != null ? careerTrack.displayName() : CareerTrack.UNKNOWN.displayName();
         sb.append("This job is a ").append(recLabel).append(" (").append(score).append("%) for your ").append(trackName).append(" track. ");
         if (!matchedSkills.isEmpty()) {
             sb.append("Your profile matches key requirements: ").append(this.formatSkillList(matchedSkills)).append(". ");

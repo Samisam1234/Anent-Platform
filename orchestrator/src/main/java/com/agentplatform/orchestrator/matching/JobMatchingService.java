@@ -88,12 +88,21 @@ public class JobMatchingService {
             live = false;
             resultMsg = "Matched supplied job listings against candidate profile.";
         } else {
-            JobSearchRequest searchReq = new JobSearchRequest(request.keywords(), request.location(), request.experience(), request.employmentType(), null, 100);
+            // No free-text keywords are collected from the UI any more. Passing the resolved
+            // candidateId lets JobSearchService derive relevance keywords from the parsed
+            // profile's skills, so discovery follows the resume. Explicit keywords, when a
+            // caller still supplies them, continue to take precedence.
+            JobSearchRequest searchReq = new JobSearchRequest(request.keywords(), request.location(), request.experience(), request.employmentType(), null, 100, null, candidateId);
             JobSearchResult searchResult = this.jobSearchService.search(searchReq);
             candidateJobs = searchResult.jobs();
             source = searchResult.source();
             live = searchResult.live();
-            String string = resultMsg = live ? "Live job matching completed successfully." : "Matched development mock job catalog against candidate profile.";
+            // Provenance is reported separately via `source`; the message must not claim a
+            // "mock job catalog" for every non-live result, because non-live also covers
+            // user-supplied listings and any offline source.
+            resultMsg = live
+                    ? "Live job matching completed successfully."
+                    : "Matched job listings against candidate profile.";
         }
         if (candidateJobs.isEmpty()) {
             log.info("No jobs discovered for matching candidate ID {}", (Object)candidateId);
@@ -110,14 +119,18 @@ public class JobMatchingService {
                 evaluatedMatches.add(this.heuristicMatch(candidate, job));
             }
         }
-        List<JobMatch> filteredMatches = evaluatedMatches.stream().filter(m -> {
+        List<JobMatch> filteredMatches = evaluatedMatches.stream()
+        // Listings whose required skills the candidate barely covers are dropped here rather
+        // than ranked as weak matches.
+        .filter(this::meetsRequiredSkillOverlap)
+        .filter(m -> {
             if (request.minScore() != null) {
                 return m.matchScore() >= request.minScore();
             }
             return true;
         }).filter(m -> {
             if (request.trackFilter() != null && request.trackFilter() != CareerTrack.UNKNOWN) {
-                return m.careerTrack() == request.trackFilter() || m.careerTrack() == CareerTrack.MIXED;
+                return matchesTrackFilter(m.careerTrack(), request.trackFilter());
             }
             return true;
         }).toList();
@@ -144,14 +157,16 @@ public class JobMatchingService {
             if (job == null) continue;
             evaluatedMatches.add(this.evaluateJob(candidate, job));
         }
-        List<JobMatch> filteredMatches = evaluatedMatches.stream().filter(m -> {
+        List<JobMatch> filteredMatches = evaluatedMatches.stream()
+        .filter(this::meetsRequiredSkillOverlap)
+        .filter(m -> {
             if (minScore != null) {
                 return m.matchScore() >= minScore;
             }
             return true;
         }).filter(m -> {
             if (trackFilter != null && trackFilter != CareerTrack.UNKNOWN) {
-                return m.careerTrack() == trackFilter || m.careerTrack() == CareerTrack.MIXED;
+                return matchesTrackFilter(m.careerTrack(), trackFilter);
             }
             return true;
         }).toList();
@@ -170,13 +185,209 @@ public class JobMatchingService {
         ExperienceMatchingEngine.ExperienceEvaluation expEval = this.experienceMatchingEngine.evaluate(candidate, job);
         CareerTrackEngine.CareerTrackEvaluation trackEval = this.careerTrackEngine.evaluate(candidate, job);
         EducationMatchingEngine.EducationEvaluation eduEval = this.educationMatchingEngine.evaluate(candidate, job);
-        double weightedScore = (skillEval.skillScore() * this.config.getSkillWeight() + roleEval.roleScore() * this.config.getRoleWeight() + locEval.locationScore() * this.config.getLocationWeight() + expEval.experienceScore() * this.config.getExperienceWeight() + trackEval.trackScore() * this.config.getTrackWeight() + eduEval.educationScore() * this.config.getEducationWeight()) * 100.0;
-        int matchScore = Math.max(0, Math.min(100, (int)Math.round(weightedScore)));
+        // Weighted factor score, unchanged: the sub-scores keep their configured weights.
+        double baseScore = (skillEval.skillScore() * this.config.getSkillWeight()
+                + roleEval.roleScore() * this.config.getRoleWeight()
+                + locEval.locationScore() * this.config.getLocationWeight()
+                + expEval.experienceScore() * this.config.getExperienceWeight()
+                + trackEval.trackScore() * this.config.getTrackWeight()
+                + eduEval.educationScore() * this.config.getEducationWeight()) * 100.0;
+
+        // Career-track and location problems are applied multiplicatively on top of the
+        // weighted score. Additive weights alone let strong education/experience/location
+        // sub-scores carry a listing with almost no skill relevance to 40-50%, which
+        // reads as a real match when it is not.
+        boolean trackMismatch = isTrackMismatch(trackEval);
+        boolean locationMismatch = isLocationMismatch(candidate, job, locEval);
+
+        double running = baseScore;
+        List<String> penaltyConcerns = new ArrayList<String>();
+        List<String> penaltySteps = new ArrayList<String>();
+        if (trackMismatch) {
+            double penalty = penaltyFactor(this.config.getTrackMismatchPenalty(), "track-mismatch");
+            running *= penalty;
+            String detail = trackMismatchDetail(candidate, trackEval);
+            penaltySteps.add("career-track mismatch (" + detail + ") cut it by "
+                    + percent(1.0 - penalty));
+            penaltyConcerns.add("Career-track mismatch: " + detail
+                    + ". This reduced the score by " + percent(1.0 - penalty) + ".");
+        }
+        if (locationMismatch) {
+            double penalty = penaltyFactor(this.config.getLocationMismatchPenalty(), "location-mismatch");
+            running *= penalty;
+            String detail = locationMismatchDetail(candidate, job);
+            penaltySteps.add("location mismatch (" + detail + ") cut it by " + percent(1.0 - penalty));
+            penaltyConcerns.add("Location mismatch: " + detail
+                    + ". This reduced the score by " + percent(1.0 - penalty) + ".");
+        }
+
+        // A listing that only just clears the relevance floor is the weakest one we are
+        // willing to show, so it must not read as a good match on the strength of
+        // education, track, role or location alone.
+        Double skillOverlap = overlapOf(skillEval.matchedRequiredSkills(), skillEval.missingRequiredSkills());
+        if (isLowOverlap(skillOverlap)) {
+            double penalty = penaltyFactor(this.config.getLowOverlapPenalty(), "low-skill-overlap");
+            running *= penalty;
+            String detail = percent(skillOverlap) + " of the required skills";
+            penaltySteps.add("very low required-skill coverage (" + detail + ") cut it by "
+                    + percent(1.0 - penalty));
+            penaltyConcerns.add("Required-skill coverage is only " + detail
+                    + ", so this listing stays a poor match regardless of other strengths."
+                    + " This reduced the score by " + percent(1.0 - penalty) + ".");
+        }
+
+        int matchScore = Math.max(0, Math.min(100, (int)Math.round(running)));
         RecommendationLevel recommendation = RecommendationLevel.fromScore(matchScore);
         String explanation = this.explanationGenerator.generate(candidate, job, matchScore, recommendation, skillEval.matchedRequiredSkills(), skillEval.missingRequiredSkills(), locEval.locationMatch(), expEval.experienceMatch(), trackEval.jobTrack());
+        if (!penaltySteps.isEmpty()) {
+            // State the arithmetic so the explanation matches the number actually shown.
+            explanation = explanation + " Score adjustment: the weighted factors gave "
+                    + Math.round(baseScore) + "%, then " + String.join(" and ", penaltySteps)
+                    + ", giving the final " + matchScore + "%.";
+        }
         List<String> strengths = this.explanationGenerator.generateStrengths(skillEval.matchedRequiredSkills(), skillEval.matchedPreferredSkills(), locEval.locationMatch(), roleEval.roleMatch(), expEval.experienceMatch(), eduEval.educationScore());
-        List<String> concerns = this.explanationGenerator.generateConcerns(skillEval.missingRequiredSkills(), skillEval.missingPreferredSkills(), locEval.locationMatch(), roleEval.roleMatch(), job, expEval.experienceMatch());
+        List<String> generatedConcerns = this.explanationGenerator.generateConcerns(skillEval.missingRequiredSkills(), skillEval.missingPreferredSkills(), locEval.locationMatch(), roleEval.roleMatch(), job, expEval.experienceMatch());
+        List<String> concerns = new ArrayList<String>(generatedConcerns != null ? generatedConcerns : List.<String>of());
+        concerns.addAll(penaltyConcerns);
         return new JobMatch(job, matchScore, recommendation, skillEval.matchedRequiredSkills(), skillEval.missingRequiredSkills(), skillEval.matchedPreferredSkills(), skillEval.missingPreferredSkills(), locEval.locationMatch(), roleEval.roleMatch(), expEval.experienceMatch(), trackEval.jobTrack(), explanation, strengths, concerns, skillEval.skillScore(), roleEval.roleScore(), locEval.locationScore(), expEval.experienceScore(), trackEval.trackScore(), eduEval.educationScore());
+    }
+
+    /**
+     * Whether the job is a genuine career-track mismatch.
+     *
+     * <p>Reuses {@link CareerTrackEngine}'s own judgement instead of introducing a second
+     * classifier: it scores an incompatible track at 0.3 (software role vs hardware-only
+     * candidate, or the reverse), a neutral/unknown track at 0.5-0.8, and an aligned one
+     * at 0.85-1.0. Anything at or below 0.3 is therefore "wrong track".</p>
+     */
+    /**
+     * Whether a match's track satisfies a requested track filter.
+     *
+     * <p>Delegates to {@link CareerTrack#satisfies(CareerTrack)} so that a coarse
+     * {@code HARDWARE} filter still accepts the finer {@code VLSI_FPGA} and
+     * {@code EMBEDDED} tracks. A null track — which callers may supply — never satisfies a
+     * specific filter.</p>
+     */
+    private static boolean matchesTrackFilter(CareerTrack actual, CareerTrack filter) {
+        return actual != null && actual.satisfies(filter);
+    }
+
+    private boolean isTrackMismatch(CareerTrackEngine.CareerTrackEvaluation trackEval) {
+        return trackEval != null && trackEval.trackScore() <= 0.3;
+    }
+
+    /**
+     * Whether the location genuinely differs.
+     *
+     * <p>Deliberately narrower than {@code !locationMatch}. The engine also reports a
+     * non-match when the listing states no location at all, and penalizing a job for not
+     * publishing a location would be wrong. The penalty applies only when the job names a
+     * place, the candidate names a place, and they do not correspond.</p>
+     */
+    private boolean isLocationMismatch(CandidateProfile candidate, Job job,
+                                       LocationMatchingEngine.LocationEvaluation locEval) {
+        if (locEval == null || locEval.locationMatch() || candidate == null || job == null) {
+            return false;
+        }
+        boolean jobDeclaresLocation = job.location() != null && !job.location().isBlank();
+        boolean candidateDeclaresLocation = (candidate.location() != null && !candidate.location().isBlank())
+                || (candidate.preferredLocations() != null && !candidate.preferredLocations().isEmpty());
+        return jobDeclaresLocation && candidateDeclaresLocation;
+    }
+
+    /**
+     * Guards a configured penalty multiplier. A value outside (0, 1] is a misconfiguration;
+     * it is ignored rather than silently zeroing or inflating every score.
+     */
+    private double penaltyFactor(double configured, String what) {
+        if (configured <= 0.0 || configured > 1.0) {
+            log.warn("Ignoring invalid {} penalty {} (must be within (0, 1])", (Object)what, (Object)configured);
+            return 1.0;
+        }
+        return configured;
+    }
+
+    private static String percent(double fraction) {
+        return Math.round(fraction * 100.0) + "%";
+    }
+
+    private String trackMismatchDetail(CandidateProfile candidate, CareerTrackEngine.CareerTrackEvaluation trackEval) {
+        String jobTrack = trackEval != null && trackEval.jobTrack() != null
+                ? trackEval.jobTrack().displayName()
+                : "an unclear discipline";
+        boolean hasSoftware = candidate != null && candidate.softwareSkills() != null
+                && !candidate.softwareSkills().isEmpty();
+        boolean hasHardware = candidate != null && candidate.hardwareSkills() != null
+                && !candidate.hardwareSkills().isEmpty();
+        String candidateTrack = hasSoftware && hasHardware ? "both software and hardware"
+                : hasSoftware ? "software-focused"
+                : hasHardware ? "hardware/embedded-focused"
+                : "no clear technical track";
+        return "the role reads as " + jobTrack + " while your profile is " + candidateTrack;
+    }
+
+    private String locationMismatchDetail(CandidateProfile candidate, Job job) {
+        String jobLoc = job.location() != null ? job.location().trim() : "";
+        List<String> preferred = candidate.preferredLocations() != null ? candidate.preferredLocations() : List.<String>of();
+        String candidateLoc = !preferred.isEmpty() ? preferred.get(0)
+                : (candidate.location() != null ? candidate.location().trim() : "");
+        return "the role is in " + jobLoc + " while you are in " + candidateLoc;
+    }
+
+    /**
+     * Required-skill coverage of an evaluated match, or {@code null} when the job declares
+     * no required skills at all and coverage is therefore undefined.
+     */
+    private static Double requiredSkillOverlap(JobMatch match) {
+        // JobMatch stores the required-skill outcome as matchedSkills/missingSkills.
+        // Its compact constructor guarantees both are non-null, so no null handling is needed.
+        return overlapOf(match.matchedSkills(), match.missingSkills());
+    }
+
+    /**
+     * Required-skill coverage as a fraction of 1, or {@code null} when no required skill is
+     * declared at all and coverage is therefore undefined. Shared by the relevance filter
+     * and the low-overlap penalty so both reason about exactly the same number.
+     */
+    private static Double overlapOf(List<String> matchedRequired, List<String> missingRequired) {
+        int matched = matchedRequired != null ? matchedRequired.size() : 0;
+        int missing = missingRequired != null ? missingRequired.size() : 0;
+        int total = matched + missing;
+        return total == 0 ? null : (double)matched / (double)total;
+    }
+
+    /**
+     * Whether a retained listing sits at or below the relevance floor.
+     *
+     * <p>Returns false when the floor is disabled ({@code minRequiredSkillOverlap <= 0}), so
+     * turning the filter off also removes its scoring consequence, and when coverage is
+     * undefined because the listing declares no required skills.</p>
+     */
+    private boolean isLowOverlap(Double overlap) {
+        double threshold = this.config.getMinRequiredSkillOverlap();
+        if (threshold <= 0.0) {
+            return false;
+        }
+        return overlap != null && overlap <= threshold;
+    }
+
+    /**
+     * Whether a match clears the minimum required-skill overlap.
+     *
+     * <p>Jobs that declare no required skills are kept: several sources publish no skill
+     * requirements, and filtering them on undefined coverage would discard entire sources
+     * rather than weak matches.</p>
+     */
+    private boolean meetsRequiredSkillOverlap(JobMatch match) {
+        Double overlap = requiredSkillOverlap(match);
+        if (overlap == null) {
+            return true;
+        }
+        double threshold = this.config.getMinRequiredSkillOverlap();
+        if (threshold <= 0.0) {
+            return true;
+        }
+        return overlap >= threshold;
     }
 
     private List<JobMatch> rank(List<JobMatch> matches) {

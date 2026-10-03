@@ -12,3 +12,17 @@ target/
 
 # Environment / secrets
 .env
+.project
+.classpath
+.settings/
+**/.project
+**/.classpath
+**/.settings/
+
+# Node.js dependencies
+node_modules/
+
+# Runtime logs written by the app or by tooling. No .log/.err file is tracked,
+# so these globs cannot hide committed content.
+*.log
+*.err

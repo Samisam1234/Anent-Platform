@@ -1,0 +1,11 @@
+# Everything under java-upgrade is generated scratch except the two hand-written
+# hook scripts, which are kept in Git for review.
+**
+
+# A file cannot be re-included while one of its parent directories is excluded,
+# so the two directories on the path have to be un-ignored first.
+!hooks/
+!hooks/scripts/
+
+!hooks/scripts/recordToolUse.ps1
+!hooks/scripts/recordToolUse.sh

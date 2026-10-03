@@ -47,18 +47,12 @@
             <artifactId>agent-core</artifactId>
         </dependency>
 
-        <!-- pgvector JDBC type support (same as memory-service; VectorUserType depends on it) -->
-        <dependency>
-            <groupId>com.pgvector</groupId>
-            <artifactId>pgvector</artifactId>
-            <version>0.1.6</version>
-        </dependency>
-
-        <!-- PostgreSQL JDBC driver (used by JPA/native pgvector queries and Testcontainers) -->
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-        </dependency>
+        <!-- PostgreSQL driver: deliberately NOT declared here because rag-service
+             references no PostgreSQL classes directly. It still reaches the
+             compile and test classpath transitively via
+             memory-service -> pgvector -> postgresql, which is what the
+             Testcontainers integration tests need at runtime. Declaring it again
+             at a narrower scope would change nothing. -->
 
         <!-- Test -->
         <dependency>
@@ -67,38 +61,23 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Testcontainers for pgvector integration tests (2.x modules) -->
+        <!-- Testcontainers for pgvector integration tests. Versions come from the
+             testcontainers-bom in the root pom's dependencyManagement. -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
-            <version>2.0.5</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers-postgresql</artifactId>
-            <version>2.0.5</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers-junit-jupiter</artifactId>
-            <version>2.0.5</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <dependencyManagement>
-        <dependencies>
-            <!-- Testcontainers BOM for version alignment -->
-            <dependency>
-                <groupId>org.testcontainers</groupId>
-                <artifactId>testcontainers-bom</artifactId>
-                <version>2.0.5</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
 </project>

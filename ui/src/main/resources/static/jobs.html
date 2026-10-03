@@ -29,7 +29,7 @@
                 </div>
                 <div class="brand-info">
                     <h1 class="brand-title">AI Job Agent</h1>
-                    <span class="brand-subtitle">Job Search — Milestone 4</span>
+                    <span class="brand-subtitle">Job Catalog Browser</span>
                 </div>
             </div>
 
@@ -41,10 +41,6 @@
                 <a href="resume.html" class="nav-link" id="navResume">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
                     Resume
-                </a>
-                <a href="jobs.html" class="nav-link nav-link-active" id="navJobs" aria-current="page">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
-                    Jobs
                 </a>
                 <a href="matches.html" class="nav-link" id="navMatches">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
@@ -74,22 +70,17 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                     </div>
                     <div class="banner-text">
-                        <strong id="jobsBannerTitle">Development Mock Source Active</strong>
-                        <span id="jobsBannerMessage">Browsing the development mock job catalog.</span>
+                        <strong id="jobsBannerTitle">Job Source</strong>
+                        <span id="jobsBannerMessage">Job source status is shown here after a search.</span>
                     </div>
                 </div>
 
                 <!-- Search controls -->
                 <section class="matches-controls" id="jobsControls">
                     <form class="matches-search-form" id="jobsSearchForm" onsubmit="return false;">
+                        <!-- Relevant skills come from the parsed resume (agentplatform:candidateId);
+                             there is deliberately no free-text keyword field here. -->
                         <div class="search-inputs-grid">
-                            <div class="input-group keyword-group">
-                                <label for="jobsKeywordsInput" class="input-label">Keywords &amp; Skills</label>
-                                <div class="input-wrapper">
-                                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                                    <input type="text" id="jobsKeywordsInput" class="form-input" placeholder="e.g. Java, Spring Boot, VLSI, RTL Design..." autocomplete="off">
-                                </div>
-                            </div>
                             <div class="input-group location-group">
                                 <label for="jobsLocationInput" class="input-label">Location</label>
                                 <div class="input-wrapper">
@@ -159,7 +150,7 @@
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                         </div>
                         <h3 class="empty-title">No Jobs Found</h3>
-                        <p class="empty-desc" id="jobsEmptyDesc">No jobs matched the current filters. Try broadening your keywords or removing filters.</p>
+                        <p class="empty-desc" id="jobsEmptyDesc">No live jobs are currently available for these preferences.</p>
                         <button type="button" class="btn-secondary" id="jobsEmptyResetBtn">Reset Filters &amp; Retry</button>
                     </div>
 
@@ -172,6 +163,9 @@
     <!-- Error Toast Notification Container -->
     <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
 
+    <script src="apiError.js"></script>
+    <script src="modalShell.js"></script>
+    <script src="jobLink.js"></script>
     <script src="jobDetails.js"></script>
     <script src="jobs.js"></script>
 </body>
