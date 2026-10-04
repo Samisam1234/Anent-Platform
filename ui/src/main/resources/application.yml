@@ -165,28 +165,37 @@ conversation:
 # tests keep full access by constructing `new MockJobSource()` directly.
 #
 # Provider enablement below is hardcoded, not environment-driven: there is no
-# JOB_SOURCES_*_ENABLED property, so setting such a variable has no effect. To
-# disable Remotive or Arbeitnow, set its `enabled:` to false in this file.
+# JOB_SOURCES_*_ENABLED property, so setting such a variable has no effect.
+#
+# User-facing job discovery is Openings-MCP ONLY. Remotive, Arbeitnow and Adzuna
+# are switched off below, so JobAggregatorService no longer merges their generic
+# feeds into the same list the user sees. Their provider classes are unchanged and
+# still covered by their own unit tests — they are simply not in the active search
+# path, and re-enabling one is a single `enabled: true` here. MockJobSource stays
+# disabled too: it is development data and must never be presented as live jobs.
 # Adzuna credentials ARE environment-driven and are the only override here:
 #   ADZUNA_APP_ID / ADZUNA_APP_KEY         Adzuna credentials (free, developer.adzuna.com)
 # Never hard-code credentials. Remotive's and Arbeitnow's public feeds need no key.
 job-sources:
   # Remotive — free public feed, no credentials required.
+  # Disabled: not part of the user-facing search path (Openings-MCP only).
   public-api:
-    enabled: true
+    enabled: false
     base-url: https://remotive.com/api/remote-jobs
     api-key: ""
   # Arbeitnow — free public feed, no credentials. Rate-limited to 3 requests,
   # so one page (100 listings) is fetched per search.
+  # Disabled: not part of the user-facing search path (Openings-MCP only).
   arbeitnow:
-    enabled: true
+    enabled: false
     base-url: https://www.arbeitnow.com/api/job-board-api
     max-pages: 1
   # Adzuna — requires a free app_id/app_key pair. Without them the provider
   # reports itself unavailable and is skipped before any network call, with the
   # missing-credential reason logged. Credentials come from the environment only.
+  # Disabled: not part of the user-facing search path (Openings-MCP only).
   adzuna:
-    enabled: true
+    enabled: false
     base-url: https://api.adzuna.com/v1/api/jobs
     country: ${ADZUNA_COUNTRY:gb}
     app-id: ${ADZUNA_APP_ID:}

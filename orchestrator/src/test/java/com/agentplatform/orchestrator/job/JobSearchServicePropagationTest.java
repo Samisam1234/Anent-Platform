@@ -65,7 +65,7 @@ class JobSearchServicePropagationTest {
                 null, 1L));
 
         JobSearchRequest received = source.lastRequest;
-        assertEquals(List.of("Software Engineer Java"), received.keywords(),
+        assertEquals(List.of("Software Engineer"), received.keywords(),
                 "the source must receive the derived job-oriented query, not twelve raw skills");
         assertEquals("Hyderabad", received.location());
         assertEquals("Mid", received.experience());
@@ -112,14 +112,15 @@ class JobSearchServicePropagationTest {
     }
 
     @Test
-    @DisplayName("the job-oriented query is built only from track labels and profile skills — no invented tokens")
+    @DisplayName("the job-oriented query is the track's role phrase alone — no invented or appended tokens")
     void derivedQueryUsesNothingOutsideProfileEvidence() {
         CandidateProfile profile = profile("Java", "Backend Engineer");
         String query = JobSearchService.buildJobOrientedQuery(
                 profile, Set.of(CareerTrack.SOFTWARE), List.of("Java"));
 
-        assertTrue(query.startsWith("Software Engineer"), "query=" + query);
-        assertTrue(query.contains("Java"), "query=" + query);
+        // Exactly the role phrase. The live tools match `keyword` as a phrase, so appending a
+        // skill ("Software Engineer Java") retrieves nothing upstream.
+        assertEquals("Software Engineer", query);
         assertFalse(query.contains("Kubernetes"), "a skill absent from the profile must never appear");
         assertFalse(query.contains("Blockchain"), "a skill absent from the profile must never appear");
 

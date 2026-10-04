@@ -420,8 +420,10 @@ public class JobSearchService {
      * Builds a concise job-oriented search query from the candidate's profile and career tracks.
      * <p>
      * Instead of passing all 12 raw skills as individual keywords (which makes poor search queries),
-     * this constructs a concise job-oriented query like "Java Embedded Systems Engineer" or
-     * "VLSI FPGA Engineer" based on the candidate's detected career tracks and top skills.
+     * this constructs a concise job-oriented role query like "Embedded Systems Engineer" or
+     * "Software Engineer" based on the candidate's detected career tracks and top skills. The result
+     * is a role phrase employers actually publish in posting titles, because the live search tools
+     * match the query as a phrase.
      * </p>
      */
     static String buildJobOrientedQuery(CandidateProfile profile, Set<CareerTrack> candidateTracks,
@@ -455,16 +457,13 @@ public class JobSearchService {
             }
         }
 
-        // Append top distinguishing skill if not already in role prefix
-        String topSkill = null;
-        for (String k : relevanceKeywords) {
-            if (!rolePrefix.toLowerCase().contains(k.toLowerCase())) {
-                topSkill = k;
-                break;
-            }
-        }
-
-        return topSkill != null ? rolePrefix + " " + topSkill : rolePrefix;
+        // No skill is appended to the role phrase. The live search tools match `keyword`
+        // as a phrase, so "Software Engineer Docker" retrieves nothing (verified against
+        // openings-mcp google/amazon/apple/meta search tools, all 0 results) where the
+        // role phrase alone retrieves real listings. The candidate's skills are still
+        // applied locally by the relevance filter, which is where per-skill judgement
+        // belongs — they must not narrow the upstream query itself.
+        return rolePrefix;
     }
 
     private static void addAll(Set<String> target, List<String> values) {
